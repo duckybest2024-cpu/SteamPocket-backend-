@@ -1,6 +1,6 @@
 /* Casino Aurelius — App shell with Stake-inspired sidebar layout */
 const App = (() => {
-  const state = { id: null, username: null, nickname: null, rank: "newcomer", balance: 0, bank: 0, level: 1, xp: 0, fairness: null, isAdmin: false, isApproved: true, patreonUsername: null, patreonTier: null };
+  const state = { id: null, username: null, nickname: null, rank: "free", balance: 0, bank: 0, fairness: null, isAdmin: false, isApproved: false, patreonUsername: null, patreonTier: null };
   let _lowBalanceToastShown = false;
 
   const NAV = [
@@ -23,10 +23,10 @@ const App = (() => {
         { key: "slots",       icon: "🎰", label: "Slots",         mod: () => SlotsGame },
         { key: "keno",        icon: "🎯", label: "Keno",          mod: () => KenoGame },
         { key: "wheel",       icon: "🎡", label: "Wheel",         mod: () => WheelGame },
-        { key: "baccarat",    icon: "🎴", label: "Baccarat",      mod: () => BaccaratGame },
+        { key: "baccarat",    icon: "🀄", label: "Baccarat",      mod: () => BaccaratGame },
         { key: "hilo",        icon: "↕️",  label: "Hi-Lo",         mod: () => HiloGame },
         { key: "videopoker",  icon: "🃏", label: "Video Poker",   mod: () => VideoPokerGame },
-        { key: "tower",       icon: "🗼", label: "Tower",         mod: () => TowerGame },
+        { key: "tower",       icon: "🗻", label: "Tower",         mod: () => TowerGame },
       ],
     },
     {
@@ -37,7 +37,7 @@ const App = (() => {
         { key: "horserace",   icon: "🏇", label: "Horse Race",       mod: () => HorseRaceGame },
         { key: "battledice",  icon: "⚔️",  label: "Battle Dice",      mod: () => BattleDiceGame },
         { key: "rps",         icon: "✊", label: "Rock Paper Scissors", mod: () => RPSGame },
-        { key: "raffle",      icon: "🎟️", label: "Raffle",           mod: () => RaffleGame },
+        { key: "raffle",      icon: "🏟️", label: "Raffle",           mod: () => RaffleGame },
         { key: "bingo",       icon: "🎱", label: "Bingo",            mod: () => BingoGame },
         { key: "multiroulette", icon: "🌀", label: "Multi Roulette", mod: () => MultiRouletteGame },
         { key: "poker",       icon: "♠️", label: "Poker",            mod: () => PokerGame },
@@ -56,10 +56,16 @@ const App = (() => {
       ],
     },
     {
+      section: "Events",
+      items: [
+        { key: "events", icon: "🎪", label: "Events", mod: () => EventsGame },
+      ],
+    },
+    {
       section: "Community",
       items: [
         { key: "chat",     icon: "💬", label: "Chat",          mod: () => ChatGame },
-        { key: "scratch",  icon: "🎟️", label: "Scratch Cards", mod: () => ScratchGame },
+        { key: "scratch",  icon: "🏟️", label: "Scratch Cards", mod: () => ScratchGame },
         { key: "download", icon: "🖥️", label: "PC App",        mod: () => DownloadGame },
       ],
     },
@@ -75,6 +81,7 @@ const App = (() => {
       section: "Account",
       items: [
         { key: "chipshop",    icon: "🏦", label: "Chip Shop",         mod: () => ChipShopGame },
+        { key: "stats",       icon: "📊", label: "My Stats",          mod: () => StatsGame },
         { key: "leaderboard", icon: "🏆", label: "Leaderboard",       mod: () => LeaderboardGame },
         { key: "friends",     icon: "👥", label: "Friends",           mod: () => FriendsGame },
         { key: "settings",    icon: "⚙️", label: "Settings",          mod: () => SettingsGame },
@@ -87,8 +94,6 @@ const App = (() => {
 
   let activeCleanup = null;
   let activeKey = null;
-
-  // ── Sidebar ────────────────────────────────────────────────
 
   function buildSidebar() {
     const nav = document.getElementById("sidebar-nav");
@@ -132,8 +137,6 @@ const App = (() => {
     });
   }
 
-  // ── Sidebar open/close ─────────────────────────────────────
-
   function openSidebar() {
     document.getElementById("sidebar").classList.add("open");
     document.getElementById("sidebar-overlay").classList.add("open");
@@ -143,8 +146,6 @@ const App = (() => {
     document.getElementById("sidebar").classList.remove("open");
     document.getElementById("sidebar-overlay").classList.remove("open");
   }
-
-  // ── Sidebar search ─────────────────────────────────────────
 
   function wireSearch() {
     document.getElementById("sidebar-search").addEventListener("input", (e) => {
@@ -161,8 +162,6 @@ const App = (() => {
     });
   }
 
-  // ── Mount a game ───────────────────────────────────────────
-
   function mount(key) {
     if (activeKey === key) { return; }
     if (activeCleanup) { try { activeCleanup(); } catch { /**/ } activeCleanup = null; }
@@ -170,7 +169,6 @@ const App = (() => {
     activeKey = key;
     updateActiveNav(key);
 
-    // Update topbar breadcrumb
     const item = allItems.find((i) => i.key === key);
     const label = item ? `${item.icon} ${item.label}` : key;
     const bc = document.getElementById("topbar-breadcrumb");
@@ -189,8 +187,6 @@ const App = (() => {
     }
   }
 
-  // ── Account sync ───────────────────────────────────────────
-
   async function refreshAccount() {
     const { user } = await Api.me();
     state.id = user.id;
@@ -199,30 +195,31 @@ const App = (() => {
     state.rank = user.rank ?? "newcomer";
     state.balance = user.balance;
     state.bank = user.bank ?? 0;
-    state.level = user.level;
-    state.xp = user.xp;
     state.fairness = user.fairness;
     state.isAdmin = user.isAdmin ?? false;
     state.isApproved = user.isApproved ?? true;
     state.patreonUsername = user.patreonUsername ?? null;
     state.patreonTier = user.patreonTier ?? null;
 
-    // Sidebar balance
     const balEl = document.getElementById("balance-amount");
     if (balEl) balEl.textContent = Math.floor(state.balance / 100).toLocaleString() + " 🪙";
 
-    // Topbar balance
     const tbEl = document.getElementById("topbar-balance");
     if (tbEl) tbEl.textContent = Math.floor(state.balance / 100).toLocaleString();
 
-    // Level / XP
-    const lvlEl = document.getElementById("user-level-label");
-    if (lvlEl) lvlEl.textContent = `Level ${state.level}`;
-    const xpFill = document.getElementById("xp-fill");
-    if (xpFill) {
-      const xpForNext = state.level * 100;
-      const xpPct = Math.min(100, Math.round((state.xp / xpForNext) * 100));
-      xpFill.style.width = xpPct + "%";
+    const tierEl = document.getElementById("sb-tier-row");
+    if (tierEl) {
+      const TIER_LABELS = {
+        bronze_patron: "🥉 Bronze Patron",
+        silver_patron: "🥈 Silver Patron",
+        gold_patron: "🥇 Gold Patron",
+        platinum_patron: "💠 Platinum Patron",
+        diamond_patron: "💎 Diamond Patron",
+        netherite_patron: "⚫ Netherite Patron",
+      };
+      tierEl.textContent = state.patreonTier
+        ? (TIER_LABELS[state.patreonTier] || state.patreonTier)
+        : (state.isApproved ? "✅ Active" : "🔒 No Subscription");
     }
 
     if (state.balance <= 1000 && !_lowBalanceToastShown) {
@@ -232,8 +229,6 @@ const App = (() => {
 
     return user;
   }
-
-  // ── Auth screens ───────────────────────────────────────────
 
   function showScreen(name) {
     document.getElementById("auth-screen").classList.toggle("hidden", name !== "auth");
@@ -284,7 +279,6 @@ const App = (() => {
   }
 
   function wireAuthForms() {
-    // Tab switching
     document.querySelectorAll(".auth-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
         document.querySelectorAll(".auth-tab").forEach((t) => t.classList.remove("active"));
@@ -331,17 +325,17 @@ const App = (() => {
       const emailVal = fd.get("email");
       try {
         const data = await Api.register({
-          username: fd.get("username"),
-          email: emailVal,
-          password: fd.get("password"),
-          patreonUsername: fd.get("patreonUsername"),
+          username: (fd.get("username") || "").trim(),
+          email: (emailVal || "").trim(),
+          password: fd.get("password") || "",
+          patreonUsername: (fd.get("patreonUsername") || "").trim() || null,
         });
         if (data.token) {
           Api.setToken(data.token);
           if (data.user && data.user.isApproved === false) {
             showPendingApproval(data.user);
           } else {
-            UI.toast("Welcome to Casino Aurelius! Visit Chip Shop to buy chips.", "win");
+            UI.toast("Welcome to GrilledCoin! Visit Chip Shop to buy chips.", "win");
             await enterApp();
           }
         }
@@ -382,7 +376,6 @@ const App = (() => {
       mount("lobby");
     }
 
-    // Engagement system
     if (typeof Engagement !== "undefined") {
       setTimeout(() => Engagement.checkDailyBonus(state), 1500);
       Engagement.jackpotTicker.start(50000);
