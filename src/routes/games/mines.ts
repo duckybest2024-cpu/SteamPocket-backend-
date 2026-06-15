@@ -87,7 +87,7 @@ minesRouter.post("/reveal", requireAuth, requireApproved, async (req: AuthedRequ
   const hitMine = round.mines.includes(tile);
 
   if (hitMine) {
-    minesRounds.delete(userId);
+    minesRounds.clear(userId);
     const settled = await settleMines(userId, round, { cashedOut: false });
     return res.json({
       outcome: "bust",
@@ -103,7 +103,7 @@ minesRouter.post("/reveal", requireAuth, requireApproved, async (req: AuthedRequ
 
   // Auto-cashout when every safe tile has been found — nothing left to gain by continuing.
   if (allSafeTilesFound) {
-    minesRounds.delete(userId);
+    minesRounds.clear(userId);
     const settled = await settleMines(userId, round, { cashedOut: true, multiplier });
     return res.json({
       outcome: "cleared",
@@ -129,7 +129,7 @@ minesRouter.post("/cashout", requireAuth, requireApproved, async (req: AuthedReq
   if (!round) return res.status(404).json({ error: "No active mines round" });
   if (round.revealed.length === 0) return res.status(400).json({ error: "Reveal at least one tile before cashing out" });
 
-  minesRounds.delete(userId);
+  minesRounds.clear(userId);
   const multiplier = multiplierForPicks(round.mineCount, round.revealed.length);
   const settled = await settleMines(userId, round, { cashedOut: true, multiplier });
 

@@ -91,7 +91,7 @@ videoPokerRouter.post("/draw", requireAuth, requireApproved, async (req: AuthedR
   const multiplier = PAY_TABLE[handRank];
   const payout = Math.floor(round.bet * multiplier);
 
-  videoPokerRounds.delete(userId);
+  videoPokerRounds.clear(userId);
   const settled = await settleVideoPoker(userId, round, finalHand, handRank, multiplier, payout);
 
   res.json({

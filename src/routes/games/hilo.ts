@@ -94,7 +94,7 @@ hiloRouter.post("/action", requireAuth, requireApproved, async (req: AuthedReque
 
   // --- Cashout ---
   if (action === "cashout") {
-    hiloRounds.delete(userId);
+    hiloRounds.clear(userId);
     const payout = Math.floor(round.bet * round.currentMultiplier);
     const settled = await settleHilo(userId, round, payout);
     return res.json({
@@ -111,7 +111,7 @@ hiloRouter.post("/action", requireAuth, requireApproved, async (req: AuthedReque
 
   if (!nextCard) {
     // Deck exhausted — treat as auto-cashout
-    hiloRounds.delete(userId);
+    hiloRounds.clear(userId);
     const payout = Math.floor(round.bet * round.currentMultiplier);
     const settled = await settleHilo(userId, round, payout);
     return res.json({
@@ -126,7 +126,7 @@ hiloRouter.post("/action", requireAuth, requireApproved, async (req: AuthedReque
   const remaining = round.deck.slice(round.position + 1); // cards still in deck after this draw
 
   if (outcome === "wrong") {
-    hiloRounds.delete(userId);
+    hiloRounds.clear(userId);
     const settled = await settleHilo(userId, round, 0);
     return res.json({
       finished: true,
