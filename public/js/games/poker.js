@@ -31,7 +31,7 @@ const PokerGame = (() => {
           </div>
           <hr class="bp-divider" />
           <button id="pk-join" class="play-btn">Join Table</button>
-          <div id="pk-actions" style="display:none;display:flex;flex-direction:column;gap:6px">
+          <div id="pk-actions" style="display:none;flex-direction:column;gap:6px">
             <button id="pk-draw" class="play-btn">Draw Cards</button>
             <button id="pk-fold" class="play-btn secondary-play">Fold</button>
           </div>

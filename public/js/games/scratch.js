@@ -18,9 +18,19 @@ const ScratchGame = (() => {
 
   /* ── render entry-point ───────────────────────────────────── */
   function render(container, accountState) {
+    allTickets      = [];
+    activeTheme     = "All";
+    selectedTicket  = null;
+    activeBetId     = null;
+    revealedCells   = [];
+    gridPrizes      = null;
+    wonPrize        = null;
+    isRevealing     = false;
+    latestRevealData = null;
+
     container.innerHTML = buildShell();
     addStyles();
-    loadTickets();
+    loadTickets(container);
 
     return () => { /* cleanup */ };
   }
@@ -83,14 +93,14 @@ const ScratchGame = (() => {
   }
 
   /* ── load tickets from API ────────────────────────────────── */
-  async function loadTickets() {
+  async function loadTickets(container) {
     try {
       const data = await Api.get("/scratch/tickets");
       allTickets = data.tickets || [];
       renderTicketGrid(activeTheme);
-      wireThemeButtons();
+      wireThemeButtons(container);
     } catch (err) {
-      const grid = document.getElementById("sc-ticket-grid");
+      const grid = container.querySelector("#sc-ticket-grid");
       if (grid) grid.innerHTML =
         `<div class="sc-loading" style="color:var(--loss)">Failed to load tickets: ${err.message}</div>`;
     }
@@ -123,10 +133,10 @@ const ScratchGame = (() => {
   }
 
   /* ── theme filter buttons ─────────────────────────────────── */
-  function wireThemeButtons() {
-    document.querySelectorAll(".sc-theme-btn").forEach(btn => {
+  function wireThemeButtons(container) {
+    container.querySelectorAll(".sc-theme-btn").forEach(btn => {
       btn.addEventListener("click", () => {
-        document.querySelectorAll(".sc-theme-btn").forEach(b => b.classList.remove("active"));
+        container.querySelectorAll(".sc-theme-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         activeTheme = btn.dataset.theme;
         renderTicketGrid(activeTheme);

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth, AuthedRequest } from "../middleware/auth";
+import { requireAuth, requireApproved, AuthedRequest } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
 import { applyLedgerEntry, InsufficientFundsError, levelFromXp, xpForWager } from "../lib/wallet";
 import { SCRATCH_CATALOG, getTicketById, ScratchPrize } from "../lib/scratchCatalog";
@@ -97,7 +97,7 @@ function wouldCompleteWin(grid: ScratchPrize[], newIdx: number, candidate: Scrat
 
 // ─── POST /scratch/buy/:ticketId ─────────────────────────────────────────────
 
-scratchRouter.post("/buy/:ticketId", requireAuth, async (req: AuthedRequest, res) => {
+scratchRouter.post("/buy/:ticketId", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const ticketId = req.params.ticketId;
   const ticket = getTicketById(ticketId);
   if (!ticket) return res.status(404).json({ error: "Ticket not found" });
@@ -153,7 +153,7 @@ const revealSchema = z.object({
   cell: z.number().int().min(0).max(8).optional(), // if omitted → reveal all
 });
 
-scratchRouter.post("/reveal/:betId", requireAuth, async (req: AuthedRequest, res) => {
+scratchRouter.post("/reveal/:betId", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const betId = req.params.betId;
   const userId = req.userId!;
 

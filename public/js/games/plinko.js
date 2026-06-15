@@ -187,10 +187,11 @@ const PlinkoGame = (() => {
     }));
 
     let resizeTimer;
-    window.addEventListener("resize", () => {
+    const onResize = () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(refreshLayout, 100);
-    });
+    };
+    window.addEventListener("resize", onResize);
 
     function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
@@ -262,6 +263,7 @@ const PlinkoGame = (() => {
 
     // Defer layout so the board has rendered dimensions
     requestAnimationFrame(() => refreshLayout());
+    return () => window.removeEventListener("resize", onResize);
   }
 
   return { render };

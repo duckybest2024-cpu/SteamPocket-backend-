@@ -23,7 +23,7 @@ ENV NODE_ENV=production
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm ci --omit=dev && npx prisma generate
+RUN npm ci --omit=dev && DATABASE_URL="postgresql://x:x@localhost/x" npx prisma generate
 
 COPY --from=builder /app/dist ./dist/
 COPY public ./public/

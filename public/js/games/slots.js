@@ -518,8 +518,8 @@ const SlotsGame = (() => {
     function refreshTotal() {
       const cfg = SLOT_TYPES[currentType];
       const lines = Math.max(1, Math.min(cfg.maxLines, Math.round(Number(els.lines.value) || 1)));
-      const total = Math.round(Number(els.lineBet.value) * lines * 100) / 100;
-      els.total.textContent = `${total} 🪙`;
+      const lineBetCents = Math.round((Number(els.lineBet.value) || 0) * 100);
+      els.total.textContent = UI.money(lineBetCents * lines);
     }
     els.lineBet.addEventListener("input", refreshTotal);
     els.lines.addEventListener("input", refreshTotal);

@@ -123,7 +123,7 @@ blackjackRouter.post("/action", requireAuth, requireApproved, async (req: Authed
   advanceIfNeeded(state);
 
   if (state.status === "settled") {
-    blackjackRounds.clear(userId);
+    blackjackRounds.delete(userId);
     const result = await finishRound(userId, round);
     return res.json({ finished: true, ...result });
   }

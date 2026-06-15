@@ -35,7 +35,7 @@ slotsRouter.post("/spin", requireAuth, requireApproved, async (req: AuthedReques
       return {
         payout,
         multiplier: totalStake > 0 ? Number((payout / totalStake).toFixed(4)) : 0,
-        result: payout > totalStake ? "win" : "loss",
+        result: payout >= totalStake ? "win" : "loss",
         state: {
           grid: spin.grid,
           lineBet,

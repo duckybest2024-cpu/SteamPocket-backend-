@@ -264,69 +264,6 @@ button { font-family: inherit; cursor: pointer; border: none; outline: none; }
 .toast.info { border-left: 3px solid var(--accent-2); color: var(--accent-2); }
 @keyframes toast-in { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
 
-/* ═══════════════════════════════════════════════════════════════
-   TWO-COLUMN GAME LAYOUT
-   ═══════════════════════════════════════════════════════════════ */
-
-.game-layout { display: flex; min-height: 500px; margin: -24px; background: var(--bg-card); border-radius: 14px; overflow: hidden; }
-
-.bet-panel { width: 245px; min-width: 245px; background: var(--bg-elev); border-right: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 14px; }
-
-.bp-tabs { display: flex; background: var(--bg); border-radius: 8px; padding: 3px; gap: 3px; }
-.bp-tab { flex: 1; padding: 8px 0; border: none; background: transparent; color: var(--text-dim); border-radius: 6px; cursor: pointer; font-size: 0.83rem; font-weight: 700; transition: background 0.15s, color 0.15s; }
-.bp-tab.active { background: var(--bg-card); color: var(--text); }
-
-.bp-field { display: flex; flex-direction: column; gap: 5px; }
-.bp-label { font-size: 0.68rem; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
-.bp-input-row { display: flex; gap: 4px; align-items: stretch; }
-.bp-input-row input, .bp-input-row select { flex: 1; min-width: 0; }
-
-.quick-btn { padding: 8px 9px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text-dim); cursor: pointer; font-size: 0.78rem; font-weight: 700; flex-shrink: 0; transition: color 0.15s, border-color 0.15s; }
-.quick-btn:hover { color: var(--text); border-color: var(--accent); }
-
-.bp-divider { border: none; border-top: 1px solid var(--border); margin: 0; }
-
-.play-btn { width: 100%; padding: 13px; background: var(--accent); color: #071c10; font-weight: 800; font-size: 0.95rem; border: none; border-radius: var(--radius); cursor: pointer; margin-top: auto; transition: filter 0.15s; }
-.play-btn:hover { filter: brightness(1.1); }
-.play-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
-.play-btn.danger { background: var(--loss); color: #fff; }
-.play-btn.secondary-play { background: var(--bg); color: var(--text-dim); border: 1px solid var(--border); margin-top: 0; }
-.play-btn.secondary-play:hover { border-color: var(--accent); color: var(--text); filter: none; }
-
-.game-canvas { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; overflow: hidden; }
-
-.stat-boxes { display: flex; gap: 8px; flex-shrink: 0; }
-.stat-box { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column; gap: 3px; }
-.sb-label { font-size: 0.68rem; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.06em; }
-.sb-value { font-size: 0.95rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.range-ticks { display: flex; justify-content: space-between; padding: 3px 1px 0; }
-.range-ticks span { font-size: 0.69rem; color: var(--text-dim); }
-
-.limbo-history { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; flex-shrink: 0; }
-.limbo-history::-webkit-scrollbar { display: none; }
-.lh-chip { flex-shrink: 0; font-size: 0.72rem; font-weight: 800; padding: 4px 9px; border-radius: 20px; border: 1px solid var(--border); color: var(--text-dim); }
-.lh-chip.lhc-low  { color: var(--loss); border-color: rgba(229,70,61,0.45); background: rgba(229,70,61,0.08); }
-.lh-chip.lhc-mid  { color: var(--gold); border-color: rgba(240,194,68,0.45); background: rgba(240,194,68,0.08); }
-.lh-chip.lhc-high { color: var(--win);  border-color: rgba(0,231,1,0.35);   background: rgba(0,231,1,0.06); }
-
-.mine-opts { display: flex; gap: 5px; flex-wrap: wrap; }
-.mine-opt { flex: 1; min-width: 32px; padding: 7px 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text-dim); font-size: 0.82rem; font-weight: 700; cursor: pointer; text-align: center; transition: color 0.15s, border-color 0.15s; }
-.mine-opt.active { border-color: var(--accent); color: var(--accent); background: rgba(0,231,1,0.07); }
-.mine-opt:hover:not(.active) { color: var(--text); }
-
-.bp-bottom { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
-
-.roll-display { display: flex; align-items: center; justify-content: center; flex: 1; min-height: 120px; border-radius: 14px; background: var(--bg); border: 1px solid var(--border); font-size: 3.5rem; font-weight: 900; transition: color 0.3s, background 0.3s; }
-.roll-display.win  { color: var(--win);  border-color: rgba(0,231,1,0.3);  background: rgba(0,231,1,0.04); }
-.roll-display.loss { color: var(--loss); border-color: rgba(229,70,61,0.3); background: rgba(229,70,61,0.04); }
-
-@media (max-width: 700px) {
-  .game-layout { flex-direction: column; min-height: unset; margin: -14px; }
-  .bet-panel { width: auto; min-width: unset; border-right: none; border-bottom: 1px solid var(--border); }
-  .game-canvas { padding: 14px; }
-  .stat-boxes { flex-wrap: wrap; }
-}
 
 /* ═══════════════════════════════════════════════════════════════
    LEADERBOARD
@@ -1565,7 +1502,6 @@ button { font-family: inherit; cursor: pointer; border: none; outline: none; }
 }
 .stat-box .sb-label { font-size: 0.68rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; }
 .stat-box .sb-value { font-size: 1rem; font-weight: 700; color: var(--text); }
-}
 
 /* ── Player Stats Page ───────────────────────────────────────────────────── */
 .stats-page { padding: 20px; display: flex; flex-direction: column; gap: 24px; }

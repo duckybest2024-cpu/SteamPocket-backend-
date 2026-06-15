@@ -72,10 +72,10 @@ const LimboGame = (() => {
 
     // ½ and 2× quick buttons
     els.half.addEventListener("click", () => {
-      els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 0.5));
+      els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 50) / 100);
     });
     els.dbl.addEventListener("click", () => {
-      els.amount.value = Math.floor(Number(els.amount.value) * 2);
+      els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100;
     });
 
     // Manual/Auto tabs (visual only)
