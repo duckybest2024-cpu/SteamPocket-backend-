@@ -1,3 +1,4 @@
+import { isOwner } from "../lib/owner";
 import { Server, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -7,9 +8,9 @@ import { applyLedgerEntry } from "../lib/wallet";
 import { checkAndMintNfts } from "../lib/nfts";
 
 interface Entry { userId: string; username: string; amount: number }
-interface AuthedSocket extends Socket { data: { userId?: string; username?: string } }
+interface AuthedSocket extends Socket { data: { userId?: string; username?: string; isApproved?: boolean } }
 
-const SPIN_DELAY_MS = 20_000; // spin 20s after last entry
+const SPIN_DELAY_MS = 20_000;
 const MIN_ENTRIES = 1;
 const HOUSE_EDGE = 0.05;
 
@@ -47,8 +48,8 @@ export class JackpotEngine {
       if (token) {
         try {
           const payload = jwt.verify(token, config.jwtSecret) as { sub: string };
-          const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, username: true } });
-          if (user) { socket.data.userId = user.id; socket.data.username = user.username; }
+          const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, username: true, isApproved: true, approvedUntil: true, isAdmin: true } });
+          if (user) { socket.data.userId = user.id; socket.data.username = user.username; socket.data.isApproved = isOwner(user.username) || !!user.isAdmin || (user.isApproved && (!user.approvedUntil || user.approvedUntil > new Date())); }
         } catch {}
       }
       next();
@@ -59,6 +60,7 @@ export class JackpotEngine {
 
       socket.on("enter", async ({ amount }: { amount: number }) => {
         if (!socket.data.userId) return socket.emit("error", "Login required");
+        if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
         if (this.spinning) return socket.emit("error", "Round is spinning");
         if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min entry: 1 chip");
         if (amount > 10_000_000) return socket.emit("error", "Max entry: 100,000 chips");
@@ -93,7 +95,6 @@ export class JackpotEngine {
     const houseCut = Math.floor(this.totalPot * HOUSE_EDGE);
     const prize = this.totalPot - houseCut;
 
-    // Weighted random — pick a float in [0, totalPot) then walk through entries
     const roll = parseFloat("0." + crypto.createHash("sha256").update(Date.now().toString()).digest("hex").slice(0, 10)) * this.totalPot;
     let cursor = 0;
     let winner = this.entries[this.entries.length - 1];
