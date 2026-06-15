@@ -3,7 +3,7 @@ const UI = (() => {
   const SUIT_RED = new Set(["♥", "♦"]);
   const SYMBOL_GLYPH = {
     wild: "🌟", scatter: "🎁", crown: "👑", gem: "💎", bell: "🔔",
-    clover: "🍀", horseshoe: "🧲", ace: "🅰️", king: "🇰", queen: "🇶",
+    clover: "🍀", horseshoe: "🧢", ace: "🅰️", king: "🇰", queen: "🇺",
   };
 
   function money(cents) {
@@ -38,7 +38,6 @@ const UI = (() => {
   function setLevel(level, xp) {
     const lvlEl = document.getElementById("user-level-label") || document.getElementById("user-level");
     if (lvlEl) lvlEl.textContent = `Level ${level}`;
-    // XP curve mirrors the backend: level N needs N*1000 cumulative XP.
     let remaining = xp;
     let threshold = 1000;
     let lvl = 1;
@@ -69,7 +68,6 @@ const UI = (() => {
     }
     if (patch.leveledUp) toast(`🎉 Level up! You're now level ${state.level} (+${money(state.level * 500)} bonus)`, "win");
 
-    // Engagement system hooks
     if (typeof Engagement !== "undefined" && patch.result) {
       const r = patch.result;
       const isWin = r.result === "win";
@@ -94,10 +92,12 @@ const UI = (() => {
     return { rank: card.rank, suit: card.suit, red: SUIT_RED.has(card.suit) };
   }
 
+  const SUIT_LETTER = {"♠":"S","♥":"H","♦":"D","♣":"C"};
+
   function renderCard(card, faceDown = false) {
-    if (faceDown) return `<div class="card hidden-card">??</div>`;
-    const red = SUIT_RED.has(card.suit) ? "red-suit" : "";
-    return `<div class="card ${red}">${card.rank}<span>${card.suit}</span></div>`;
+    if (faceDown) return `<img class="card-svg face-down" src="/images/card-back.png" alt="?" />`;
+    const letter = SUIT_LETTER[card.suit] || "S";
+    return `<img class="card-svg" src="/images/cards/${card.rank}${letter}.svg" alt="${card.rank}${card.suit}" />`;
   }
 
   function symbolGlyph(symbol) {
