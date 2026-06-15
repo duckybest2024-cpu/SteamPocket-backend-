@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Casino Aurelius</title>
-  <meta name="description" content="Provably fair casino — dice, crash, mines, blackjack and more." />
+  <title>GrilledCoin</title>
+  <meta name="description" content="GrilledCoin — provably fair casino. Dice, crash, mines, blackjack and more." />
   <meta name="theme-color" content="#0f212e" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Casino Aurelius" />
+  <meta name="apple-mobile-web-app-title" content="GrilledCoin" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
@@ -20,10 +20,10 @@
     <div class="auth-wrap">
       <div class="auth-card">
         <div class="auth-logo">
-          <span class="auth-logo-icon">🎰</span>
+          <img src="/images/logo-icon.svg" alt="GrilledCoin" class="auth-logo-icon" />
           <div>
-            <div class="auth-logo-name">Casino Aurelius</div>
-            <div class="auth-logo-sub">Provably fair · 99% RTP · Instant withdrawals</div>
+            <div class="auth-logo-name">GrilledCoin</div>
+            <div class="auth-logo-sub">Provably fair · Patreon subscribers only</div>
           </div>
         </div>
 
@@ -62,7 +62,7 @@
             <input name="patreonUsername" placeholder="Your Patreon username" autocomplete="off" required />
           </div>
           <p style="font-size:0.78rem;color:var(--text-dim);margin:4px 0 8px;line-height:1.5;">
-            🔒 Access requires a $1/month Patreon subscription. After registering, submit a request and an admin will verify your subscription and grant access.
+            🔒 Access requires an active <a href="https://patreon.com/GrilledCoin" target="_blank" style="color:var(--accent-2)">Patreon subscription</a> ($1/month+). After registering an admin will verify your Patreon and grant your tier.
           </p>
           <button type="submit" class="auth-submit">Create Account</button>
         </form>
@@ -77,9 +77,9 @@
     <div class="auth-wrap">
       <div class="auth-card">
         <div class="auth-logo">
-          <span class="auth-logo-icon">⏳</span>
+          <img src="/images/logo-icon.svg" alt="GrilledCoin" class="auth-logo-icon" />
           <div>
-            <div class="auth-logo-name">Casino Aurelius</div>
+            <div class="auth-logo-name">GrilledCoin</div>
             <div class="auth-logo-sub">Access Pending Approval</div>
           </div>
         </div>
@@ -87,7 +87,7 @@
           <div style="font-size:3rem;margin-bottom:16px;">🔒</div>
           <h2 style="margin:0 0 12px;font-size:1.2rem;color:var(--text);">Your account is under review</h2>
           <p style="color:var(--text-dim);font-size:0.88rem;line-height:1.7;margin:0 0 20px;">
-            To play at Casino Aurelius, you need an active <strong style="color:var(--accent-2);">Patreon subscription</strong> ($1/month minimum).
+            To play at GrilledCoin, you need an active <strong style="color:var(--accent-2);">Patreon subscription</strong> ($1/month minimum).
             An admin will verify your Patreon account and grant access shortly.
           </p>
           <div style="background:var(--bg-elev);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;text-align:left;">
@@ -95,9 +95,10 @@
             <div style="display:flex;flex-direction:column;gap:8px;font-size:0.85rem;">
               <div>🥉 <strong style="color:#cd7f32;">Bronze Patron</strong> — $1/month · Basic access</div>
               <div>🥈 <strong style="color:#c0c0c0;">Silver Patron</strong> — $5/month · +50% daily bonus</div>
-              <div>🥇 <strong style="color:#ffd700;">Gold Patron</strong> — $10/month · Double XP + VIP chip</div>
-              <div>💠 <strong style="color:#b9f2ff;">Platinum Patron</strong> — $25/month · Exclusive games + 3× bonus</div>
-              <div>💎 <strong style="color:#00e5ff;">Diamond Patron</strong> — $50/month · All perks + custom NFT</div>
+              <div>🥇 <strong style="color:#ffd700;">Gold Patron</strong> — $10/month · VIP chip + host events (5% cut)</div>
+              <div>💠 <strong style="color:#b9f2ff;">Platinum Patron</strong> — $25/month · 3× bonus + host events (10% cut)</div>
+              <div>💎 <strong style="color:#00e5ff;">Diamond Patron</strong> — $50/month · Custom NFT + host events (15% cut)</div>
+              <div>⚫ <strong style="color:#9ca3af;">Netherite Patron</strong> — $75/month · Admin powers + host events (20% cut)</div>
             </div>
           </div>
           <p style="color:var(--text-dim);font-size:0.8rem;margin:0 0 20px;">
@@ -115,8 +116,8 @@
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-logo">
-        <span class="sidebar-logo-icon">🎰</span>
-        <span class="sidebar-logo-text">Casino Aurelius</span>
+        <img src="/images/logo-icon.svg" alt="GrilledCoin" class="sidebar-logo-icon" />
+        <span class="sidebar-logo-text">GrilledCoin</span>
         <button class="sidebar-close" id="sidebar-close">✕</button>
       </div>
 
@@ -133,10 +134,7 @@
           <span class="sb-bal-label">Balance</span>
           <span id="balance-amount" class="sb-bal-amount">0 🪙</span>
         </div>
-        <div class="sb-level-row">
-          <span id="user-level-label" class="sb-level-label">Level 1</span>
-          <div class="sb-xp-bar"><div id="xp-fill" class="sb-xp-fill"></div></div>
-        </div>
+        <div id="sb-tier-row" style="font-size:0.78rem;color:var(--text-dim);margin-top:4px;min-height:16px"></div>
       </div>
     </aside>
 
@@ -152,7 +150,7 @@
           <span></span><span></span><span></span>
         </button>
 
-        <div class="topbar-center" id="topbar-breadcrumb">Casino Aurelius</div>
+        <div class="topbar-center" id="topbar-breadcrumb">GrilledCoin</div>
 
         <div class="topbar-right">
           <div id="jackpot-ticker" style="display:none"></div>
@@ -174,8 +172,8 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="js/api.js"></script>
-  <script src="js/games/lobby.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/games/lobby.js"></script>
   <script src="js/games/dice.js"></script>
   <script src="js/games/limbo.js"></script>
   <script src="js/games/mines.js"></script>
@@ -191,7 +189,6 @@
   <script src="js/games/hilo.js"></script>
   <script src="js/games/videopoker.js"></script>
   <script src="js/games/chipshop.js"></script>
-  <!-- Multiplayer games -->
   <script src="js/games/jackpot.js"></script>
   <script src="js/games/horserace.js"></script>
   <script src="js/games/battledice.js"></script>
@@ -201,13 +198,10 @@
   <script src="js/games/tower.js"></script>
   <script src="js/games/multiroulette.js"></script>
   <script src="js/games/poker.js"></script>
-  <!-- Arcade -->
   <script src="js/games/arcade.js"></script>
-  <!-- NFTs & Trading -->
   <script src="js/games/nfts.js"></script>
   <script src="js/games/nftmarket.js"></script>
   <script src="js/games/cases.js"></script>
-  <!-- Board Games -->
   <script src="js/games/boardgame_chess.js"></script>
   <script src="js/games/boardgame_checkers.js"></script>
   <script src="js/games/boardgame_battleship.js"></script>
@@ -217,17 +211,16 @@
   <script src="js/games/boardgame_bridge.js"></script>
   <script src="js/games/boardgame_monopoly.js"></script>
   <script src="js/games/boardgames.js"></script>
-  <!-- How to Play (multilanguage) -->
   <script src="js/howToPlay.js"></script>
   <script src="js/leaderboard.js"></script>
+  <script src="js/games/stats.js"></script>
   <script src="js/friends.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/settings.js"></script>
-  <!-- Community -->
   <script src="js/games/chat.js"></script>
   <script src="js/games/scratch.js"></script>
   <script src="js/games/download.js"></script>
-  <!-- Engagement system -->
+  <script src="js/games/events.js"></script>
   <script src="js/engagement.js"></script>
   <script src="js/app.js"></script>
   <script>
