@@ -1,3 +1,4 @@
+import { isOwner } from "../lib/owner";
 /**
  * Battle Dice, Rock Paper Scissors, Raffle, Bingo — all in one file for simplicity.
  * Each game gets its own Socket.IO namespace.
@@ -9,7 +10,7 @@ import { prisma } from "../lib/prisma";
 import { config } from "../lib/config";
 import { applyLedgerEntry } from "../lib/wallet";
 
-interface AuthedSocket extends Socket { data: { userId?: string; username?: string } }
+interface AuthedSocket extends Socket { data: { userId?: string; username?: string; isApproved?: boolean } }
 
 function authMiddleware(io: Server, ns: string) {
   return io.of(ns).use(async (socket: AuthedSocket, next) => {
@@ -17,22 +18,18 @@ function authMiddleware(io: Server, ns: string) {
     if (token) {
       try {
         const payload = jwt.verify(token, config.jwtSecret) as { sub: string };
-        const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, username: true } });
-        if (user) { socket.data.userId = user.id; socket.data.username = user.username; }
+        const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, username: true, isApproved: true, approvedUntil: true, isAdmin: true } });
+        if (user) { socket.data.userId = user.id; socket.data.username = user.username; socket.data.isApproved = isOwner(user.username) || !!user.isAdmin || (user.isApproved && (!user.approvedUntil || user.approvedUntil > new Date())); }
       } catch {}
     }
     next();
   });
 }
 
-// ─────────────────────────────────────────
-// BATTLE DICE: up to 8 players, all roll, highest wins pot
-// ─────────────────────────────────────────
 export function attachBattleDice(io: Server) {
   authMiddleware(io, "/battledice");
   const ns = io.of("/battledice");
 
-  // Rooms: up to 8 players each, 30s betting, then roll
   const rooms = new Map<string, {
     bets: Map<string, { username: string; amount: number }>;
     phase: "betting" | "rolling" | "results";
@@ -87,6 +84,7 @@ export function attachBattleDice(io: Server) {
 
     socket.on("join_room", ({ roomId, amount }: { roomId: string; amount: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
       if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min bet: 1 chip");
 
       const room = getOrCreateRoom(roomId);
@@ -113,9 +111,6 @@ export function attachBattleDice(io: Server) {
   });
 }
 
-// ─────────────────────────────────────────
-// ROCK PAPER SCISSORS — 1v1 matchmaking queue
-// ─────────────────────────────────────────
 export function attachRPS(io: Server) {
   authMiddleware(io, "/rps");
   const ns = io.of("/rps");
@@ -128,8 +123,8 @@ export function attachRPS(io: Server) {
   }
 
   const queue: Waiting[] = [];
-  const matches = new Map<string, Match>(); // matchId -> match
-  const playerMatch = new Map<string, string>(); // userId -> matchId
+  const matches = new Map<string, Match>();
+  const playerMatch = new Map<string, string>();
 
   function resolve(c1: Choice, c2: Choice): number {
     if (c1 === c2) return 0;
@@ -140,6 +135,7 @@ export function attachRPS(io: Server) {
   ns.on("connection", (socket: AuthedSocket) => {
     socket.on("queue", async ({ amount }: { amount: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
       if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min bet: 1 chip");
       if (playerMatch.has(socket.data.userId!)) return socket.emit("error", "Already in a match");
 
@@ -149,7 +145,6 @@ export function attachRPS(io: Server) {
         return socket.emit("error", err.message || "Bet failed");
       }
 
-      // Find opponent with same amount
       const opponentIdx = queue.findIndex((w) => w.amount === amount && w.userId !== socket.data.userId!);
       if (opponentIdx !== -1) {
         const opp = queue.splice(opponentIdx, 1)[0];
@@ -191,7 +186,6 @@ export function attachRPS(io: Server) {
         if (result === 1) { winnerId = match.p1.userId; winnerName = match.p1.username; }
         else if (result === 2) { winnerId = match.p2.userId; winnerName = match.p2.username; }
         else {
-          // Tie — refund both
           try { await applyLedgerEntry(prisma, match.p1.userId, "payout", match.p1.amount, "rps_tie"); } catch {}
           try { await applyLedgerEntry(prisma, match.p2.userId, "payout", match.p2.amount, "rps_tie"); } catch {}
         }
@@ -229,14 +223,11 @@ export function attachRPS(io: Server) {
   });
 }
 
-// ─────────────────────────────────────────
-// RAFFLE — buy tickets, winner drawn every 5 minutes
-// ─────────────────────────────────────────
 export function attachRaffle(io: Server) {
   authMiddleware(io, "/raffle");
   const ns = io.of("/raffle");
 
-  const TICKET_PRICE = 1000; // 10 chips per ticket
+  const TICKET_PRICE = 1000;
   const DRAW_INTERVAL_MS = 5 * 60 * 1000;
 
   let tickets: { userId: string; username: string; ticketNum: number }[] = [];
@@ -280,6 +271,7 @@ export function attachRaffle(io: Server) {
 
     socket.on("buy_tickets", async ({ count }: { count: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
       if (!Number.isInteger(count) || count < 1 || count > 100) return socket.emit("error", "Buy 1-100 tickets at once");
 
       const total = TICKET_PRICE * count;
@@ -297,14 +289,11 @@ export function attachRaffle(io: Server) {
   });
 }
 
-// ─────────────────────────────────────────
-// BINGO — 5x5 cards, shared draws, first to complete a line wins
-// ─────────────────────────────────────────
 export function attachBingo(io: Server) {
   authMiddleware(io, "/bingo");
   const ns = io.of("/bingo");
 
-  const BUY_IN = 5000; // 50 chips
+  const BUY_IN = 5000;
   const DRAW_INTERVAL_MS = 3000;
 
   let players = new Map<string, { username: string; card: number[][]; marks: boolean[][]; amount: number }>();
@@ -322,7 +311,6 @@ export function attachBingo(io: Server) {
       shuffle(range(46, 60)).slice(0, 5),
       shuffle(range(61, 75)).slice(0, 5),
     ];
-    // Transpose cols to rows
     return Array.from({ length: 5 }, (_, r) => cols.map((c) => c[r]));
   }
 
@@ -330,11 +318,8 @@ export function attachBingo(io: Server) {
   function shuffle<T>(arr: T[]): T[] { return arr.sort(() => Math.random() - 0.5); }
 
   function checkBingo(card: number[][], marks: boolean[][]): boolean {
-    // Check rows
     for (let r = 0; r < 5; r++) if (marks[r].every(Boolean)) return true;
-    // Check cols
     for (let c = 0; c < 5; c++) if (marks.map((row) => row[c]).every(Boolean)) return true;
-    // Check diagonals
     if ([0,1,2,3,4].every((i) => marks[i][i])) return true;
     if ([0,1,2,3,4].every((i) => marks[i][4-i])) return true;
     return false;
@@ -387,6 +372,7 @@ export function attachBingo(io: Server) {
 
     socket.on("join", async () => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
       if (phase !== "waiting") return socket.emit("error", "Game in progress, wait for next round");
       if (players.has(socket.data.userId!)) return socket.emit("error", "Already joined");
       if (players.size >= 20) return socket.emit("error", "Room full (20 players max)");
@@ -399,7 +385,6 @@ export function attachBingo(io: Server) {
         socket.emit("card", { card });
         ns.emit("player_joined", { players: players.size, username: socket.data.username });
 
-        // Start game when we have 2+ players, after 10s wait
         if (players.size === 2 && phase === "waiting") {
           if (waitTimer) clearTimeout(waitTimer);
           waitTimer = setTimeout(() => { if (players.size >= 2) startGame(); }, 10_000);
@@ -412,22 +397,19 @@ export function attachBingo(io: Server) {
   });
 }
 
-// ─────────────────────────────────────────
-// TOWER — predict ever-increasing multipliers, stop when you want
-// ─────────────────────────────────────────
 export function attachTower(io: Server) {
   authMiddleware(io, "/tower");
   const ns = io.of("/tower");
 
-  // Each player has their own independent tower session
   const sessions = new Map<string, { level: number; bet: number; multiplier: number; active: boolean }>();
 
   const LEVELS = [1.05, 1.10, 1.20, 1.35, 1.55, 1.80, 2.15, 2.60, 3.20, 4.00, 5.00, 6.50, 8.50, 11.0, 15.0, 20.0, 30.0, 50.0, 75.0, 100.0];
-  const FAIL_PROB = 0.20; // 20% chance of losing on each floor
+  const FAIL_PROB = 0.20;
 
   ns.on("connection", (socket: AuthedSocket) => {
     socket.on("start", async ({ amount }: { amount: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
       if (sessions.get(socket.data.userId!)?.active) return socket.emit("error", "Already in a tower session");
       if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min bet: 1 chip");
 
@@ -456,7 +438,6 @@ export function attachTower(io: Server) {
         socket.emit("tower_state", { level: session.level, multiplier: session.multiplier, maxLevels: LEVELS.length });
 
         if (session.level >= LEVELS.length) {
-          // Auto cashout at top
           const payout = Math.floor(session.bet * session.multiplier);
           try { await applyLedgerEntry(prisma, socket.data.userId!, "payout", payout, "tower_win"); } catch {}
           session.active = false;
@@ -481,9 +462,6 @@ export function attachTower(io: Server) {
   });
 }
 
-// ─────────────────────────────────────────
-// MULTIPLAYER ROULETTE — everyone bets on same spin, every 30s
-// ─────────────────────────────────────────
 export function attachMultiRoulette(io: Server) {
   authMiddleware(io, "/multiroulette");
   const ns = io.of("/multiroulette");
@@ -566,6 +544,7 @@ export function attachMultiRoulette(io: Server) {
 
     socket.on("bet", async ({ betType, amount }: { betType: string; amount: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
       if (phase !== "betting") return socket.emit("error", "Betting is closed");
       if (!PAYOUTS[betType] && isNaN(parseInt(betType, 10))) return socket.emit("error", "Invalid bet type");
       if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min bet: 1 chip");
@@ -582,9 +561,6 @@ export function attachMultiRoulette(io: Server) {
   });
 }
 
-// ─────────────────────────────────────────
-// POKER — simplified 5-card draw, table of up to 6
-// ─────────────────────────────────────────
 export function attachPoker(io: Server) {
   authMiddleware(io, "/poker");
   const ns = io.of("/poker");
@@ -644,7 +620,6 @@ export function attachPoker(io: Server) {
     }
     ns.to(tableId).emit("table_phase", { phase: "drawing", players: table.players.size });
 
-    // 30s drawing phase
     table.phase = "drawing";
     table.timer = setTimeout(() => showdown(tableId), 30_000);
     ns.to(tableId).emit("draw_timer", 30_000);
@@ -686,6 +661,7 @@ export function attachPoker(io: Server) {
 
     socket.on("join_table", async ({ tableId, buyIn }: { tableId: string; buyIn: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
       if (!Number.isInteger(buyIn) || buyIn < 100) return socket.emit("error", "Min buy-in: 1 chip");
 
       const table = getOrCreateTable(tableId, buyIn);
