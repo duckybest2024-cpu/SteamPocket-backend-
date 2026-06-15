@@ -22,6 +22,8 @@ import { nftMarketRouter } from "./routes/nftmarket";
 import { casesRouter } from "./routes/cases";
 import { arcadeRouter } from "./routes/arcade";
 import { scratchRouter } from "./routes/scratch";
+import { eventsRouter } from "./routes/events";
+import { statsRouter } from "./routes/stats";
 import { prisma } from "./lib/prisma";
 import { getLiqpayKeys, verifyLiqpayCallback, liqpayDecode } from "./lib/liqpay";
 import { CHIP_PACKAGES } from "./lib/stripe";
@@ -90,7 +92,7 @@ export function createApp() {
     let dbOk = false;
     let dbError = "";
     try { await prisma.$queryRaw`SELECT 1`; dbOk = true; } catch (e: any) { dbError = e?.message ?? String(e); }
-    res.status(dbOk ? 200 : 503).json({ ok: dbOk, name: "casino-aurelius", time: new Date().toISOString(), db: dbOk ? "connected" : "ERROR: " + dbError });
+    res.status(dbOk ? 200 : 503).json({ ok: dbOk, name: "grilledcoin", time: new Date().toISOString(), db: dbOk ? "connected" : "ERROR: " + dbError });
   });
 
   // The playable web UI — a static single-page app that talks to the API below.
@@ -111,6 +113,7 @@ export function createApp() {
   app.use("/games/videopoker", videoPokerRouter);
 
   app.use("/leaderboard", leaderboardRouter);
+  app.use("/stats", statsRouter);
   app.use("/friends", friendsRouter);
   app.use("/admin", adminRouter);
   app.use("/nfts", nftRouter);
@@ -118,6 +121,7 @@ export function createApp() {
   app.use("/cases", casesRouter);
   app.use("/arcade", arcadeRouter);
   app.use("/scratch", scratchRouter);
+  app.use("/events", eventsRouter);
 
   // Public site config + active broadcasts
   app.get("/config", async (_req, res) => {
