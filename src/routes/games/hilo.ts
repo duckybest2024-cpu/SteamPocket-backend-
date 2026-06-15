@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth, AuthedRequest } from "../../middleware/auth";
+import { requireAuth, requireApproved, AuthedRequest } from "../../middleware/auth";
 import { prisma } from "../../lib/prisma";
 import { applyLedgerEntry, InsufficientFundsError, levelFromXp, xpForWager } from "../../lib/wallet";
 import { hiloRounds, HiloActiveRound } from "../../lib/activeRounds";
@@ -19,7 +19,7 @@ export const hiloRouter = Router();
 
 const startSchema = z.object({ amount: z.number().int().positive() });
 
-hiloRouter.post("/start", requireAuth, async (req: AuthedRequest, res) => {
+hiloRouter.post("/start", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = startSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
@@ -82,7 +82,7 @@ const actionSchema = z.object({
   action: z.enum(["higher", "lower", "cashout"]),
 });
 
-hiloRouter.post("/action", requireAuth, async (req: AuthedRequest, res) => {
+hiloRouter.post("/action", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const userId = req.userId!;
   const round = hiloRounds.get(userId);
   if (!round) return res.status(404).json({ error: "No active Hi-Lo round — start one first" });
@@ -92,76 +92,44 @@ hiloRouter.post("/action", requireAuth, async (req: AuthedRequest, res) => {
 
   const { action } = parsed.data;
 
-  // --- Cashout ---
   if (action === "cashout") {
     hiloRounds.clear(userId);
     const payout = Math.floor(round.bet * round.currentMultiplier);
     const settled = await settleHilo(userId, round, payout);
-    return res.json({
-      finished: true,
-      outcome: "win",
-      payout,
-      ...settled,
-    });
+    return res.json({ finished: true, outcome: "win", payout, ...settled });
   }
 
-  // --- Higher / Lower ---
   const currentCard = round.deck[round.position - 1];
   const nextCard = round.deck[round.position];
 
   if (!nextCard) {
-    // Deck exhausted — treat as auto-cashout
     hiloRounds.clear(userId);
     const payout = Math.floor(round.bet * round.currentMultiplier);
     const settled = await settleHilo(userId, round, payout);
-    return res.json({
-      finished: true,
-      outcome: "win",
-      payout,
-      ...settled,
-    });
+    return res.json({ finished: true, outcome: "win", payout, ...settled });
   }
 
   const outcome = hiloOutcome(currentCard, nextCard, action);
-  const remaining = round.deck.slice(round.position + 1); // cards still in deck after this draw
+  const remaining = round.deck.slice(round.position + 1);
 
   if (outcome === "wrong") {
     hiloRounds.clear(userId);
     const settled = await settleHilo(userId, round, 0);
-    return res.json({
-      finished: true,
-      outcome: "bust",
-      card: nextCard,
-      payout: 0,
-      correct: false,
-      ...settled,
-    });
+    return res.json({ finished: true, outcome: "bust", card: nextCard, payout: 0, correct: false, ...settled });
   }
 
-  // Correct or push — advance position
   round.position += 1;
 
   if (outcome === "correct") {
-    // Update multiplier: factor based on win probability from *before* this draw
-    // remaining cards for probability = deck after the card we just drew was revealed
-    const remainingBeforeDraw = round.deck.slice(round.position - 1); // excludes nextCard (it was drawn)
-    // Actually: probability should be computed over cards that were still unseen when guess was made
-    // = deck[position..end] before the draw, i.e., round.deck.slice(old position)
     const unseenBeforeGuess = round.deck.slice(round.position - 1);
     const factor = hiloMultiplierFactor(currentCard, action, unseenBeforeGuess);
     round.currentMultiplier = Number((round.currentMultiplier * factor).toFixed(6));
   }
-  // push: multiplier stays the same
 
   hiloRounds.set(userId, round);
 
-  // Compute next-card hints
-  const higherChance = remaining.length > 0
-    ? Number((countHigher(nextCard, remaining) / remaining.length).toFixed(4))
-    : 0;
-  const lowerChance = remaining.length > 0
-    ? Number((countLower(nextCard, remaining) / remaining.length).toFixed(4))
-    : 0;
+  const higherChance = remaining.length > 0 ? Number((countHigher(nextCard, remaining) / remaining.length).toFixed(4)) : 0;
+  const lowerChance = remaining.length > 0 ? Number((countLower(nextCard, remaining) / remaining.length).toFixed(4)) : 0;
 
   res.json({
     finished: false,
@@ -174,15 +142,11 @@ hiloRouter.post("/action", requireAuth, async (req: AuthedRequest, res) => {
     position: round.position - 1,
     higherChance,
     lowerChance,
-    fairness: {
-      serverSeedHash: hashServerSeed(round.serverSeed),
-      clientSeed: round.clientSeed,
-      nonce: round.nonce,
-    },
+    fairness: { serverSeedHash: hashServerSeed(round.serverSeed), clientSeed: round.clientSeed, nonce: round.nonce },
   });
 });
 
-hiloRouter.get("/active", requireAuth, async (req: AuthedRequest, res) => {
+hiloRouter.get("/active", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const round = hiloRounds.get(req.userId!);
   if (!round) return res.status(404).json({ error: "No active Hi-Lo round" });
 
@@ -196,31 +160,18 @@ hiloRouter.get("/active", requireAuth, async (req: AuthedRequest, res) => {
     canLower: rankOrder(currentCard.rank) > 2,
     position: round.position - 1,
     bet: round.bet,
-    higherChance: remaining.length > 0
-      ? Number((countHigher(currentCard, remaining) / remaining.length).toFixed(4))
-      : 0,
-    lowerChance: remaining.length > 0
-      ? Number((countLower(currentCard, remaining) / remaining.length).toFixed(4))
-      : 0,
-    fairness: {
-      serverSeedHash: hashServerSeed(round.serverSeed),
-      clientSeed: round.clientSeed,
-      nonce: round.nonce,
-    },
+    higherChance: remaining.length > 0 ? Number((countHigher(currentCard, remaining) / remaining.length).toFixed(4)) : 0,
+    lowerChance: remaining.length > 0 ? Number((countLower(currentCard, remaining) / remaining.length).toFixed(4)) : 0,
+    fairness: { serverSeedHash: hashServerSeed(round.serverSeed), clientSeed: round.clientSeed, nonce: round.nonce },
   });
 });
-
-// ---------------------------------------------------------------------------
 
 async function settleHilo(userId: string, round: HiloActiveRound, payout: number) {
   const multiplier = round.bet > 0 ? Number((payout / round.bet).toFixed(4)) : 0;
 
   return prisma.$transaction(async (tx) => {
     let user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
-
-    if (payout > 0) {
-      user = await applyLedgerEntry(tx, userId, "payout", payout, undefined);
-    }
+    if (payout > 0) user = await applyLedgerEntry(tx, userId, "payout", payout, undefined);
 
     const gainedXp = xpForWager(round.bet);
     const newXp = user.xp + gainedXp;
@@ -241,28 +192,13 @@ async function settleHilo(userId: string, round: HiloActiveRound, payout: number
 
     const bet = await tx.bet.create({
       data: {
-        userId,
-        game: "hilo",
-        amount: round.bet,
-        payout,
-        multiplier,
+        userId, game: "hilo", amount: round.bet, payout, multiplier,
         result: payout > 0 ? "win" : "loss",
-        state: JSON.stringify({
-          cardsRevealed: round.position,
-          currentMultiplier: round.currentMultiplier,
-        }),
-        clientSeed: round.clientSeed,
-        serverSeed: round.serverSeed,
-        nonce: round.nonce,
+        state: JSON.stringify({ cardsRevealed: round.position, currentMultiplier: round.currentMultiplier }),
+        clientSeed: round.clientSeed, serverSeed: round.serverSeed, nonce: round.nonce,
       },
     });
 
-    return {
-      betId: bet.id,
-      balance: user.balance,
-      level: user.level,
-      xp: user.xp,
-      leveledUp,
-    };
+    return { betId: bet.id, balance: user.balance, level: user.level, xp: user.xp, leveledUp };
   });
 }
