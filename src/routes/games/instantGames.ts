@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth, AuthedRequest } from "../../middleware/auth";
+import { requireAuth, requireApproved, AuthedRequest } from "../../middleware/auth";
 import { placeBet, BadBetInputError } from "../../lib/betting";
 import { playDice, validateDice } from "../../games/dice";
 import { playLimbo, validateLimbo } from "../../games/limbo";
@@ -12,7 +12,6 @@ import { InsufficientFundsError } from "../../lib/wallet";
 
 export const instantGamesRouter = Router();
 
-/** Shared error translation so every instant-game route reports the same shape for the same failures. */
 function handleBetError(err: unknown, res: import("express").Response) {
   if (err instanceof InsufficientFundsError) return res.status(400).json({ error: "Insufficient balance" });
   if (err instanceof BadBetInputError) return res.status(400).json({ error: err.message });
@@ -20,16 +19,13 @@ function handleBetError(err: unknown, res: import("express").Response) {
   res.status(500).json({ error: "Something went wrong — please try again" });
 }
 
-// ---------------------------------------------------------------------------
-// Dice — pick over/under a target 0-100, instant resolution.
-// ---------------------------------------------------------------------------
 const diceSchema = z.object({
   amount: z.number().int().positive(),
   target: z.number().min(0.01).max(99.99),
   direction: z.enum(["over", "under"]),
 });
 
-instantGamesRouter.post("/dice", requireAuth, async (req: AuthedRequest, res) => {
+instantGamesRouter.post("/dice", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = diceSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
@@ -53,15 +49,12 @@ instantGamesRouter.post("/dice", requireAuth, async (req: AuthedRequest, res) =>
   }
 });
 
-// ---------------------------------------------------------------------------
-// Limbo — pick a target multiplier, win if the rolled multiplier clears it.
-// ---------------------------------------------------------------------------
 const limboSchema = z.object({
   amount: z.number().int().positive(),
   targetMultiplier: z.number().min(1.01).max(1_000_000),
 });
 
-instantGamesRouter.post("/limbo", requireAuth, async (req: AuthedRequest, res) => {
+instantGamesRouter.post("/limbo", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = limboSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
@@ -85,16 +78,13 @@ instantGamesRouter.post("/limbo", requireAuth, async (req: AuthedRequest, res) =
   }
 });
 
-// ---------------------------------------------------------------------------
-// Plinko — drop a ball through a peg board, land in a multiplier slot.
-// ---------------------------------------------------------------------------
 const plinkoSchema = z.object({
   amount: z.number().int().positive(),
   risk: z.enum(["low", "medium", "high"]),
   rows: z.number().int(),
 });
 
-instantGamesRouter.post("/plinko", requireAuth, async (req: AuthedRequest, res) => {
+instantGamesRouter.post("/plinko", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = plinkoSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
@@ -119,15 +109,12 @@ instantGamesRouter.post("/plinko", requireAuth, async (req: AuthedRequest, res) 
   }
 });
 
-// ---------------------------------------------------------------------------
-// Keno — pick 2-10 numbers from 1-80, house draws 20.
-// ---------------------------------------------------------------------------
 const kenoSchema = z.object({
   amount: z.number().int().positive(),
   picks: z.array(z.number().int()).min(2).max(10),
 });
 
-instantGamesRouter.post("/keno", requireAuth, async (req: AuthedRequest, res) => {
+instantGamesRouter.post("/keno", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = kenoSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
@@ -158,15 +145,12 @@ instantGamesRouter.post("/keno", requireAuth, async (req: AuthedRequest, res) =>
   }
 });
 
-// ---------------------------------------------------------------------------
-// Wheel of Fortune — spin a weighted segment wheel.
-// ---------------------------------------------------------------------------
 const wheelSchema = z.object({
   amount: z.number().int().positive(),
   risk: z.enum(["low", "medium", "high"]),
 });
 
-instantGamesRouter.post("/wheel", requireAuth, async (req: AuthedRequest, res) => {
+instantGamesRouter.post("/wheel", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = wheelSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
@@ -196,15 +180,12 @@ instantGamesRouter.post("/wheel", requireAuth, async (req: AuthedRequest, res) =
   }
 });
 
-// ---------------------------------------------------------------------------
-// Baccarat — player/banker/tie bet with standard baccarat card rules.
-// ---------------------------------------------------------------------------
 const baccaratSchema = z.object({
   amount: z.number().int().positive(),
   bet: z.enum(["player", "banker", "tie"]),
 });
 
-instantGamesRouter.post("/baccarat", requireAuth, async (req: AuthedRequest, res) => {
+instantGamesRouter.post("/baccarat", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = baccaratSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
