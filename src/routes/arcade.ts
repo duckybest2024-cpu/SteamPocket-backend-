@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth, AuthedRequest } from "../middleware/auth";
+import { requireAuth, requireApproved, AuthedRequest } from "../middleware/auth";
 import { placeBet, BadBetInputError } from "../lib/betting";
 import { floatFromSeed } from "../lib/provablyFair";
 import { InsufficientFundsError } from "../lib/wallet";
@@ -33,7 +33,6 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.06, mult: 4,  label: "Big prize! 🎁" },
       { prob: 0.01, mult: 12, label: "JACKPOT! 🏆" },
     ],
-    // EV: 0 + 0.25 + 0.36 + 0.24 + 0.12 = 0.97
   },
   {
     id: "claw_deluxe",
@@ -42,13 +41,12 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
     description: "Precision claw with X/Y positioning",
     table: [
       { prob: 0.45, mult: 0,   label: "Missed!" },
-      { prob: 0.20, mult: 0.5, label: "Consolation prize 🎀" },
+      { prob: 0.20, mult: 0.5, label: "Consolation prize 🎠" },
       { prob: 0.20, mult: 1,   label: "Small prize 🧸" },
       { prob: 0.10, mult: 3,   label: "Medium prize 🐻" },
       { prob: 0.04, mult: 8,   label: "Large prize! 🎁" },
       { prob: 0.01, mult: 5,   label: "JACKPOT! 🏆" },
     ],
-    // EV: 0 + 0.10 + 0.20 + 0.30 + 0.32 + 0.05 = 0.97
   },
   {
     id: "capsule_gacha",
@@ -63,7 +61,6 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.04, mult: 2.5, label: "Epic prize ✨" },
       { prob: 0.01, mult: 2,   label: "Legendary prize 🌟" },
     ],
-    // EV: 0 + 0.20 + 0.35 + 0.30 + 0.10 + 0.02 = 0.97
   },
   {
     id: "magic_egg",
@@ -78,7 +75,6 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.04, mult: 5,   label: "Lucky egg! 🌟" },
       { prob: 0.01, mult: 2,   label: "Golden egg! 🥇" },
     ],
-    // EV: 0 + 0.15 + 0.30 + 0.30 + 0.20 + 0.02 = 0.97
   },
   {
     id: "fantasy_star",
@@ -93,7 +89,6 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.03, mult: 4,   label: "Rainbow star! 🌈" },
       { prob: 0.01, mult: 7,   label: "SUPER STAR! 🚀" },
     ],
-    // EV: 0 + 0.28 + 0.27 + 0.24 + 0.12 + 0.07 = 0.98
   },
   {
     id: "ticket_blaster",
@@ -108,7 +103,6 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.07, mult: 3,   label: "Bullseye! 🎯" },
       { prob: 0.02, mult: 5,   label: "JACKPOT BLAST! 💥" },
     ],
-    // EV: 0 + 0.15 + 0.22 + 0.28 + 0.21 + 0.10 = 0.96
   },
   {
     id: "stacker",
@@ -123,7 +117,6 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.02, mult: 5,  label: "Perfect stack! ⭐" },
       { prob: 0.01, mult: 10, label: "JACKPOT! 🏆" },
     ],
-    // EV: 0 + 0.25 + 0.30 + 0.21 + 0.10 + 0.10 = 0.96
   },
   {
     id: "basketball",
@@ -138,22 +131,20 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.02, mult: 5,   label: "Half-court shot! 🏆" },
       { prob: 0.01, mult: 7,   label: "BUZZER BEATER! 🎉" },
     ],
-    // EV: 0 + 0.25 + 0.27 + 0.27 + 0.10 + 0.07 = 0.96
   },
   {
     id: "whack_mole",
     name: "Whack-a-Mole",
-    emoji: "🐹",
+    emoji: "💨",
     description: "Whack moles as fast as you can!",
     table: [
       { prob: 0.25, mult: 0,  label: "Missed all moles!" },
-      { prob: 0.30, mult: 0.5, label: "1 mole hit 🐹" },
-      { prob: 0.25, mult: 1,  label: "3 moles hit 🐹🐹🐹" },
+      { prob: 0.30, mult: 0.5, label: "1 mole hit 💨" },
+      { prob: 0.25, mult: 1,  label: "3 moles hit 💨💨💨" },
       { prob: 0.15, mult: 2,  label: "5 moles hit! 🎯" },
       { prob: 0.04, mult: 4,  label: "Mole frenzy! 🌟" },
       { prob: 0.01, mult: 10, label: "PERFECT ROUND! 🏆" },
     ],
-    // EV: 0 + 0.15 + 0.25 + 0.30 + 0.16 + 0.10 = 0.96
   },
   {
     id: "fishing",
@@ -168,7 +159,6 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.05, mult: 4,   label: "Rare fish! 🦈" },
       { prob: 0.01, mult: 12,  label: "LEGENDARY CATCH! 🏆" },
     ],
-    // EV: 0 + 0.125 + 0.25 + 0.28 + 0.20 + 0.12 = 0.975
   },
   {
     id: "lucky_punch",
@@ -183,7 +173,6 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.04, mult: 5,   label: "Knockout! ⭐" },
       { prob: 0.01, mult: 12,  label: "MEGA PUNCH! 🏆" },
     ],
-    // EV: 0 + 0.14 + 0.22 + 0.30 + 0.20 + 0.12 = 0.98
   },
   {
     id: "coin_pusher",
@@ -198,7 +187,6 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.06, mult: 3,   label: "Coin avalanche! 🎰" },
       { prob: 0.02, mult: 5,   label: "JACKPOT COINS! 🏆" },
     ],
-    // EV: 0 + 0.15 + 0.26 + 0.28 + 0.18 + 0.10 = 0.97
   },
   {
     id: "prize_ladder",
@@ -213,7 +201,6 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.05, mult: 4,   label: "Top rung! 🌟" },
       { prob: 0.01, mult: 12,  label: "JACKPOT RUNG! 🏆" },
     ],
-    // EV: 0 + 0.15 + 0.22 + 0.28 + 0.20 + 0.12 = 0.97
   },
   {
     id: "crane_master",
@@ -225,10 +212,9 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.25, mult: 1,  label: "Grabbed it! 📦" },
       { prob: 0.15, mult: 2,  label: "Perfect grab! ⭐" },
       { prob: 0.07, mult: 3,  label: "Master crane! 🌟" },
-      { prob: 0.02, mult: 5,  label: "Precision elite! 💎" },
+      { prob: 0.02, mult: 5,  label: "Precision elite! 📎" },
       { prob: 0.01, mult: 10, label: "GRAND MASTER! 🏆" },
     ],
-    // EV: 0 + 0.25 + 0.30 + 0.21 + 0.10 + 0.10 = 0.96
   },
   {
     id: "egg_machine",
@@ -243,7 +229,6 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.04, mult: 4,   label: "Golden egg! 💛" },
       { prob: 0.01, mult: 12,  label: "DRAGON EGG! 🐉" },
     ],
-    // EV: 0 + 0.175 + 0.28 + 0.24 + 0.16 + 0.12 = 0.975
   },
 ];
 
@@ -267,7 +252,7 @@ arcadeRouter.get("/games", (_req, res) => {
   });
 });
 
-arcadeRouter.post("/:gameId/play", requireAuth, async (req: AuthedRequest, res) => {
+arcadeRouter.post("/:gameId/play", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const { gameId } = req.params;
   const game = ARCADE_GAMES.find(g => g.id === gameId);
   if (!game) return res.status(404).json({ error: "Game not found" });
