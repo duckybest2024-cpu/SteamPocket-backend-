@@ -58,7 +58,7 @@ async function waitForDb(retries = 10): Promise<void> {
   new ChatEngine(io);
 
   httpServer.listen(config.port, () => {
-    console.log(`🎰 Casino Aurelius listening on :${config.port}`);
+    console.log(`🎰 GrilledCoin listening on :${config.port}`);
     console.log(`   REST API:   http://localhost:${config.port}`);
     console.log(`   Crash feed: ws://localhost:${config.port}/crash`);
   });
