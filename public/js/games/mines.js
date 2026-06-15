@@ -5,8 +5,7 @@ const MinesGame = (() => {
     let roundActive = false;
 
     container.innerHTML = `
-      <div class="game-panel">
-        <div class="game-layout">
+      <div class="game-layout">
 
           <div class="bet-panel">
             <div class="bp-tabs">
@@ -49,7 +48,6 @@ const MinesGame = (() => {
           </div>
 
         </div>
-      </div>
     `;
 
     const els = {
