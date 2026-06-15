@@ -93,7 +93,7 @@ statsRouter.get("/player/:username", async (req, res) => {
   try {
     const { username } = req.params;
     const user = await prisma.user.findFirst({
-      where: { username: { equals: username } },
+      where: { username: { equals: username, mode: "insensitive" } },
       select: { id: true, username: true, nickname: true, level: true, rank: true, createdAt: true },
     });
     if (!user) return res.status(404).json({ error: "Player not found" });

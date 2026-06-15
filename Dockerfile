@@ -30,8 +30,4 @@ COPY public ./public/
 
 EXPOSE 3000
 
-# Force built-in SQLite (ignore any DATABASE_URL set by the host), create tables, start server.
-# IMPORTANT: /data MUST be mounted as a Railway persistent volume, otherwise the
-# SQLite database is wiped on every redeploy. No --accept-data-loss so Prisma will
-# never silently drop existing columns/tables (preserves user accounts on updates).
-CMD ["sh", "-c", "export DATABASE_URL=file:/data/casino.db && mkdir -p /data && npx prisma db push --skip-generate && node dist/server.js"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/server.js"]
