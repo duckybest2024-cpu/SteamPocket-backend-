@@ -1,26 +1,36 @@
 /* ═══════════════════════════════════════════════════════════════
-   Scratch Cards — Casino Aurelius
+   Scratch Cards
    ═══════════════════════════════════════════════════════════════ */
 const ScratchGame = (() => {
 
-  /* ── state ────────────────────────────────────────────────── */
+  /* ── state ──────────────────────────────────────────── */
   let allTickets   = [];
   let activeTheme  = "All";
-  let selectedTicket = null;   // ScratchTicket object
-  let activeBetId  = null;     // betId from /scratch/buy
-  let revealedCells = [];      // indices 0-8 that have been scratched
-  let gridPrizes   = null;     // 9-element array from server (full grid, known after buy)
+  let selectedTicket = null;
+  let activeBetId  = null;
+  let revealedCells = [];
+  let gridPrizes   = null;
   let wonPrize     = null;
   let isRevealing  = false;
-  let latestRevealData = null; // full reveal response stored after buy
+  let latestRevealData = null;
 
   const THEMES = ["All", "Lucky Gems", "Casino Classic", "Fortune Dragons", "Space Jackpot", "Golden Gods"];
 
-  /* ── render entry-point ───────────────────────────────────── */
+  /* ── render entry-point ─────────────────────────────────── */
   function render(container, accountState) {
+    allTickets      = [];
+    activeTheme     = "All";
+    selectedTicket  = null;
+    activeBetId     = null;
+    revealedCells   = [];
+    gridPrizes      = null;
+    wonPrize        = null;
+    isRevealing     = false;
+    latestRevealData = null;
+
     container.innerHTML = buildShell();
     addStyles();
-    loadTickets();
+    loadTickets(container);
 
     return () => { /* cleanup */ };
   }
@@ -42,7 +52,7 @@ const ScratchGame = (() => {
   <!-- RIGHT: scratch panel -->
   <div class="sc-panel" id="sc-panel">
     <div class="sc-empty-hint" id="sc-hint">
-      <div class="sc-empty-icon">🎟️</div>
+      <div class="sc-empty-icon">🏟️</div>
       <div>Select a ticket to start scratching!</div>
     </div>
     <div class="sc-ticket-detail hidden" id="sc-detail">
@@ -70,7 +80,7 @@ const ScratchGame = (() => {
 
       <!-- controls -->
       <div class="sc-controls" id="sc-controls">
-        <button class="sc-btn-buy" id="sc-btn-buy">🎟️ Buy Ticket</button>
+        <button class="sc-btn-buy" id="sc-btn-buy">🏟️ Buy Ticket</button>
         <button class="sc-btn-reveal hidden" id="sc-btn-reveal-all">✨ Scratch All</button>
         <button class="sc-btn-new hidden" id="sc-btn-new">🔄 Buy Another</button>
       </div>
@@ -82,15 +92,15 @@ const ScratchGame = (() => {
 </div>`;
   }
 
-  /* ── load tickets from API ────────────────────────────────── */
-  async function loadTickets() {
+  /* ── load tickets from API ───────────────────────────────── */
+  async function loadTickets(container) {
     try {
       const data = await Api.get("/scratch/tickets");
       allTickets = data.tickets || [];
       renderTicketGrid(activeTheme);
-      wireThemeButtons();
+      wireThemeButtons(container);
     } catch (err) {
-      const grid = document.getElementById("sc-ticket-grid");
+      const grid = container.querySelector("#sc-ticket-grid");
       if (grid) grid.innerHTML =
         `<div class="sc-loading" style="color:var(--loss)">Failed to load tickets: ${err.message}</div>`;
     }
@@ -123,10 +133,10 @@ const ScratchGame = (() => {
   }
 
   /* ── theme filter buttons ─────────────────────────────────── */
-  function wireThemeButtons() {
-    document.querySelectorAll(".sc-theme-btn").forEach(btn => {
+  function wireThemeButtons(container) {
+    container.querySelectorAll(".sc-theme-btn").forEach(btn => {
       btn.addEventListener("click", () => {
-        document.querySelectorAll(".sc-theme-btn").forEach(b => b.classList.remove("active"));
+        container.querySelectorAll(".sc-theme-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         activeTheme = btn.dataset.theme;
         renderTicketGrid(activeTheme);
@@ -134,20 +144,17 @@ const ScratchGame = (() => {
     });
   }
 
-  /* ── select a ticket ──────────────────────────────────────── */
+  /* ── select a ticket ─────────────────────────────────────────── */
   function selectTicket(id) {
     selectedTicket = allTickets.find(t => t.id === id) || null;
     if (!selectedTicket) return;
 
-    // Highlight card
     document.querySelectorAll(".sc-ticket-card").forEach(c =>
       c.classList.toggle("selected", c.dataset.id === id));
 
-    // Show detail panel
     document.getElementById("sc-hint").classList.add("hidden");
     document.getElementById("sc-detail").classList.remove("hidden");
 
-    // Fill info
     document.getElementById("sc-tick-emoji").textContent   = selectedTicket.emoji;
     document.getElementById("sc-tick-name").textContent    = selectedTicket.name;
     document.getElementById("sc-tick-desc").textContent    = selectedTicket.description;
@@ -155,14 +162,12 @@ const ScratchGame = (() => {
     document.getElementById("sc-tick-maxprize").textContent = selectedTicket.maxPrize.toLocaleString() + " chips";
     document.getElementById("sc-tick-theme").textContent   = selectedTicket.theme;
 
-    // Reset scratch state
     resetScratchState();
 
-    // Wire buy button
     document.getElementById("sc-btn-buy").onclick = () => buyTicket();
   }
 
-  /* ── reset grid for a new ticket ─────────────────────────── */
+  /* ── reset grid for a new ticket ────────────────────────────── */
   function resetScratchState() {
     activeBetId      = null;
     revealedCells    = [];
@@ -183,19 +188,18 @@ const ScratchGame = (() => {
 
     document.getElementById("sc-btn-buy").classList.remove("hidden");
     document.getElementById("sc-btn-buy").disabled = false;
-    document.getElementById("sc-btn-buy").textContent = "🎟️ Buy Ticket";
+    document.getElementById("sc-btn-buy").textContent = "🏟️ Buy Ticket";
     document.getElementById("sc-btn-reveal-all").classList.add("hidden");
     document.getElementById("sc-btn-new").classList.add("hidden");
     document.getElementById("sc-result").classList.add("hidden");
     document.getElementById("sc-result").textContent = "";
 
-    // Disable cell clicks
     document.getElementById("sc-grid").querySelectorAll(".sc-cell").forEach(cell => {
       cell.onclick = null;
     });
   }
 
-  /* ── buy ticket ───────────────────────────────────────────── */
+  /* ── buy ticket ────────────────────────────────────────────── */
   async function buyTicket() {
     if (!selectedTicket) return;
 
@@ -207,43 +211,37 @@ const ScratchGame = (() => {
       const buyData = await Api.post(`/scratch/buy/${selectedTicket.id}`, {});
       activeBetId = buyData.betId;
 
-      // Update balance shown in header
       updateBalanceUI(buyData.balance);
 
-      // Immediately fully reveal (this also triggers payout on backend)
       const revealData = await Api.post(`/scratch/reveal/${activeBetId}`, {});
       latestRevealData = revealData;
       gridPrizes = revealData.grid;
       wonPrize   = revealData.wonPrize;
 
-      // Update balance after payout
       updateBalanceUI(revealData.balance);
 
-      // Enable cell scratching (grid data is now known)
       populateGridSilent();
 
     } catch (err) {
       buyBtn.disabled = false;
-      buyBtn.textContent = "🎟️ Buy Ticket";
+      buyBtn.textContent = "🏟️ Buy Ticket";
       if (typeof UI !== "undefined") UI.toast(err.message || "Failed to buy ticket", "loss");
     }
   }
 
   /* ── silent pre-populate (after buy, before user scratches) ─ */
   function populateGridSilent() {
-    // Hide buy, show reveal-all
     document.getElementById("sc-btn-buy").classList.add("hidden");
     document.getElementById("sc-btn-reveal-all").classList.remove("hidden");
     document.getElementById("sc-btn-reveal-all").onclick = () => animateRevealAll();
 
-    // Wire individual cell scratching
     document.getElementById("sc-grid").querySelectorAll(".sc-cell").forEach(cell => {
       const idx = parseInt(cell.dataset.idx, 10);
       cell.onclick = () => scratchCell(idx);
     });
   }
 
-  /* ── scratch a single cell ───────────────────────────────── */
+  /* ── scratch a single cell ──────────────────────────────── */
   function scratchCell(idx) {
     if (revealedCells.includes(idx)) return;
     revealedCells.push(idx);
@@ -256,19 +254,17 @@ const ScratchGame = (() => {
     prizeEl.textContent = prize.chips > 0 ? prize.chips.toLocaleString() : "✗";
     prizeEl.style.color = prize.chips > 0 ? "var(--win, #39c163)" : "var(--text-dim)";
 
-    // Animate cover away
     cover.style.transition = "opacity 0.3s, transform 0.3s";
     cover.style.opacity    = "0";
     cover.style.transform  = "scale(0.6)";
     cell.classList.add("scratched");
 
-    // All 9 scratched → finalize
     if (revealedCells.length === 9) {
       setTimeout(() => finalizeResult(), 200);
     }
   }
 
-  /* ── animated full reveal ─────────────────────────────────── */
+  /* ── animated full reveal ────────────────────────────────── */
   async function animateRevealAll() {
     document.getElementById("sc-btn-reveal-all").classList.add("hidden");
 
@@ -287,11 +283,9 @@ const ScratchGame = (() => {
     const payChips  = data.payoutChips || 0;
     const leveledUp = data.leveledUp || false;
 
-    // Disable further clicks
     document.getElementById("sc-grid").querySelectorAll(".sc-cell").forEach(c => { c.onclick = null; });
     document.getElementById("sc-btn-reveal-all").classList.add("hidden");
 
-    // Highlight win line
     if (wonPrize && wonPrize.chips > 0) {
       const LINES = [
         [0,1,2],[3,4,5],[6,7,8],
@@ -307,7 +301,6 @@ const ScratchGame = (() => {
       }
     }
 
-    // Result banner
     const resultEl = document.getElementById("sc-result");
     resultEl.classList.remove("hidden");
 
@@ -324,12 +317,11 @@ const ScratchGame = (() => {
       resultEl.className = "sc-result sc-result-lose";
     }
 
-    // Show "buy another" button
     document.getElementById("sc-btn-new").classList.remove("hidden");
     document.getElementById("sc-btn-new").onclick = () => selectTicket(selectedTicket.id);
   }
 
-  /* ── update balance in app header ────────────────────────── */
+  /* ── update balance in app header ─────────────────────────── */
   function updateBalanceUI(balance) {
     const tbEl = document.getElementById("topbar-balance");
     if (tbEl) tbEl.textContent = Math.floor(balance / 100).toLocaleString();
@@ -340,7 +332,7 @@ const ScratchGame = (() => {
   /* ── helper ───────────────────────────────────────────────── */
   function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-  /* ── inline styles ────────────────────────────────────────── */
+  /* ── inline styles ──────────────────────────────────────────── */
   function addStyles() {
     if (document.getElementById("sc-styles")) return;
     const style = document.createElement("style");
