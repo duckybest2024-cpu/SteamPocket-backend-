@@ -4,6 +4,7 @@ import { requireAuth, AuthedRequest } from "../middleware/auth";
 
 export const statsRouter = Router();
 
+// GET /stats/me — authenticated user's own stats
 statsRouter.get("/me", requireAuth as any, async (req: AuthedRequest, res) => {
   try {
     const userId = req.userId!;
@@ -29,18 +30,22 @@ statsRouter.get("/me", requireAuth as any, async (req: AuthedRequest, res) => {
     const netProfit = totalPayout - totalWagered;
     const winRate = totalBets > 0 ? (wins / totalBets) * 100 : 0;
 
+    // Best win by payout amount
     const bestWin = bets
       .filter((b) => b.result === "win")
       .sort((a, b) => b.payout - a.payout)[0] ?? null;
 
+    // Biggest multiplier hit
     const biggestMultiplier = bets
       .filter((b) => b.result === "win")
       .sort((a, b) => b.multiplier - a.multiplier)[0] ?? null;
 
+    // Favorite game (most bets)
     const gameCount: Record<string, number> = {};
     for (const b of bets) gameCount[b.game] = (gameCount[b.game] ?? 0) + 1;
     const favoriteGame = Object.entries(gameCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
+    // Stats per game
     const gameStats: Record<string, { bets: number; wins: number; wagered: number; payout: number }> = {};
     for (const b of bets) {
       if (!gameStats[b.game]) gameStats[b.game] = { bets: 0, wins: 0, wagered: 0, payout: 0 };
@@ -50,6 +55,7 @@ statsRouter.get("/me", requireAuth as any, async (req: AuthedRequest, res) => {
       gameStats[b.game].payout += b.payout;
     }
 
+    // Recent bets (last 20)
     const recentBets = await prisma.bet.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
@@ -82,6 +88,7 @@ statsRouter.get("/me", requireAuth as any, async (req: AuthedRequest, res) => {
   }
 });
 
+// GET /stats/player/:username — public profile
 statsRouter.get("/player/:username", async (req, res) => {
   try {
     const { username } = req.params;
