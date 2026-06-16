@@ -94,7 +94,11 @@ export class CoinflipEngine {
     this.io.of("/coinflip").to("coinflip").emit(event, payload);
   }
 
-  private async handleCreateChallenge(socket: AuthedSocket, payload: unknown, ack?: (resp: unknown) => void) {
+  private async handleCreateChallenge(
+    socket: AuthedSocket,
+    payload: unknown,
+    ack?: (resp: unknown) => void
+  ) {
     const reply = (resp: unknown) => ack?.(resp);
     const userId = socket.data.userId;
     if (!userId) return reply({ error: "Authentication required" });
@@ -145,7 +149,11 @@ export class CoinflipEngine {
     });
   }
 
-  private async handleCancelChallenge(socket: AuthedSocket, payload: unknown, ack?: (resp: unknown) => void) {
+  private async handleCancelChallenge(
+    socket: AuthedSocket,
+    payload: unknown,
+    ack?: (resp: unknown) => void
+  ) {
     const reply = (resp: unknown) => ack?.(resp);
     const userId = socket.data.userId;
     if (!userId) return reply({ error: "Authentication required" });
@@ -167,7 +175,11 @@ export class CoinflipEngine {
     this.broadcast("challenge_cancelled", { id });
   }
 
-  private async handleJoinChallenge(socket: AuthedSocket, payload: unknown, ack?: (resp: unknown) => void) {
+  private async handleJoinChallenge(
+    socket: AuthedSocket,
+    payload: unknown,
+    ack?: (resp: unknown) => void
+  ) {
     const reply = (resp: unknown) => ack?.(resp);
     const userId = socket.data.userId;
     if (!userId) return reply({ error: "Authentication required" });
@@ -204,34 +216,38 @@ export class CoinflipEngine {
     });
 
     await Promise.all([
-      prisma.bet.create({
-        data: {
-          userId: challenge.creatorId,
-          game: "coinflip",
-          amount: challenge.amount,
-          payout: creatorWins ? payout : 0,
-          multiplier: creatorWins ? PAYOUT_MULTIPLIER : 0,
-          result: creatorWins ? "win" : "loss",
-          state: JSON.stringify({ challengeId: id, resultHash, opponent: joinerName }),
-          clientSeed: userId,
-          serverSeed: challenge.serverSeed,
-          nonce: 0,
-        },
-      }).catch(() => {}),
-      prisma.bet.create({
-        data: {
-          userId,
-          game: "coinflip",
-          amount: challenge.amount,
-          payout: !creatorWins ? payout : 0,
-          multiplier: !creatorWins ? PAYOUT_MULTIPLIER : 0,
-          result: !creatorWins ? "win" : "loss",
-          state: JSON.stringify({ challengeId: id, resultHash, opponent: challenge.creatorName }),
-          clientSeed: userId,
-          serverSeed: challenge.serverSeed,
-          nonce: 0,
-        },
-      }).catch(() => {}),
+      prisma.bet
+        .create({
+          data: {
+            userId: challenge.creatorId,
+            game: "coinflip",
+            amount: challenge.amount,
+            payout: creatorWins ? payout : 0,
+            multiplier: creatorWins ? PAYOUT_MULTIPLIER : 0,
+            result: creatorWins ? "win" : "loss",
+            state: JSON.stringify({ challengeId: id, resultHash, opponent: joinerName }),
+            clientSeed: userId,
+            serverSeed: challenge.serverSeed,
+            nonce: 0,
+          },
+        })
+        .catch(() => {}),
+      prisma.bet
+        .create({
+          data: {
+            userId,
+            game: "coinflip",
+            amount: challenge.amount,
+            payout: !creatorWins ? payout : 0,
+            multiplier: !creatorWins ? PAYOUT_MULTIPLIER : 0,
+            result: !creatorWins ? "win" : "loss",
+            state: JSON.stringify({ challengeId: id, resultHash, opponent: challenge.creatorName }),
+            clientSeed: userId,
+            serverSeed: challenge.serverSeed,
+            nonce: 0,
+          },
+        })
+        .catch(() => {}),
     ]);
 
     const result = {

@@ -60,7 +60,7 @@ export class HorseRaceEngine {
 
       socket.on("bet", async ({ horseId, amount }: { horseId: number; amount: number }) => {
         if (!socket.data.userId) return socket.emit("error", "Login required");
-        if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
         if (this.phase !== "betting") return socket.emit("error", "Betting is closed");
         if (horseId < 0 || horseId >= HORSES.length) return socket.emit("error", "Invalid horse");
         if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min bet: 1 chip");
