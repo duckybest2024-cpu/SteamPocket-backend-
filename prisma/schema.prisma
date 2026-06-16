@@ -12,12 +12,13 @@ model User {
   username      String   @unique
   email         String   @unique
   passwordHash  String
-  balance       Int      @default(0)
-  bank          Int      @default(0)
+  balance       Int      @default(100000) // balance stored in cents (e.g. 100000 = $1,000.00 starting bonus)
+  bank          Int      @default(0)      // "cashed out" chips stored here; players buy chips from bank to play
   level         Int      @default(1)
   xp            Int      @default(0)
   createdAt     DateTime @default(now())
 
+  // Provably-fair seed pair currently active for this user
   clientSeed    String   @default("default-client-seed")
   serverSeed    String
   serverSeedHash String
@@ -30,12 +31,14 @@ model User {
   emailToken       String?
   emailTokenExpiry DateTime?
 
+  // Patreon subscription system
   patreonUsername  String?
-  isApproved       Boolean   @default(false)
+  isApproved       Boolean   @default(true)   // true for pre-existing accounts; false for new registrations
   approvedUntil    DateTime?
-  patreonTier      String?
+  patreonTier      String?                     // bronze_patron | silver_patron | gold_patron | platinum_patron | diamond_patron
   isAdmin          Boolean   @default(false)
 
+  // Anti-cheat
   flagged       Boolean  @default(false)
   flagReason    String?
   flaggedAt     DateTime?
@@ -60,7 +63,7 @@ model SeedRotation {
   id              String   @id @default(cuid())
   userId          String
   user            User     @relation(fields: [userId], references: [id])
-  serverSeed      String
+  serverSeed      String   // revealed (previous) server seed
   serverSeedHash  String
   clientSeed      String
   nonceCount      Int
@@ -73,14 +76,14 @@ model Bet {
   id          String   @id @default(cuid())
   userId      String
   user        User     @relation(fields: [userId], references: [id])
-  game        String
-  amount      Int
-  payout      Int
-  multiplier  Float
-  state       String
-  result      String
+  game        String   // dice | crash | mines | limbo | roulette | blackjack | plinko | slots
+  amount      Int      // wager, in cents
+  payout      Int      // amount returned to user, in cents (0 = total loss)
+  multiplier  Float    // resulting multiplier (payout / amount), 0 if lost
+  state       String   // JSON blob describing the round (per-game shape)
+  result      String   // "win" | "loss"
   clientSeed  String
-  serverSeed  String
+  serverSeed  String   // revealed seed used for this bet (hashed seed was shown beforehand)
   nonce       Int
   createdAt   DateTime @default(now())
 
@@ -92,10 +95,10 @@ model Transaction {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  type      String
-  amount    Int
-  balance   Int
-  reference String?
+  type      String   // deposit | withdrawal | bet | payout | rakeback | bonus | levelup_bonus
+  amount    Int      // signed delta, in cents
+  balance   Int      // resulting balance after applying this transaction
+  reference String?  // related bet id, claim id, etc.
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
@@ -115,7 +118,7 @@ model FriendRequest {
   id        String   @id @default(cuid())
   fromId    String
   toId      String
-  status    String   @default("pending")
+  status    String   @default("pending") // pending | accepted | rejected
   createdAt DateTime @default(now())
   from      User     @relation("SentRequests", fields: [fromId], references: [id])
   to        User     @relation("ReceivedRequests", fields: [toId], references: [id])
@@ -142,7 +145,7 @@ model CrashRound {
   serverSeed   String
   serverSeedHash String
   crashPoint   Float
-  state        String
+  state        String   // betting | running | crashed
   startedAt    DateTime @default(now())
   endedAt      DateTime?
 }
@@ -169,10 +172,10 @@ model Nft {
   owner       User     @relation(fields: [ownerId], references: [id])
   name        String
   description String
-  rarity      String
-  category    String
+  rarity      String   // common | uncommon | rare | epic | legendary
+  category    String   // win | level | first | streak | special | custom
   emoji       String
-  customImage String?
+  customImage String?  // base64 data URL for user-drawn NFTs
   mintedAt    DateTime @default(now())
   tradeItems  TradeOfferItem[]
 
@@ -185,7 +188,7 @@ model TradeOffer {
   toId            String
   offeredChips    Int      @default(0)
   requestedChips  Int      @default(0)
-  status          String   @default("pending")
+  status          String   @default("pending") // pending | accepted | declined | cancelled
   message         String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -201,18 +204,18 @@ model TradeOfferItem {
   id           String     @id @default(cuid())
   tradeOfferId String
   nftId        String
-  side         String
+  side         String     // offered | requested
   tradeOffer   TradeOffer @relation(fields: [tradeOfferId], references: [id])
   nft          Nft        @relation(fields: [nftId], references: [id])
 }
 
 model JackpotRound {
   id          String   @id @default(cuid())
-  status      String   @default("open")
+  status      String   @default("open")  // open | spinning | closed
   totalPot    Int      @default(0)
   winnerId    String?
   winnerName  String?
-  entries     String   @default("[]")
+  entries     String   @default("[]") // JSON array of { userId, username, amount }
   createdAt   DateTime @default(now())
   closedAt    DateTime?
 }
@@ -231,7 +234,7 @@ model NftSupply {
 model ActiveBuff {
   id        String    @id @default(cuid())
   userId    String
-  type      String
+  type      String    // chips_bonus | xp_bonus | jackpot_entry | free_spin | multiplier_boost
   value     Float     @default(1.0)
   betsLeft  Int       @default(0)
   expiresAt DateTime?
@@ -303,7 +306,7 @@ model NftListing {
   nftId      String    @unique
   sellerId   String
   priceChips Int
-  status     String    @default("active")
+  status     String    @default("active") // active | sold | cancelled
   buyerId    String?
   createdAt  DateTime  @default(now())
   soldAt     DateTime?
@@ -348,13 +351,13 @@ model EventParticipant {
 
 model BoardGameRoom {
   id         String   @id @default(cuid())
-  game       String
-  status     String   @default("waiting")
+  game       String   // chess | checkers | battleship | durak | wildcards | poker | bridge | monopoly
+  status     String   @default("waiting") // waiting | playing | finished
   betChips   Int
   maxPlayers Int      @default(2)
-  players    String   @default("[]")
+  players    String   @default("[]") // JSON array
   winnerId   String?
-  state      String   @default("{}")
+  state      String   @default("{}") // JSON game state
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

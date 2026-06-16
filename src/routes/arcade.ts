@@ -41,7 +41,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
     description: "Precision claw with X/Y positioning",
     table: [
       { prob: 0.45, mult: 0,   label: "Missed!" },
-      { prob: 0.20, mult: 0.5, label: "Consolation prize 🎠" },
+      { prob: 0.20, mult: 0.5, label: "Consolation prize 🎀" },
       { prob: 0.20, mult: 1,   label: "Small prize 🧸" },
       { prob: 0.10, mult: 3,   label: "Medium prize 🐻" },
       { prob: 0.04, mult: 8,   label: "Large prize! 🎁" },
@@ -135,12 +135,12 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
   {
     id: "whack_mole",
     name: "Whack-a-Mole",
-    emoji: "💨",
+    emoji: "🐹",
     description: "Whack moles as fast as you can!",
     table: [
       { prob: 0.25, mult: 0,  label: "Missed all moles!" },
-      { prob: 0.30, mult: 0.5, label: "1 mole hit 💨" },
-      { prob: 0.25, mult: 1,  label: "3 moles hit 💨💨💨" },
+      { prob: 0.30, mult: 0.5, label: "1 mole hit 🐹" },
+      { prob: 0.25, mult: 1,  label: "3 moles hit 🐹🐹🐹" },
       { prob: 0.15, mult: 2,  label: "5 moles hit! 🎯" },
       { prob: 0.04, mult: 4,  label: "Mole frenzy! 🌟" },
       { prob: 0.01, mult: 10, label: "PERFECT ROUND! 🏆" },
@@ -212,7 +212,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.25, mult: 1,  label: "Grabbed it! 📦" },
       { prob: 0.15, mult: 2,  label: "Perfect grab! ⭐" },
       { prob: 0.07, mult: 3,  label: "Master crane! 🌟" },
-      { prob: 0.02, mult: 5,  label: "Precision elite! 📎" },
+      { prob: 0.02, mult: 5,  label: "Precision elite! 💎" },
       { prob: 0.01, mult: 10, label: "GRAND MASTER! 🏆" },
     ],
   },

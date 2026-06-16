@@ -70,7 +70,9 @@ authRouter.get("/verify-email", async (req, res) => {
       where: { emailToken: token, emailTokenExpiry: { gt: new Date() } },
     });
 
-    if (!user) return res.redirect("/?emailVerified=expired");
+    if (!user) {
+      return res.redirect("/?emailVerified=expired");
+    }
 
     await prisma.user.update({
       where: { id: user.id },
@@ -132,6 +134,7 @@ authRouter.post("/login", async (req, res) => {
 
     const token = signToken(user.id);
     const pub = publicUser(user);
+
     const ownerUser = isOwner(user.username);
 
     if (!ownerUser && !user.isAdmin && user.isApproved && user.approvedUntil && user.approvedUntil < new Date()) {

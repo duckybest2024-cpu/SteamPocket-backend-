@@ -4,7 +4,6 @@ import { requireAuth, AuthedRequest } from "../middleware/auth";
 
 export const statsRouter = Router();
 
-// GET /stats/me — authenticated user's own stats
 statsRouter.get("/me", requireAuth as any, async (req: AuthedRequest, res) => {
   try {
     const userId = req.userId!;
@@ -83,7 +82,6 @@ statsRouter.get("/me", requireAuth as any, async (req: AuthedRequest, res) => {
   }
 });
 
-// GET /stats/player/:username — public profile
 statsRouter.get("/player/:username", async (req, res) => {
   try {
     const { username } = req.params;
