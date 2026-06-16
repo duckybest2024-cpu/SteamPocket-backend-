@@ -125,13 +125,24 @@ export class CoinflipEngine {
     const id = crypto.randomBytes(8).toString("hex");
 
     const challenge: CoinflipChallenge = {
-      id, creatorId: userId, creatorName: socket.data.username ?? "player",
-      amount, serverSeed, serverSeedHash, createdAt: Date.now(),
+      id,
+      creatorId: userId,
+      creatorName: socket.data.username ?? "player",
+      amount,
+      serverSeed,
+      serverSeedHash,
+      createdAt: Date.now(),
     };
     this.challenges.set(id, challenge);
 
     reply({ ok: true, challengeId: id, serverSeedHash });
-    this.broadcast("challenge_created", { id, creatorName: challenge.creatorName, amount, serverSeedHash, createdAt: challenge.createdAt });
+    this.broadcast("challenge_created", {
+      id,
+      creatorName: challenge.creatorName,
+      amount,
+      serverSeedHash,
+      createdAt: challenge.createdAt,
+    });
   }
 
   private async handleCancelChallenge(socket: AuthedSocket, payload: unknown, ack?: (resp: unknown) => void) {
@@ -147,6 +158,7 @@ export class CoinflipEngine {
     if (challenge.creatorId !== userId) return reply({ error: "Not your challenge" });
 
     this.challenges.delete(id);
+
     await applyLedgerEntry(prisma, userId, "coinflip_refund", challenge.amount, id).catch((err) => {
       console.error("Coinflip refund failed:", err);
     });
@@ -178,6 +190,7 @@ export class CoinflipEngine {
     }
 
     const joinerName = socket.data.username ?? "player";
+
     const resultHash = crypto.createHash("sha256").update(challenge.serverSeed + userId).digest("hex");
     const creatorWins = parseInt(resultHash[0], 16) < 8;
 
@@ -191,13 +204,59 @@ export class CoinflipEngine {
     });
 
     await Promise.all([
-      prisma.bet.create({ data: { userId: challenge.creatorId, game: "coinflip", amount: challenge.amount, payout: creatorWins ? payout : 0, multiplier: creatorWins ? PAYOUT_MULTIPLIER : 0, result: creatorWins ? "win" : "loss", state: JSON.stringify({ challengeId: id, resultHash, opponent: joinerName }), clientSeed: userId, serverSeed: challenge.serverSeed, nonce: 0 } }).catch(() => {}),
-      prisma.bet.create({ data: { userId, game: "coinflip", amount: challenge.amount, payout: !creatorWins ? payout : 0, multiplier: !creatorWins ? PAYOUT_MULTIPLIER : 0, result: !creatorWins ? "win" : "loss", state: JSON.stringify({ challengeId: id, resultHash, opponent: challenge.creatorName }), clientSeed: userId, serverSeed: challenge.serverSeed, nonce: 0 } }).catch(() => {}),
+      prisma.bet.create({
+        data: {
+          userId: challenge.creatorId,
+          game: "coinflip",
+          amount: challenge.amount,
+          payout: creatorWins ? payout : 0,
+          multiplier: creatorWins ? PAYOUT_MULTIPLIER : 0,
+          result: creatorWins ? "win" : "loss",
+          state: JSON.stringify({ challengeId: id, resultHash, opponent: joinerName }),
+          clientSeed: userId,
+          serverSeed: challenge.serverSeed,
+          nonce: 0,
+        },
+      }).catch(() => {}),
+      prisma.bet.create({
+        data: {
+          userId,
+          game: "coinflip",
+          amount: challenge.amount,
+          payout: !creatorWins ? payout : 0,
+          multiplier: !creatorWins ? PAYOUT_MULTIPLIER : 0,
+          result: !creatorWins ? "win" : "loss",
+          state: JSON.stringify({ challengeId: id, resultHash, opponent: challenge.creatorName }),
+          clientSeed: userId,
+          serverSeed: challenge.serverSeed,
+          nonce: 0,
+        },
+      }).catch(() => {}),
     ]);
 
-    const result = { id, creatorName: challenge.creatorName, joinerName, winnerName, loserName, amount: challenge.amount, payout, serverSeed: challenge.serverSeed, serverSeedHash: challenge.serverSeedHash, resultHash, creatorWins };
+    const result = {
+      id,
+      creatorName: challenge.creatorName,
+      joinerName,
+      winnerName,
+      loserName,
+      amount: challenge.amount,
+      payout,
+      serverSeed: challenge.serverSeed,
+      serverSeedHash: challenge.serverSeedHash,
+      resultHash,
+      creatorWins,
+    };
 
-    this.recentResults.unshift({ id, creatorName: challenge.creatorName, joinerName, winnerName, amount: challenge.amount, serverSeedHash: challenge.serverSeedHash, createdAt: challenge.createdAt });
+    this.recentResults.unshift({
+      id,
+      creatorName: challenge.creatorName,
+      joinerName,
+      winnerName,
+      amount: challenge.amount,
+      serverSeedHash: challenge.serverSeedHash,
+      createdAt: challenge.createdAt,
+    });
     this.recentResults = this.recentResults.slice(0, 20);
 
     reply({ ok: true, ...result });
