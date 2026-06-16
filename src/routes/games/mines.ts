@@ -6,11 +6,20 @@ import { prisma } from "../../lib/prisma";
 import { applyLedgerEntry, InsufficientFundsError, levelFromXp, xpForWager } from "../../lib/wallet";
 import { minesRounds, MinesActiveRound } from "../../lib/activeRounds";
 import { hashServerSeed } from "../../lib/provablyFair";
-import { GRID_SIZE, layMines, multiplierForPicks, validateMineCount, validateTile } from "../../games/mines";
+import {
+  GRID_SIZE,
+  layMines,
+  multiplierForPicks,
+  validateMineCount,
+  validateTile,
+} from "../../games/mines";
 
 export const minesRouter = Router();
 
-const startSchema = z.object({ amount: z.number().int().positive(), mineCount: z.number().int() });
+const startSchema = z.object({
+  amount: z.number().int().positive(),
+  mineCount: z.number().int(),
+});
 
 minesRouter.post("/start", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = startSchema.safeParse(req.body);
@@ -30,16 +39,28 @@ minesRouter.post("/start", requireAuth, requireApproved, async (req: AuthedReque
       await tx.user.update({ where: { id: userId }, data: { nonce: { increment: 1 } } });
 
       const mines = layMines(user.serverSeed, user.clientSeed, user.nonce, mineCount);
+
       const active: MinesActiveRound = {
-        betId: crypto.randomUUID(), amount, mineCount, mines, revealed: [],
-        serverSeed: user.serverSeed, clientSeed: user.clientSeed, nonce: user.nonce, startedAt: Date.now(),
+        betId: crypto.randomUUID(),
+        amount,
+        mineCount,
+        mines,
+        revealed: [],
+        serverSeed: user.serverSeed,
+        clientSeed: user.clientSeed,
+        nonce: user.nonce,
+        startedAt: Date.now(),
       };
       return active;
     });
 
     minesRounds.set(userId, round);
     const balance = (await prisma.user.findUniqueOrThrow({ where: { id: userId } })).balance;
-    res.status(201).json({ balance, round: publicRound(round) });
+
+    res.status(201).json({
+      balance,
+      round: publicRound(round),
+    });
   } catch (err) {
     if (err instanceof InsufficientFundsError) return res.status(400).json({ error: "Insufficient balance" });
     throw err;
@@ -62,10 +83,16 @@ minesRouter.post("/reveal", requireAuth, requireApproved, async (req: AuthedRequ
   if (round.revealed.includes(tile)) return res.status(400).json({ error: "Tile already revealed" });
 
   const hitMine = round.mines.includes(tile);
+
   if (hitMine) {
     minesRounds.clear(userId);
     const settled = await settleMines(userId, round, { cashedOut: false });
-    return res.json({ outcome: "bust", tile, ...settled, round: revealedRound(round) });
+    return res.json({
+      outcome: "bust",
+      tile,
+      ...settled,
+      round: revealedRound(round),
+    });
   }
 
   round.revealed.push(tile);
@@ -75,11 +102,19 @@ minesRouter.post("/reveal", requireAuth, requireApproved, async (req: AuthedRequ
   if (allSafeTilesFound) {
     minesRounds.clear(userId);
     const settled = await settleMines(userId, round, { cashedOut: true, multiplier });
-    return res.json({ outcome: "cleared", tile, multiplier, ...settled, round: revealedRound(round) });
+    return res.json({
+      outcome: "cleared",
+      tile,
+      multiplier,
+      ...settled,
+      round: revealedRound(round),
+    });
   }
 
   res.json({
-    outcome: "safe", tile, multiplier,
+    outcome: "safe",
+    tile,
+    multiplier,
     nextMultiplier: multiplierForPicks(round.mineCount, round.revealed.length + 1),
     round: publicRound(round),
   });
@@ -94,7 +129,13 @@ minesRouter.post("/cashout", requireAuth, requireApproved, async (req: AuthedReq
   minesRounds.clear(userId);
   const multiplier = multiplierForPicks(round.mineCount, round.revealed.length);
   const settled = await settleMines(userId, round, { cashedOut: true, multiplier });
-  res.json({ outcome: "cashed_out", multiplier, ...settled, round: revealedRound(round) });
+
+  res.json({
+    outcome: "cashed_out",
+    multiplier,
+    ...settled,
+    round: revealedRound(round),
+  });
 });
 
 minesRouter.get("/active", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
@@ -103,13 +144,20 @@ minesRouter.get("/active", requireAuth, requireApproved, async (req: AuthedReque
   res.json({ round: publicRound(round) });
 });
 
-async function settleMines(userId: string, round: MinesActiveRound, outcome: { cashedOut: boolean; multiplier?: number }) {
+async function settleMines(
+  userId: string,
+  round: MinesActiveRound,
+  outcome: { cashedOut: boolean; multiplier?: number }
+) {
   const payout = outcome.cashedOut ? Math.floor(round.amount * (outcome.multiplier ?? 1)) : 0;
   const multiplier = outcome.cashedOut ? outcome.multiplier ?? 1 : 0;
 
   return prisma.$transaction(async (tx) => {
     let user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
-    if (payout > 0) user = await applyLedgerEntry(tx, userId, "payout", payout, undefined);
+
+    if (payout > 0) {
+      user = await applyLedgerEntry(tx, userId, "payout", payout, undefined);
+    }
 
     const gainedXp = xpForWager(round.amount);
     const newXp = user.xp + gainedXp;
@@ -130,23 +178,45 @@ async function settleMines(userId: string, round: MinesActiveRound, outcome: { c
 
     const bet = await tx.bet.create({
       data: {
-        userId, game: "mines", amount: round.amount, payout, multiplier,
+        userId,
+        game: "mines",
+        amount: round.amount,
+        payout,
+        multiplier,
         result: payout > 0 ? "win" : "loss",
-        state: JSON.stringify({ mineCount: round.mineCount, mines: round.mines, revealed: round.revealed, cashedOut: outcome.cashedOut }),
-        clientSeed: round.clientSeed, serverSeed: round.serverSeed, nonce: round.nonce,
+        state: JSON.stringify({
+          mineCount: round.mineCount,
+          mines: round.mines,
+          revealed: round.revealed,
+          cashedOut: outcome.cashedOut,
+        }),
+        clientSeed: round.clientSeed,
+        serverSeed: round.serverSeed,
+        nonce: round.nonce,
       },
     });
 
-    return { betId: bet.id, payout, balance: user.balance, level: user.level, xp: user.xp, leveledUp };
+    return {
+      betId: bet.id,
+      payout,
+      balance: user.balance,
+      level: user.level,
+      xp: user.xp,
+      leveledUp,
+    };
   });
 }
 
 function publicRound(round: MinesActiveRound) {
   return {
-    amount: round.amount, mineCount: round.mineCount, revealed: round.revealed,
+    amount: round.amount,
+    mineCount: round.mineCount,
+    revealed: round.revealed,
     currentMultiplier: multiplierForPicks(round.mineCount, round.revealed.length),
     nextMultiplier: multiplierForPicks(round.mineCount, round.revealed.length + 1),
-    serverSeedHash: hashServerSeed(round.serverSeed), clientSeed: round.clientSeed, nonce: round.nonce,
+    serverSeedHash: hashServerSeed(round.serverSeed),
+    clientSeed: round.clientSeed,
+    nonce: round.nonce,
   };
 }
 
