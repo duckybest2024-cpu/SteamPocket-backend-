@@ -22,8 +22,8 @@ const PokerGame = (() => {
             <div class="bp-label">Buy-in Amount</div>
             <div class="bp-input-row">
               <input id="pk-buyin" type="number" value="500" min="1" step="100" />
-              <button id="pk-half" class="quick-btn">&frac12;</button>
-              <button id="pk-dbl" class="quick-btn">2&times;</button>
+              <button id="pk-half" class="quick-btn">½</button>
+              <button id="pk-dbl" class="quick-btn">2×</button>
             </div>
           </div>
           <div style="font-size:0.82rem;color:var(--text-dim);line-height:1.5">
