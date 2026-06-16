@@ -150,6 +150,7 @@ walletRouter.post("/buy-chips", requireAuth, async (req: AuthedRequest, res) => 
     });
 
     void updateHouseChips(-amount, amount);
+
     res.json({ balance: updated.balance, bank: updated.bank });
   } catch (err) {
     console.error("Buy chips error:", err);
@@ -177,7 +178,6 @@ walletRouter.post("/cashout-chips", requireAuth, async (req: AuthedRequest, res)
     const requestedAmount = parsed.data.amount;
     const amount = requestedAmount ? Math.min(requestedAmount, user.balance) : user.balance;
     if (amount < MIN_CASHOUT_CENTS) return res.status(400).json({ error: "Minimum cashout is 50 chips" });
-
     const updated = await prisma.$transaction(async (tx) => {
       const u = await tx.user.update({
         where: { id: userId },
@@ -190,6 +190,7 @@ walletRouter.post("/cashout-chips", requireAuth, async (req: AuthedRequest, res)
     });
 
     void updateHouseChips(amount, -amount);
+
     res.json({ balance: updated.balance, bank: updated.bank, cashedOut: amount });
   } catch (err) {
     console.error("Cashout chips error:", err);

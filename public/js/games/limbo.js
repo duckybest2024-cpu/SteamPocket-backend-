@@ -7,8 +7,8 @@ const LimboGame = (() => {
 
         <aside class="bet-panel">
           <div class="bp-tabs">
-            <button class="bp-tab active" id="limbo-tab-manual">Manual</button>
-            <button class="bp-tab" id="limbo-tab-auto">Auto</button>
+            <button class="bp-tab active">Manual</button>
+            <button class="bp-tab">Auto</button>
           </div>
 
           <div class="bp-field">
@@ -39,9 +39,7 @@ const LimboGame = (() => {
 
         <div class="game-canvas">
           <div class="limbo-history" id="limbo-history"></div>
-
           <div class="roll-display"><span id="limbo-number" class="roll-number">--x</span></div>
-
           <div id="limbo-result" class="result-banner"></div>
           <div id="limbo-fairness" class="fairness-line"></div>
         </div>
@@ -63,22 +61,14 @@ const LimboGame = (() => {
     };
 
     function refreshChance() {
-      const target = Math.max(1.01, Number(els.target.value) || 1.01);
-      // Mirrors the server's curve: P(crashAt >= target) = (1 - houseEdge) / target
-      const chance = Math.min(100, ((1 - 0.01) / target) * 100);
-      els.chance.value = `${chance.toFixed(2)}%`;
+      const t = Math.max(1.01, Number(els.target.value) || 1.01);
+      els.chance.value = `${Math.min(100, ((1 - 0.01) / t) * 100).toFixed(2)}%`;
     }
     els.target.addEventListener("input", refreshChance);
 
-    // ½ and 2× quick buttons
-    els.half.addEventListener("click", () => {
-      els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 50) / 100);
-    });
-    els.dbl.addEventListener("click", () => {
-      els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100;
-    });
+    els.half.addEventListener("click", () => { els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 50) / 100); });
+    els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100; });
 
-    // Manual/Auto tabs (visual only)
     container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
       container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
       this.classList.add("active");
@@ -113,11 +103,9 @@ const LimboGame = (() => {
           nonce: res.nextNonce - 1,
         });
 
-        // Update history chips
         limboHistory.unshift(crashAt);
         if (limboHistory.length > 10) limboHistory.pop();
-        const histEl = els.history;
-        histEl.innerHTML = limboHistory.map(v => {
+        els.history.innerHTML = limboHistory.map(v => {
           const cls = v < 2 ? "lhc-low" : v < 10 ? "lhc-mid" : "lhc-high";
           return `<span class="lh-chip ${cls}">${v.toFixed(2)}×</span>`;
         }).join("");
@@ -136,8 +124,7 @@ const LimboGame = (() => {
       const start = performance.now();
       function frame(now) {
         const t = Math.min(1, (now - start) / duration);
-        const value = 1 + (target - 1) * t;
-        node.textContent = `${value.toFixed(2)}x`;
+        node.textContent = `${(1 + (target - 1) * t).toFixed(2)}x`;
         if (t < 1) requestAnimationFrame(frame);
         else node.className = `roll-number ${isWin ? "win" : "loss"}`;
       }

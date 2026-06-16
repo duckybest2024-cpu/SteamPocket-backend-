@@ -1,7 +1,7 @@
 const DiceGame = (() => {
   function render(container, accountState) {
     let target = 50;
-    let direction = "under"; // "under" wins below target, "over" wins above
+    let direction = "under";
 
     container.innerHTML = `
       <div class="game-panel"><div class="game-layout">
@@ -45,9 +45,7 @@ const DiceGame = (() => {
 
           <div id="dice-3d-wrap" style="display:flex;justify-content:center;align-items:center;padding:20px 0 10px">
             <div id="dice-3d" class="dice-3d">
-              <div class="dice-face dice-front">
-                <div class="dice-dot dc-c"></div>
-              </div>
+              <div class="dice-face dice-front"><div class="dice-dot dc-c"></div></div>
               <div class="dice-face dice-back">
                 <div class="dice-dot dc-tl"></div><div class="dice-dot dc-tr"></div>
                 <div class="dice-dot dc-bl"></div><div class="dice-dot dc-br"></div>
@@ -72,59 +70,15 @@ const DiceGame = (() => {
             </div>
           </div>
           <style>
-            .dice-3d-scene { perspective: 300px; }
-            .dice-3d {
-              width: 90px; height: 90px;
-              position: relative;
-              transform-style: preserve-3d;
-              transform: rotateX(-20deg) rotateY(30deg);
-              transition: transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94);
-            }
-            .dice-3d.rolling {
-              animation: dice-tumble 0.6s ease-in-out;
-            }
-            @keyframes dice-tumble {
-              0%   { transform: rotateX(-20deg) rotateY(30deg); }
-              25%  { transform: rotateX(120deg) rotateY(200deg); }
-              50%  { transform: rotateX(240deg) rotateY(380deg); }
-              75%  { transform: rotateX(300deg) rotateY(500deg); }
-              100% { transform: rotateX(360deg) rotateY(720deg) rotateX(-20deg) rotateY(30deg); }
-            }
-            .dice-3d.win-state { transform: rotateX(-20deg) rotateY(30deg); filter: drop-shadow(0 0 16px #34d399); }
-            .dice-3d.loss-state { transform: rotateX(-20deg) rotateY(30deg); filter: drop-shadow(0 0 16px #ef4444); }
-            .dice-face {
-              position: absolute;
-              width: 90px; height: 90px;
-              background: linear-gradient(145deg, #1e3a5f, #0f2140);
-              border: 2px solid rgba(255,255,255,0.15);
-              border-radius: 14px;
-              display: grid;
-              grid-template-areas:
-                "tl . tr"
-                ". c ."
-                "bl . br";
-              padding: 10px;
-              box-sizing: border-box;
-              backface-visibility: hidden;
-            }
-            .dice-front  { transform: translateZ(45px); }
-            .dice-back   { transform: rotateY(180deg) translateZ(45px); }
-            .dice-right  { transform: rotateY(90deg) translateZ(45px); }
-            .dice-left   { transform: rotateY(-90deg) translateZ(45px); }
-            .dice-top    { transform: rotateX(90deg) translateZ(45px); }
-            .dice-bottom { transform: rotateX(-90deg) translateZ(45px); }
-            .dice-dot {
-              width: 14px; height: 14px;
-              background: radial-gradient(circle, #fff 30%, #c0deff 100%);
-              border-radius: 50%;
-              align-self: center;
-              justify-self: center;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-            }
-            .dc-tl { grid-area: tl; } .dc-tr { grid-area: tr; }
-            .dc-bl { grid-area: bl; } .dc-br { grid-area: br; }
-            .dc-c  { grid-area: c;  }
-            .dc-cr { grid-column: 3; grid-row: 2; }
+            .dice-3d { width:90px;height:90px;position:relative;transform-style:preserve-3d;transform:rotateX(-20deg) rotateY(30deg);transition:transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94); }
+            .dice-3d.rolling { animation:dice-tumble 0.6s ease-in-out; }
+            @keyframes dice-tumble { 0%{transform:rotateX(-20deg) rotateY(30deg)} 25%{transform:rotateX(120deg) rotateY(200deg)} 50%{transform:rotateX(240deg) rotateY(380deg)} 75%{transform:rotateX(300deg) rotateY(500deg)} 100%{transform:rotateX(360deg) rotateY(720deg) rotateX(-20deg) rotateY(30deg)} }
+            .dice-3d.win-state { transform:rotateX(-20deg) rotateY(30deg);filter:drop-shadow(0 0 16px #34d399); }
+            .dice-3d.loss-state { transform:rotateX(-20deg) rotateY(30deg);filter:drop-shadow(0 0 16px #ef4444); }
+            .dice-face { position:absolute;width:90px;height:90px;background:linear-gradient(145deg,#1e3a5f,#0f2140);border:2px solid rgba(255,255,255,0.15);border-radius:14px;display:grid;grid-template-areas:"tl . tr" ". c ." "bl . br";padding:10px;box-sizing:border-box;backface-visibility:hidden; }
+            .dice-front{transform:translateZ(45px)}.dice-back{transform:rotateY(180deg) translateZ(45px)}.dice-right{transform:rotateY(90deg) translateZ(45px)}.dice-left{transform:rotateY(-90deg) translateZ(45px)}.dice-top{transform:rotateX(90deg) translateZ(45px)}.dice-bottom{transform:rotateX(-90deg) translateZ(45px)}
+            .dice-dot{width:14px;height:14px;background:radial-gradient(circle,#fff 30%,#c0deff 100%);border-radius:50%;align-self:center;justify-self:center;box-shadow:0 1px 3px rgba(0,0,0,0.5)}
+            .dc-tl{grid-area:tl}.dc-tr{grid-area:tr}.dc-bl{grid-area:bl}.dc-br{grid-area:br}.dc-c{grid-area:c}.dc-cr{grid-column:3;grid-row:2}
           </style>
 
           <div class="roll-display"><span id="dice-roll-number" class="roll-number">--</span></div>
@@ -138,15 +92,15 @@ const DiceGame = (() => {
           </div>
 
           <div class="stat-boxes">
-            <div class="stat-box" id="dice-mult-box">
+            <div class="stat-box">
               <div class="sb-label">Multiplier</div>
               <div class="sb-value" id="dice-mult-display">1.98×</div>
             </div>
-            <div class="stat-box" id="dice-target-box">
+            <div class="stat-box">
               <div class="sb-label">Roll Under</div>
               <div class="sb-value" id="dice-target-display">&lt; 50.00</div>
             </div>
-            <div class="stat-box" id="dice-chance-box">
+            <div class="stat-box">
               <div class="sb-label">Win Chance</div>
               <div class="sb-value" id="dice-chance-display">50.00%</div>
             </div>
@@ -163,8 +117,6 @@ const DiceGame = (() => {
       number: container.querySelector("#dice-roll-number"),
       track: container.querySelector("#dice-track"),
       marker: container.querySelector("#dice-marker"),
-      chance: container.querySelector("#dice-chance-display"),
-      mult: container.querySelector("#dice-mult-display"),
       multDisplay: container.querySelector("#dice-mult-display"),
       targetDisplay: container.querySelector("#dice-target-display"),
       chanceDisplay: container.querySelector("#dice-chance-display"),
@@ -183,20 +135,14 @@ const DiceGame = (() => {
     function refreshOdds() {
       target = Math.min(99.99, Math.max(0.01, Number(els.target.value) || 50));
       const winChance = direction === "over" ? 100 - target : target;
-      const fairMultiplier = 100 / winChance;
-      const multiplier = fairMultiplier * 0.99;
-      const outcome = { multiplier, winChance };
-
-      els.track.style.setProperty("--split", `${target}%`);
-      // Colour the track so the *winning* zone is green regardless of direction.
+      const multiplier = (100 / winChance) * 0.99;
       els.track.style.background =
         direction === "under"
           ? `linear-gradient(90deg, var(--win) 0%, var(--win) ${target}%, var(--loss) ${target}%, var(--loss) 100%)`
           : `linear-gradient(90deg, var(--loss) 0%, var(--loss) ${target}%, var(--win) ${target}%, var(--win) 100%)`;
-
-      els.multDisplay.textContent = `${outcome.multiplier.toFixed(4)}×`;
+      els.multDisplay.textContent = `${multiplier.toFixed(4)}×`;
       els.targetDisplay.textContent = direction === "under" ? `< ${target.toFixed(2)}` : `> ${target.toFixed(2)}`;
-      els.chanceDisplay.textContent = `${outcome.winChance.toFixed(4)}%`;
+      els.chanceDisplay.textContent = `${winChance.toFixed(4)}%`;
     }
 
     els.target.addEventListener("input", refreshOdds);
@@ -210,15 +156,9 @@ const DiceGame = (() => {
     els.under.addEventListener("click", () => setDirection("under"));
     els.over.addEventListener("click", () => setDirection("over"));
 
-    // ½ and 2× quick buttons
-    els.half.addEventListener("click", () => {
-      els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 50) / 100);
-    });
-    els.dbl.addEventListener("click", () => {
-      els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100;
-    });
+    els.half.addEventListener("click", () => { els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 50) / 100); });
+    els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100; });
 
-    // Manual/Auto tabs (visual only)
     container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
       container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
       this.classList.add("active");
@@ -233,7 +173,6 @@ const DiceGame = (() => {
       els.number.textContent = "…";
       els.number.className = "roll-number";
 
-      // Animate the 3D dice
       if (els.dice3d) {
         els.dice3d.classList.remove("win-state", "loss-state");
         els.dice3d.classList.add("rolling");
@@ -249,7 +188,6 @@ const DiceGame = (() => {
         els.number.textContent = rollValue.toFixed(2);
         els.number.className = `roll-number ${isWin ? "win" : "loss"}`;
 
-        // Set dice win/loss glow
         if (els.dice3d) {
           els.dice3d.classList.remove("win-state", "loss-state");
           els.dice3d.classList.add(isWin ? "win-state" : "loss-state");

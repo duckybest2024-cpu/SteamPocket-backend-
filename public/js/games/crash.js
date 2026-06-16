@@ -5,7 +5,6 @@ const CrashGame = (() => {
     let serverSeedHash = null;
     let revealedSeed = null;
     let bettingEndsAt = null;
-    let crashPoint = null;
     let bets = [];
     let historyList = [];
     let myBetPlaced = false;
@@ -14,13 +13,11 @@ const CrashGame = (() => {
 
     container.innerHTML = `
       <div class="game-panel"><div class="game-layout">
-
         <div class="bet-panel">
           <div class="bp-tabs">
-            <button class="bp-tab active" id="crash-tab-manual">Manual</button>
-            <button class="bp-tab" id="crash-tab-auto">Auto</button>
+            <button class="bp-tab active">Manual</button>
+            <button class="bp-tab">Auto</button>
           </div>
-
           <div class="bp-field">
             <div class="bp-label">Bet amount (chips)</div>
             <div class="bp-input-row">
@@ -29,37 +26,29 @@ const CrashGame = (() => {
               <button class="quick-btn" id="crash-dbl">2×</button>
             </div>
           </div>
-
           <hr class="bp-divider" />
-
           <div class="bp-field">
             <div class="bp-label">Auto cash-out (optional)</div>
             <input type="number" id="crash-auto" placeholder="e.g. 2.00" min="1.01" step="0.01" />
           </div>
-
           <div class="bp-bottom">
             <button id="crash-bet-btn" class="play-btn" disabled>Connecting…</button>
             <button id="crash-cashout-btn" class="play-btn secondary-play hidden">Cash Out</button>
           </div>
         </div>
-
         <div class="game-canvas">
           <div class="crash-stage" id="crash-stage">
             <div class="crash-multiplier betting" id="crash-multiplier">--</div>
             <div class="crash-phase-label" id="crash-phase-label">Connecting to the table…</div>
           </div>
-
           <div class="crash-history" id="crash-history"></div>
-
-          <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-            <span style="font-weight:700; font-size:0.9rem;">Live bets (<span id="crash-bet-count">0</span>)</span>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+            <span style="font-weight:700;font-size:0.9rem;">Live bets (<span id="crash-bet-count">0</span>)</span>
           </div>
           <div class="crash-bets-list" id="crash-bets-list"></div>
-
           <div id="crash-result" class="result-banner"></div>
           <div id="crash-fairness"></div>
         </div>
-
       </div></div>
     `;
 
@@ -79,11 +68,8 @@ const CrashGame = (() => {
       dbl: container.querySelector("#crash-dbl"),
     };
 
-    // ½ and 2× quick buttons
     els.half.addEventListener("click", () => { els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 50) / 100); });
     els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100; });
-
-    // Manual/Auto tabs (visual only)
     container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
       container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
       this.classList.add("active");
@@ -102,32 +88,29 @@ const CrashGame = (() => {
         if (remaining <= 0) stopCountdown();
       }, 100);
     }
-    function stopCountdown() {
-      if (countdownHandle) {
-        clearInterval(countdownHandle);
-        countdownHandle = null;
-      }
-    }
+    function stopCountdown() { if (countdownHandle) { clearInterval(countdownHandle); countdownHandle = null; } }
 
     function renderBets() {
       els.betCount.textContent = String(bets.length);
       els.betsList.innerHTML = "";
       if (!bets.length) {
-        els.betsList.appendChild(UI.el("div", { style: "color:var(--text-dim); font-size:0.85rem; padding:8px;" }, "No bets placed yet this round."));
+        const d = document.createElement("div");
+        d.style.cssText = "color:var(--text-dim);font-size:0.85rem;padding:8px;";
+        d.textContent = "No bets placed yet this round.";
+        els.betsList.appendChild(d);
         return;
       }
       for (const b of bets) {
         const cls = b.cashedOutAt !== null ? "cashed" : b.lost ? "lost" : "";
         const status = b.cashedOutAt !== null
           ? `Cashed out at ${b.cashedOutAt.toFixed(2)}x → ${UI.money(b.payout)}`
-          : b.lost
-            ? "Crashed — lost the lot"
-            : `Riding${b.autoCashout ? ` · auto ${b.autoCashout.toFixed(2)}x` : ""}`;
+          : b.lost ? "Crashed — lost the lot"
+          : `Riding${b.autoCashout ? ` · auto ${b.autoCashout.toFixed(2)}x` : ""}`;
         const you = b.username === accountState.username ? " (you)" : "";
-        els.betsList.appendChild(UI.el("div", { class: `crash-bet-row ${cls}` }, [
-          UI.el("span", {}, `${b.username}${you} — ${UI.money(b.amount)}`),
-          UI.el("span", {}, status),
-        ]));
+        const row = document.createElement("div");
+        row.className = `crash-bet-row ${cls}`;
+        row.innerHTML = `<span>${b.username}${you} — ${UI.money(b.amount)}</span><span>${status}</span>`;
+        els.betsList.appendChild(row);
       }
     }
 
@@ -135,16 +118,17 @@ const CrashGame = (() => {
       els.history.innerHTML = "";
       for (const h of list.slice(0, 20)) {
         const cls = h.crashPoint < 1.5 ? "low" : h.crashPoint < 3 ? "mid" : "high";
-        els.history.appendChild(UI.el("span", { class: cls }, `${h.crashPoint.toFixed(2)}x`));
+        const span = document.createElement("span");
+        span.className = cls;
+        span.textContent = `${h.crashPoint.toFixed(2)}x`;
+        els.history.appendChild(span);
       }
     }
 
     function showFairness() {
       if (!roundId) return;
       let html = UI.fairnessLine({ serverSeedHash, clientSeed: `crash-round-${roundId}`, nonce: roundId });
-      if (revealedSeed) {
-        html += `<div class="fairness-line">🔓 Server seed revealed: <code>${revealedSeed}</code> — hash it yourself to confirm it matches the commitment shown above.</div>`;
-      }
+      if (revealedSeed) html += `<div class="fairness-line">🔓 Server seed revealed: <code>${revealedSeed}</code></div>`;
       els.fairness.innerHTML = html;
     }
 
@@ -182,12 +166,9 @@ const CrashGame = (() => {
       serverSeedHash = s.serverSeedHash;
       bets = (s.bets || []).map((b) => ({ ...b, lost: false }));
       const mine = bets.find((b) => b.username === accountState.username);
-
       if (s.phase === "betting") {
         phase = "betting";
         bettingEndsAt = s.bettingEndsAt;
-        crashPoint = null;
-        revealedSeed = null;
         myBetPlaced = !!mine;
         myCashedOut = false;
         setMultiplier("Place your bets", "betting");
@@ -195,8 +176,6 @@ const CrashGame = (() => {
         startCountdown();
       } else if (s.phase === "running") {
         phase = "running";
-        crashPoint = null;
-        revealedSeed = null;
         myBetPlaced = !!mine;
         myCashedOut = !!(mine && mine.cashedOutAt !== null);
         setMultiplier(`${s.multiplier.toFixed(2)}x`, "running");
@@ -204,10 +183,6 @@ const CrashGame = (() => {
         setBetControlsForRunning();
       } else {
         phase = "crashed";
-        crashPoint = s.crashPoint;
-        revealedSeed = null;
-        myBetPlaced = false;
-        myCashedOut = false;
         setMultiplier(`💥 ${s.crashPoint.toFixed(2)}x`, "crashed");
         els.phaseLabel.textContent = "Crashed — next round starting soon…";
         setBetControlsForCrashed();
@@ -216,26 +191,19 @@ const CrashGame = (() => {
       showFairness();
     });
 
-    socket.on("history", (h) => {
-      historyList = h || [];
-      renderHistory(historyList);
-    });
+    socket.on("history", (h) => { historyList = h || []; renderHistory(historyList); });
 
     socket.on("round_betting", (p) => {
       phase = "betting";
       roundId = p.roundId;
       serverSeedHash = p.serverSeedHash;
       bettingEndsAt = p.bettingEndsAt;
-      crashPoint = null;
-      revealedSeed = null;
       bets = [];
       myBetPlaced = false;
       myCashedOut = false;
-
       setMultiplier("Place your bets", "betting");
       setBetControlsForBetting(false);
       els.result.className = "result-banner";
-      els.result.textContent = "";
       renderBets();
       showFairness();
       startCountdown();
@@ -258,12 +226,8 @@ const CrashGame = (() => {
 
     socket.on("cash_out", (p) => {
       const row = bets.find((b) => b.username === p.username && b.cashedOutAt === null);
-      if (row) {
-        row.cashedOutAt = p.multiplier;
-        row.payout = p.payout;
-      }
+      if (row) { row.cashedOutAt = p.multiplier; row.payout = p.payout; }
       renderBets();
-
       if (p.username === accountState.username) {
         myCashedOut = true;
         els.cashoutBtn.classList.add("hidden");
@@ -277,14 +241,11 @@ const CrashGame = (() => {
     socket.on("round_crash", (p) => {
       phase = "crashed";
       stopCountdown();
-      crashPoint = p.crashPoint;
       serverSeedHash = p.serverSeedHash;
       revealedSeed = p.serverSeed;
-
       setMultiplier(`💥 ${p.crashPoint.toFixed(2)}x`, "crashed");
       els.phaseLabel.textContent = "Crashed — next round starting soon…";
       setBetControlsForCrashed();
-
       for (const s of p.settlements) {
         const row = bets.find((b) => b.username === s.username);
         if (!row) continue;
@@ -293,11 +254,9 @@ const CrashGame = (() => {
         row.lost = s.multiplier === 0;
       }
       renderBets();
-
       historyList = [{ roundId: p.roundId, crashPoint: p.crashPoint, serverSeedHash: p.serverSeedHash }, ...historyList].slice(0, 50);
       renderHistory(historyList);
       showFairness();
-
       const mine = p.settlements.find((s) => s.username === accountState.username);
       if (mine && mine.payout === 0) {
         els.result.className = "result-banner show loss";
@@ -312,20 +271,14 @@ const CrashGame = (() => {
       const dollars = Number(els.amount.value);
       if (!dollars || dollars <= 0) return UI.toast("Enter a bet amount.", "loss");
       const amount = Math.round(dollars * 100);
-
       let autoCashout;
       if (els.auto.value) {
         autoCashout = Number(els.auto.value);
         if (!Number.isFinite(autoCashout) || autoCashout < 1.01) return UI.toast("Auto cash-out must be at least 1.01x.", "loss");
       }
-
       els.betBtn.disabled = true;
       socket.emit("place_bet", { amount, autoCashout }, (resp) => {
-        if (resp?.error) {
-          UI.toast(resp.error, "loss");
-          els.betBtn.disabled = phase !== "betting" || myBetPlaced;
-          return;
-        }
+        if (resp?.error) { UI.toast(resp.error, "loss"); els.betBtn.disabled = phase !== "betting" || myBetPlaced; return; }
         myBetPlaced = true;
         setBetControlsForBetting(true);
         if (resp.balance !== undefined) UI.applyAccountUpdate(accountState, { balance: resp.balance });
@@ -337,18 +290,11 @@ const CrashGame = (() => {
       if (phase !== "running" || !myBetPlaced || myCashedOut) return;
       els.cashoutBtn.disabled = true;
       socket.emit("cash_out", {}, (resp) => {
-        if (resp?.error) {
-          UI.toast(resp.error, "loss");
-          els.cashoutBtn.disabled = myCashedOut;
-        }
-        // Success path is reflected via the broadcast `cash_out` event everyone receives.
+        if (resp?.error) { UI.toast(resp.error, "loss"); els.cashoutBtn.disabled = myCashedOut; }
       });
     });
 
-    return () => {
-      stopCountdown();
-      socket.disconnect();
-    };
+    return () => { stopCountdown(); socket.disconnect(); };
   }
 
   return { render };
