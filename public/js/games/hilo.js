@@ -6,13 +6,11 @@ const HiloGame = (() => {
 
     container.innerHTML = `
       <div class="game-panel"><div class="game-layout">
-
         <div class="bet-panel">
           <div class="bp-tabs">
-            <button class="bp-tab active" id="hilo-tab-manual">Manual</button>
-            <button class="bp-tab" id="hilo-tab-auto">Auto</button>
+            <button class="bp-tab active">Manual</button>
+            <button class="bp-tab">Auto</button>
           </div>
-
           <div class="bp-field">
             <div class="bp-label">Bet ($)</div>
             <div class="bp-input-row">
@@ -21,19 +19,15 @@ const HiloGame = (() => {
               <button class="quick-btn" id="hilo-dbl">2×</button>
             </div>
           </div>
-
           <hr class="bp-divider" />
-
           <div class="bp-field">
             <div class="bp-label">Multiplier</div>
-            <div id="hilo-multi" class="hilo-multi" style="font-size:1.3rem; font-weight:800;">1.00×</div>
+            <div id="hilo-multi" style="font-size:1.3rem;font-weight:800;">1.00×</div>
           </div>
-
           <div class="bp-bottom">
             <div id="hilo-start-row"><button id="hilo-start" class="play-btn">Start Round</button></div>
           </div>
         </div>
-
         <div class="game-canvas">
           <div class="hilo-stage">
             <div class="hilo-card-wrap">
@@ -42,19 +36,15 @@ const HiloGame = (() => {
               </div>
             </div>
           </div>
-
           <div id="hilo-chances" class="hilo-chances" style="justify-content:center;"></div>
-
-          <div class="btn-row hidden" id="hilo-action-row" style="justify-content:center; gap:12px;">
-            <button id="hilo-higher" class="primary-btn" style="flex:1; padding:16px 0;">⬆ Higher</button>
-            <button id="hilo-lower"  class="danger-btn"  style="flex:1; padding:16px 0;">⬇ Lower</button>
+          <div class="btn-row hidden" id="hilo-action-row" style="justify-content:center;gap:12px;">
+            <button id="hilo-higher" class="primary-btn" style="flex:1;padding:16px 0;">⬆ Higher</button>
+            <button id="hilo-lower"  class="danger-btn"  style="flex:1;padding:16px 0;">⬇ Lower</button>
             <button id="hilo-cashout" class="secondary-btn">Cash Out</button>
           </div>
-
           <div id="hilo-result" class="result-banner"></div>
           <div id="hilo-fairness"></div>
         </div>
-
       </div></div>
     `;
 
@@ -75,11 +65,8 @@ const HiloGame = (() => {
       dbl: container.querySelector("#hilo-dbl"),
     };
 
-    // ½ and 2× quick buttons
     els.half.addEventListener("click", () => { els.amount.value = Math.max(0.01, Math.floor(Number(els.amount.value) * 0.5 * 100) / 100); });
     els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 2 * 100) / 100; });
-
-    // Manual/Auto tabs (visual only)
     container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
       container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
       this.classList.add("active");
@@ -124,11 +111,9 @@ const HiloGame = (() => {
       if (busy || inRound) return;
       const amount = Math.round((Number(els.amount.value) || 0) * 100);
       if (amount <= 0) return UI.toast("Enter a bet.", "loss");
-
       busy = true;
       els.start.disabled = true;
       els.result.className = "result-banner";
-
       try {
         const res = await Api.post("/games/hilo/start", { amount });
         enterRound();
@@ -149,24 +134,17 @@ const HiloGame = (() => {
       if (busy || !inRound) return;
       busy = true;
       [els.higher, els.lower, els.cashout].forEach((b) => (b.disabled = true));
-
       try {
         const res = await Api.post("/games/hilo/action", { action });
-
         if (res.card) els.card.innerHTML = renderCard(res.card);
         if (res.currentMultiplier !== undefined) setMultiplier(res.currentMultiplier);
         if (res.higherChance !== undefined) updateChances(res.higherChance, res.lowerChance);
-
         if (res.finished) {
           const isWin = res.outcome !== "bust";
           els.result.className = `result-banner show ${isWin ? "win" : "loss"}`;
-          if (action === "cashout") {
-            els.result.textContent = `💰 Cashed out at ${currentMultiplier.toFixed(2)}x — paid ${UI.money(res.payout)}!`;
-          } else if (res.outcome === "bust") {
-            els.result.textContent = `💥 Wrong guess! You busted — lost your bet.`;
-          } else {
-            els.result.textContent = `🎉 Paid ${UI.money(res.payout)}.`;
-          }
+          if (action === "cashout") els.result.textContent = `💰 Cashed out at ${currentMultiplier.toFixed(2)}x — paid ${UI.money(res.payout)}!`;
+          else if (res.outcome === "bust") els.result.textContent = `💥 Wrong guess! You busted — lost your bet.`;
+          else els.result.textContent = `🎉 Paid ${UI.money(res.payout)}.`;
           UI.applyAccountUpdate(accountState, res);
           UI.toast(isWin ? `Won ${UI.money(res.payout)} on Hi-Lo!` : "Busted on Hi-Lo.", isWin ? "win" : "loss");
           exitRound();
@@ -185,7 +163,6 @@ const HiloGame = (() => {
     els.lower.addEventListener("click", () => doAction("lower"));
     els.cashout.addEventListener("click", () => doAction("cashout"));
 
-    // Attempt to resume any active round on mount
     (async () => {
       try {
         const res = await Api.get("/games/hilo/active");
@@ -194,9 +171,7 @@ const HiloGame = (() => {
         setMultiplier(res.currentMultiplier);
         updateChances(res.higherChance, res.lowerChance);
         els.fairness.innerHTML = UI.fairnessLine(res.fairness);
-      } catch {
-        // No active round — that's fine
-      }
+      } catch { }
     })();
   }
 
