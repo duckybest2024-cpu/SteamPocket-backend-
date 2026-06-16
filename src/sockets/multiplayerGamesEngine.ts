@@ -597,7 +597,7 @@ export function attachPoker(io: Server) {
   function shuffle<T>(arr: T[]): T[] { return arr.sort(() => Math.random() - 0.5); }
   function rankVal(card: string) { return RANKS.indexOf(card.slice(0, -1)); }
   function handScore(hand: string[]): number {
-    const ranks = hand.map(rankVal).sort((a,b) => b - a);
+    const ranks = hand.map(rankVal).sort((a,b) => b-a);
     const suits = hand.map((c) => c.slice(-1));
     const flush = suits.every((s) => s === suits[0]);
     const straight = ranks[0] - ranks[4] === 4 && new Set(ranks).size === 5;
