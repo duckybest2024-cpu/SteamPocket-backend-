@@ -26,6 +26,9 @@ function authMiddleware(io: Server, ns: string) {
   });
 }
 
+// ─────────────────────────────────────────
+// BATTLE DICE: up to 8 players, all roll, highest wins pot
+// ─────────────────────────────────────────
 export function attachBattleDice(io: Server) {
   authMiddleware(io, "/battledice");
   const ns = io.of("/battledice");
@@ -111,6 +114,9 @@ export function attachBattleDice(io: Server) {
   });
 }
 
+// ─────────────────────────────────────────
+// ROCK PAPER SCISSORS — 1v1 matchmaking queue
+// ─────────────────────────────────────────
 export function attachRPS(io: Server) {
   authMiddleware(io, "/rps");
   const ns = io.of("/rps");
@@ -223,6 +229,9 @@ export function attachRPS(io: Server) {
   });
 }
 
+// ─────────────────────────────────────────
+// RAFFLE — buy tickets, winner drawn every 5 minutes
+// ─────────────────────────────────────────
 export function attachRaffle(io: Server) {
   authMiddleware(io, "/raffle");
   const ns = io.of("/raffle");
@@ -289,6 +298,9 @@ export function attachRaffle(io: Server) {
   });
 }
 
+// ─────────────────────────────────────────
+// BINGO — 5x5 cards, shared draws, first to complete a line wins
+// ─────────────────────────────────────────
 export function attachBingo(io: Server) {
   authMiddleware(io, "/bingo");
   const ns = io.of("/bingo");
@@ -397,6 +409,9 @@ export function attachBingo(io: Server) {
   });
 }
 
+// ─────────────────────────────────────────
+// TOWER — predict ever-increasing multipliers, stop when you want
+// ─────────────────────────────────────────
 export function attachTower(io: Server) {
   authMiddleware(io, "/tower");
   const ns = io.of("/tower");
@@ -462,6 +477,9 @@ export function attachTower(io: Server) {
   });
 }
 
+// ─────────────────────────────────────────
+// MULTIPLAYER ROULETTE — everyone bets on same spin, every 30s
+// ─────────────────────────────────────────
 export function attachMultiRoulette(io: Server) {
   authMiddleware(io, "/multiroulette");
   const ns = io.of("/multiroulette");
@@ -561,6 +579,9 @@ export function attachMultiRoulette(io: Server) {
   });
 }
 
+// ─────────────────────────────────────────
+// POKER — simplified 5-card draw, table of up to 6
+// ─────────────────────────────────────────
 export function attachPoker(io: Server) {
   authMiddleware(io, "/poker");
   const ns = io.of("/poker");
