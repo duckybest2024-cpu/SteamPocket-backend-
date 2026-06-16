@@ -93,8 +93,8 @@ const BattleDiceGame = (() => {
         const isMe = r.username === myName;
         const isWin = winners.includes(r.username);
         return `<div style="text-align:center;padding:10px;background:${isWin ? "rgba(52,211,153,0.15)" : "var(--bg-elev)"};border:2px solid ${isWin ? "var(--win)" : "var(--border)"};border-radius:12px">
-          <div style="font-size:2rem">${["","⚀","⚁","⚂","⚃","⚄","⚅"][r.roll]}</div>
-          <div style="font-size:0.75rem;color:${isMe ? "var(--accent)" : "var(--text-dim)"}">${r.username}${isMe ? " (you)" : ""}</div>
+          <div style="font-size:2rem">${["" ,"⚀","⚁","⚂","⚃","⚄","⚅"][r.roll]}</div>
+          <div style="font-size:0.75rem;color:${isMe ? "var(--accent)" : "var(--text-dim)"};">${r.username}${isMe ? " (you)" : ""}</div>
           <div style="font-weight:700">${r.roll}</div>
         </div>`;
       }).join("");
