@@ -61,6 +61,9 @@ authRouter.post("/register", async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Verify email via token link — opens in browser from email
+// ---------------------------------------------------------------------------
 authRouter.get("/verify-email", async (req, res) => {
   const token = req.query.token as string;
   if (!token) return res.redirect("/?emailVerified=error");
@@ -71,6 +74,7 @@ authRouter.get("/verify-email", async (req, res) => {
     });
 
     if (!user) {
+      // Token not found or expired — redirect to login with error flag
       return res.redirect("/?emailVerified=expired");
     }
 
@@ -79,6 +83,7 @@ authRouter.get("/verify-email", async (req, res) => {
       data: { emailVerified: true, emailToken: null, emailTokenExpiry: null },
     });
 
+    // Redirect to the app; the SPA will detect the query param and show a success message
     res.redirect("/?emailVerified=ok");
   } catch (err) {
     console.error("Email verification error:", err);
@@ -86,6 +91,9 @@ authRouter.get("/verify-email", async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Resend verification email
+// ---------------------------------------------------------------------------
 authRouter.post("/resend-verification", async (req, res) => {
   const { email } = req.body as { email?: string };
   if (!email) return res.status(400).json({ error: "Email required" });
@@ -93,6 +101,7 @@ authRouter.post("/resend-verification", async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { email } });
 
+    // Always return success to avoid leaking whether an email exists
     if (!user || user.emailVerified) {
       return res.json({ message: "If that email is registered and unverified, a new link has been sent." });
     }
@@ -113,6 +122,9 @@ authRouter.post("/resend-verification", async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Login
+// ---------------------------------------------------------------------------
 const loginSchema = z.object({
   identifier: z.string().min(1),
   password: z.string().min(1),
@@ -135,13 +147,16 @@ authRouter.post("/login", async (req, res) => {
     const token = signToken(user.id);
     const pub = publicUser(user);
 
+    // Owner is always approved regardless of DB value
     const ownerUser = isOwner(user.username);
 
+    // Check subscription expiry (skip for owner/admin)
     if (!ownerUser && !user.isAdmin && user.isApproved && user.approvedUntil && user.approvedUntil < new Date()) {
       await prisma.user.update({ where: { id: user.id }, data: { isApproved: false } });
       return res.json({ token, user: { ...pub, isApproved: false }, pendingApproval: true });
     }
 
+    // If account is pending approval, return token but flag it (skip for owner/admin)
     if (!ownerUser && !user.isAdmin && !user.isApproved) {
       return res.json({ token, user: pub, pendingApproval: true });
     }
@@ -157,6 +172,7 @@ authRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.userId } });
     if (!user) return res.status(404).json({ error: "User not found" });
+    // Auto-revoke expired subscriptions
     if (user.isApproved && user.approvedUntil && user.approvedUntil < new Date()) {
       await prisma.user.update({ where: { id: user.id }, data: { isApproved: false } });
       user.isApproved = false;

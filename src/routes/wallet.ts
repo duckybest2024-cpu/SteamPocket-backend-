@@ -25,6 +25,10 @@ walletRouter.get("/transactions", requireAuth, async (req: AuthedRequest, res) =
   res.json({ items, page, pageSize, total });
 });
 
+// ---------------------------------------------------------------------------
+// Stripe checkout — create a hosted payment session for a chip package
+// ---------------------------------------------------------------------------
+
 const checkoutSchema = z.object({ packageId: z.string() });
 
 walletRouter.post("/create-checkout-session", requireAuth, async (req: AuthedRequest, res) => {
@@ -76,6 +80,10 @@ walletRouter.post("/create-checkout-session", requireAuth, async (req: AuthedReq
   }
 });
 
+// ---------------------------------------------------------------------------
+// LiqPay checkout — create a form submission payload for a chip package
+// ---------------------------------------------------------------------------
+
 const liqpayCheckoutSchema = z.object({
   packageId: z.string(),
   currency: z.enum(["USD", "UAH"]).default("USD"),
@@ -102,6 +110,7 @@ walletRouter.post("/liqpay-checkout", requireAuth, async (req: AuthedRequest, re
     const orderId = `${req.userId!}_${pkg.id}_${Date.now()}`;
     const sandbox = process.env.LIQPAY_SANDBOX === "true";
 
+    // Use UAH price if requested (priceUAH exists on all packages)
     const amountSmallest = currency === "UAH"
       ? (pkg as typeof pkg & { priceUAH?: number }).priceUAH ?? pkg.priceCents * 41
       : pkg.priceCents;
@@ -124,6 +133,10 @@ walletRouter.post("/liqpay-checkout", requireAuth, async (req: AuthedRequest, re
     res.status(500).json({ error: "Failed to create payment — please try again" });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Chip system: cash out chips to bank, buy chips from bank
+// ---------------------------------------------------------------------------
 
 const buyChipsSchema = z.object({ amount: z.number().int().min(100) });
 
@@ -149,6 +162,7 @@ walletRouter.post("/buy-chips", requireAuth, async (req: AuthedRequest, res) => 
       return u;
     });
 
+    // Moving from player bank → playing chips: house loses chips, gains dollars
     void updateHouseChips(-amount, amount);
 
     res.json({ balance: updated.balance, bank: updated.bank });
@@ -170,7 +184,7 @@ walletRouter.post("/cashout-chips", requireAuth, async (req: AuthedRequest, res)
 
     if (user.balance <= 0) return res.status(400).json({ error: "No chips to cash out" });
 
-    const MIN_CASHOUT_CENTS = 5000;
+    const MIN_CASHOUT_CENTS = 5000; // 50 chips minimum
     if (user.balance < MIN_CASHOUT_CENTS) {
       return res.status(400).json({ error: `Minimum cashout is 50 chips (you have ${Math.floor(user.balance / 100)})` });
     }
@@ -189,6 +203,7 @@ walletRouter.post("/cashout-chips", requireAuth, async (req: AuthedRequest, res)
       return u;
     });
 
+    // Moving from playing chips → player bank: house gains chips, loses dollars
     void updateHouseChips(amount, -amount);
 
     res.json({ balance: updated.balance, bank: updated.bank, cashedOut: amount });
@@ -198,6 +213,7 @@ walletRouter.post("/cashout-chips", requireAuth, async (req: AuthedRequest, res)
   }
 });
 
+/** Daily rakeback: 5% of cumulative wagers since the last claim, paid as a flat bonus. */
 walletRouter.post("/rakeback/claim", requireAuth, async (req: AuthedRequest, res) => {
   const userId = req.userId!;
 
@@ -225,6 +241,7 @@ walletRouter.post("/rakeback/claim", requireAuth, async (req: AuthedRequest, res
   res.json({ claimed: rakeback, balance: updated.balance });
 });
 
+/** Top wagered / top won leaderboards over a rolling 7-day window. */
 walletRouter.get("/leaderboard", async (req, res) => {
   const metric = req.query.metric === "profit" ? "profit" : "wagered";
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -266,6 +283,7 @@ walletRouter.get("/leaderboard", async (req, res) => {
   });
 });
 
+// Promo code redemption (used in chip shop + feature 14)
 walletRouter.post("/promo/redeem", requireAuth, async (req: AuthedRequest, res) => {
   const { code } = req.body as { code?: string };
   if (!code) return res.status(400).json({ error: "Code required" });
@@ -287,7 +305,11 @@ walletRouter.post("/promo/redeem", requireAuth, async (req: AuthedRequest, res) 
   } catch (err) { res.status(500).json({ error: "Failed to redeem code" }); }
 });
 
-const dailyBonusClaimed = new Map<string, string>();
+// ---------------------------------------------------------------------------
+// Daily Login Bonus
+// ---------------------------------------------------------------------------
+
+const dailyBonusClaimed = new Map<string, string>(); // userId -> ISO date (YYYY-MM-DD)
 
 walletRouter.post("/daily-bonus", requireAuth, async (req: AuthedRequest, res) => {
   try {
@@ -296,7 +318,7 @@ walletRouter.post("/daily-bonus", requireAuth, async (req: AuthedRequest, res) =
     if (dailyBonusClaimed.get(userId) === today) {
       return res.status(400).json({ error: "Already claimed today's bonus" });
     }
-    const chipsToAward = 50 * 100;
+    const chipsToAward = 50 * 100; // 50 chips in cents
     await applyLedgerEntry(prisma, userId, "daily_bonus", chipsToAward);
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { balance: true } });
     dailyBonusClaimed.set(userId, today);
