@@ -59,7 +59,7 @@ export class CrashEngine {
             socket.data.isApproved = isOwner(user.username) || !!user.isAdmin || (user.isApproved && (!user.approvedUntil || user.approvedUntil > new Date()));
           }
         } catch {
-          // Invalid token -> connect anonymously (spectators can still watch the feed).
+          // Invalid token -> connect anonymously
         }
       }
       next();
