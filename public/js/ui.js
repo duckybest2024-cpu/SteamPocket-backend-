@@ -3,7 +3,7 @@ const UI = (() => {
   const SUIT_RED = new Set(["♥", "♦"]);
   const SYMBOL_GLYPH = {
     wild: "🌟", scatter: "🎁", crown: "👑", gem: "💎", bell: "🔔",
-    clover: "🍀", horseshoe: "🧢", ace: "🅰️", king: "🇰", queen: "🇺",
+    clover: "🍀", horseshoe: "🧲", ace: "🅰️", king: "🇰", queen: "🇶",
   };
 
   function money(cents) {
