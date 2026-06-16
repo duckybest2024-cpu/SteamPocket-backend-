@@ -32,7 +32,7 @@ export async function checkForSuspiciousActivity(
 
     const triggeredReasons: Array<{ reason: string; details: Record<string, unknown> }> = [];
 
-    // ── Check 1: Consecutive wins ────────────────────────────────────────────
+    // ── Check 1: Consecutive wins ────────────────────────────────────────
     let consecutiveWins = 0;
     for (const bet of recentBets) {
       if (bet.result === "win") {
@@ -48,7 +48,7 @@ export async function checkForSuspiciousActivity(
       });
     }
 
-    // ── Check 2: 24h win rate ────────────────────────────────────────────────
+    // ── Check 2: 24h win rate ────────────────────────────────────────
     const totalBets24h = bets24h.length;
     if (totalBets24h >= 30) {
       const wins24h = bets24h.filter((b) => b.result === "win").length;
@@ -65,7 +65,7 @@ export async function checkForSuspiciousActivity(
       }
     }
 
-    // ── Check 3: 24h net profit ──────────────────────────────────────────────
+    // ── Check 3: 24h net profit ────────────────────────────────────────
     const netProfit24h = bets24h.reduce((sum, b) => sum + (b.payout - b.amount), 0);
     const profitThreshold = 50000 * 100; // 50,000 chips expressed in cents
     if (netProfit24h > profitThreshold) {
@@ -79,7 +79,7 @@ export async function checkForSuspiciousActivity(
       });
     }
 
-    // ── Check 4: Extreme multiplier ──────────────────────────────────────────
+    // ── Check 4: Extreme multiplier ──────────────────────────────────────
     if (currentBet.multiplier > 500) {
       triggeredReasons.push({
         reason: "EXTREME_MULTIPLIER",
@@ -94,7 +94,7 @@ export async function checkForSuspiciousActivity(
 
     if (triggeredReasons.length === 0) return;
 
-    // ── Fetch existing unresolved events for deduplication ───────────────────
+    // ── Fetch existing unresolved events for deduplication ────────────────────────
     const existingEvents = await prisma.anticheatEvent.findMany({
       where: {
         userId,
@@ -109,7 +109,7 @@ export async function checkForSuspiciousActivity(
     const newReasons = triggeredReasons.filter((r) => !existingReasons.has(r.reason));
     if (newReasons.length === 0) return;
 
-    // ── Create AnticheatEvents and flag the user ─────────────────────────────
+    // ── Create AnticheatEvents and flag the user ─────────────────────────────────
     await Promise.all([
       // Create one AnticheatEvent per new triggered reason
       ...newReasons.map((r) =>
