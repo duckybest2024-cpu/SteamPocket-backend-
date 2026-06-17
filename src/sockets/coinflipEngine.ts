@@ -6,14 +6,14 @@ import { prisma } from "../lib/prisma";
 import { config } from "../lib/config";
 import { applyLedgerEntry, InsufficientFundsError } from "../lib/wallet";
 
-const PAYOUT_MULTIPLIER = 1.98;
+const PAYOUT_MULTIPLIER = 1.98; // 2% total house edge (1% per side)
 const MAX_OPEN_CHALLENGES = 50;
 
 interface CoinflipChallenge {
   id: string;
   creatorId: string;
   creatorName: string;
-  amount: number;
+  amount: number; // cents
   serverSeed: string;
   serverSeedHash: string;
   createdAt: number;
@@ -61,7 +61,7 @@ export class CoinflipEngine {
             socket.data.isApproved = isOwner(user.username) || !!user.isAdmin || (user.isApproved && (!user.approvedUntil || user.approvedUntil > new Date()));
           }
         } catch {
-          // Anonymous spectator
+          // Anonymous spectator — can watch but not play
         }
       }
       next();
@@ -104,6 +104,7 @@ export class CoinflipEngine {
     if (!userId) return reply({ error: "Authentication required" });
     if (!socket.data.isApproved) return reply({ error: "Active subscription required. Visit patreon.com/GrilledCoin." });
 
+    // Prevent duplicate open challenges from same user
     for (const c of this.challenges.values()) {
       if (c.creatorId === userId) return reply({ error: "You already have an open challenge — cancel it first" });
     }
@@ -112,7 +113,7 @@ export class CoinflipEngine {
     }
 
     const body = payload as { amount?: unknown };
-    const amount = Number(body?.amount);
+    const amount = Number(body?.amount); // cents
     if (!Number.isInteger(amount) || amount < 100) {
       return reply({ error: "Minimum bet is 1 chip (100 cents)" });
     }
@@ -191,11 +192,13 @@ export class CoinflipEngine {
     if (!challenge) return reply({ error: "Challenge not found or already taken" });
     if (challenge.creatorId === userId) return reply({ error: "You cannot join your own challenge" });
 
+    // Claim the slot immediately to prevent races
     this.challenges.delete(id);
 
     try {
       await applyLedgerEntry(prisma, userId, "coinflip_bet", -challenge.amount, id);
     } catch (err) {
+      // Restore the challenge so someone else can take it
       this.challenges.set(id, challenge);
       if (err instanceof InsufficientFundsError) return reply({ error: "Insufficient balance" });
       return reply({ error: "Failed to place bet" });
@@ -203,6 +206,7 @@ export class CoinflipEngine {
 
     const joinerName = socket.data.username ?? "player";
 
+    // Determine winner: SHA256(serverSeed + joinerId), first nibble < 8 → creator wins
     const resultHash = crypto.createHash("sha256").update(challenge.serverSeed + userId).digest("hex");
     const creatorWins = parseInt(resultHash[0], 16) < 8;
 

@@ -92,6 +92,7 @@ export class HorseRaceEngine {
   private startRace() {
     this.phase = "racing";
     const seed = crypto.randomBytes(16).toString("hex");
+    // Determine winner using seeded randomness — lower odds horses win more often
     const weights = HORSES.map((h) => 1 / h.odds);
     const total = weights.reduce((a, b) => a + b, 0);
     let roll = parseFloat("0." + crypto.createHash("sha256").update(seed).digest("hex").slice(0, 10)) * total;
@@ -99,6 +100,7 @@ export class HorseRaceEngine {
     for (let i = 0; i < weights.length; i++) { roll -= weights[i]; if (roll <= 0) { winner = i; break; } }
     this.winnerHorse = winner;
 
+    // Simulate positions over RACE_MS
     const startAt = Date.now();
     this.phaseEndsAt = startAt + RACE_MS;
     this.io.of("/horserace").emit("phase", { phase: "racing", endsAt: this.phaseEndsAt, winnerHorse: null, positions: this.positions });
@@ -109,6 +111,7 @@ export class HorseRaceEngine {
 
       for (let i = 0; i < HORSES.length; i++) {
         const isWinner = i === winner;
+        // Winner always reaches 100 at end; others lag behind weighted randomly
         const targetFinal = isWinner ? 100 : 60 + Math.random() * 35;
         this.positions[i] = Math.min(100, targetFinal * this.easeOut(progress) + Math.random() * 2);
       }

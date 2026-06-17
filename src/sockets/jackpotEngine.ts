@@ -10,7 +10,7 @@ import { checkAndMintNfts } from "../lib/nfts";
 interface Entry { userId: string; username: string; amount: number }
 interface AuthedSocket extends Socket { data: { userId?: string; username?: string; isApproved?: boolean } }
 
-const SPIN_DELAY_MS = 20_000;
+const SPIN_DELAY_MS = 20_000; // spin 20s after last entry
 const MIN_ENTRIES = 1;
 const HOUSE_EDGE = 0.05;
 
@@ -95,6 +95,7 @@ export class JackpotEngine {
     const houseCut = Math.floor(this.totalPot * HOUSE_EDGE);
     const prize = this.totalPot - houseCut;
 
+    // Weighted random — pick a float in [0, totalPot) then walk through entries
     const roll = parseFloat("0." + crypto.createHash("sha256").update(Date.now().toString()).digest("hex").slice(0, 10)) * this.totalPot;
     let cursor = 0;
     let winner = this.entries[this.entries.length - 1];

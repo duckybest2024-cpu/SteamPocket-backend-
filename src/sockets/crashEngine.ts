@@ -9,7 +9,7 @@ import { generateCrashRound, multiplierAtElapsed } from "../games/crash";
 const BETTING_DURATION_MS = 8_000;
 const CRASHED_PAUSE_MS = 4_000;
 const TICK_MS = 100;
-const MAX_CRASH_MULTIPLIER = 1_000_000;
+const MAX_CRASH_MULTIPLIER = 1_000_000; // safety ceiling — curve is uncapped mathematically but rounds must end
 
 type Phase = "betting" | "running" | "crashed";
 
@@ -17,8 +17,8 @@ interface RoundBet {
   userId: string;
   username: string;
   amount: number;
-  autoCashout?: number;
-  cashedOutAt: number | null;
+  autoCashout?: number; // optional — cash out automatically once the multiplier clears this
+  cashedOutAt: number | null; // multiplier at which the player locked in, or null if still riding
   payout: number;
 }
 
@@ -26,6 +26,12 @@ interface AuthedSocket extends Socket {
   data: { userId?: string; username?: string; isApproved?: boolean };
 }
 
+/**
+ * Drives the perpetual Crash loop: betting window -> live multiplier climb -> crash -> repeat.
+ * One instance, one room ("crash"), every connected client sees the exact same round at the
+ * exact same multiplier — that shared tension (and the "I should've cashed out!" sting) is
+ * what makes this the game people keep one tab open for.
+ */
 export class CrashEngine {
   private io: Server;
   private phase: Phase = "betting";
@@ -33,9 +39,9 @@ export class CrashEngine {
   private serverSeed = "";
   private serverSeedHash = "";
   private crashPoint = 1;
-  private roundStartedAt = 0;
+  private roundStartedAt = 0; // ms timestamp when the multiplier started climbing
   private phaseEndsAt = 0;
-  private bets = new Map<string, RoundBet>();
+  private bets = new Map<string, RoundBet>(); // keyed by userId
   private history: { roundId: number; crashPoint: number; serverSeedHash: string }[] = [];
   private tickHandle: ReturnType<typeof setInterval> | null = null;
 
@@ -59,7 +65,7 @@ export class CrashEngine {
             socket.data.isApproved = isOwner(user.username) || !!user.isAdmin || (user.isApproved && (!user.approvedUntil || user.approvedUntil > new Date()));
           }
         } catch {
-          // Invalid token -> connect anonymously
+          // Invalid token -> connect anonymously (spectators can still watch the feed).
         }
       }
       next();
@@ -77,12 +83,19 @@ export class CrashEngine {
     void this.startBettingPhase();
   }
 
+  // -------------------------------------------------------------------------
+  // Round lifecycle
+  // -------------------------------------------------------------------------
+
   private async startBettingPhase() {
     this.clearTick();
     this.phase = "betting";
     this.roundId += 1;
     this.bets = new Map();
 
+    // Generate (and immediately publish the hash for) this round's outcome *before* anyone can
+    // bet on it — that ordering is the entire fairness guarantee: the crash point is locked in
+    // before a single wager exists, so the house cannot react to how much money is at stake.
     const round = generateCrashRound(`crash-round-${this.roundId}`, this.roundId);
     this.serverSeed = round.serverSeed;
     this.serverSeedHash = round.serverSeedHash;
@@ -121,6 +134,7 @@ export class CrashEngine {
     const elapsed = Date.now() - this.roundStartedAt;
     const multiplier = multiplierAtElapsed(elapsed);
 
+    // Auto-cashouts: resolve anyone whose target the live multiplier has now reached.
     for (const bet of this.bets.values()) {
       if (bet.cashedOutAt === null && bet.autoCashout && multiplier >= bet.autoCashout) {
         await this.lockInCashout(bet, bet.autoCashout);
@@ -144,6 +158,7 @@ export class CrashEngine {
       data: { state: "crashed", endedAt: new Date() },
     }).catch(() => {});
 
+    // Settle everyone still riding as a total loss, persist a Bet row per player for history/stats.
     const settlements: { userId: string; username: string; amount: number; payout: number; multiplier: number }[] = [];
     for (const bet of this.bets.values()) {
       const finalMultiplier = bet.cashedOutAt ?? 0;
@@ -158,7 +173,7 @@ export class CrashEngine {
     this.broadcast("round_crash", {
       roundId: this.roundId,
       crashPoint: this.crashPoint,
-      serverSeed: this.serverSeed,
+      serverSeed: this.serverSeed, // revealed now — anyone can hash it and confirm it matches the pre-shown commitment
       serverSeedHash: this.serverSeedHash,
       settlements,
     });
@@ -172,6 +187,10 @@ export class CrashEngine {
       this.tickHandle = null;
     }
   }
+
+  // -------------------------------------------------------------------------
+  // Player actions
+  // -------------------------------------------------------------------------
 
   private async handlePlaceBet(socket: AuthedSocket, payload: unknown, ack?: (resp: unknown) => void) {
     const reply = (resp: unknown) => ack?.(resp);
@@ -234,6 +253,7 @@ export class CrashEngine {
     reply({ ok: true, multiplier, payout: bet.payout });
   }
 
+  /** Credit the payout immediately on cashout (don't wait for round end) and mark the bet settled. */
   private async lockInCashout(bet: RoundBet, multiplier: number) {
     bet.cashedOutAt = multiplier;
     bet.payout = Math.floor(bet.amount * multiplier);
@@ -275,6 +295,8 @@ export class CrashEngine {
       },
     });
   }
+
+  // -------------------------------------------------------------------------
 
   private broadcast(event: string, payload: unknown) {
     this.io.of("/crash").to("crash").emit(event, payload);
