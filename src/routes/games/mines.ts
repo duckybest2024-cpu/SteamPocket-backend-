@@ -33,6 +33,8 @@ minesRouter.post("/start", requireAuth, requireApproved, async (req: AuthedReque
   if (mineCountError) return res.status(400).json({ error: mineCountError });
 
   try {
+    // Escrow the wager and "spend" the current seed/nonce pair atomically — the mine layout is
+    // fully determined right now, so reusing this nonce for anything else would leak information.
     const round = await prisma.$transaction(async (tx) => {
       const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
       await applyLedgerEntry(tx, userId, "bet", -amount, undefined);
@@ -99,6 +101,7 @@ minesRouter.post("/reveal", requireAuth, requireApproved, async (req: AuthedRequ
   const multiplier = multiplierForPicks(round.mineCount, round.revealed.length);
   const allSafeTilesFound = round.revealed.length === GRID_SIZE - round.mineCount;
 
+  // Auto-cashout when every safe tile has been found — nothing left to gain by continuing.
   if (allSafeTilesFound) {
     minesRounds.clear(userId);
     const settled = await settleMines(userId, round, { cashedOut: true, multiplier });
@@ -143,6 +146,8 @@ minesRouter.get("/active", requireAuth, requireApproved, async (req: AuthedReque
   if (!round) return res.status(404).json({ error: "No active round" });
   res.json({ round: publicRound(round) });
 });
+
+// ---------------------------------------------------------------------------
 
 async function settleMines(
   userId: string,
@@ -207,6 +212,7 @@ async function settleMines(
   });
 }
 
+/** Round view while still in progress — mine locations stay hidden. */
 function publicRound(round: MinesActiveRound) {
   return {
     amount: round.amount,
@@ -220,6 +226,7 @@ function publicRound(round: MinesActiveRound) {
   };
 }
 
+/** Round view after settlement — full mine layout revealed for verification. */
 function revealedRound(round: MinesActiveRound) {
   return { ...publicRound(round), mines: round.mines };
 }

@@ -298,6 +298,8 @@ adminRouter.patch("/users/:userId/rank", ownerOnly, async (req: AuthedRequest, r
   }
 });
 
+// ── Feature 1 & 2: per-game stats + revenue chart ──────────────────────────
+
 adminRouter.get("/stats/games", async (_req, res) => {
   try {
     const grouped = await prisma.bet.groupBy({
@@ -341,6 +343,8 @@ adminRouter.get("/stats/revenue", async (_req, res) => {
   } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
 
+// ── Feature 3: active users ─────────────────────────────────────────────────
+
 adminRouter.get("/stats/active", async (_req, res) => {
   try {
     const [h24, d7, d30] = await Promise.all([
@@ -351,6 +355,8 @@ adminRouter.get("/stats/active", async (_req, res) => {
     res.json({ last24h: h24.length, last7d: d7.length, last30d: d30.length });
   } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
+
+// ── Feature 4: user detail ──────────────────────────────────────────────────
 
 adminRouter.get("/users/:id/detail", async (req, res) => {
   try {
@@ -365,6 +371,8 @@ adminRouter.get("/users/:id/detail", async (req, res) => {
     res.json({ user, bets, txs, nfts });
   } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
+
+// ── Feature 5: zero balance ─────────────────────────────────────────────────
 
 adminRouter.post("/users/:id/zero-balance", async (req, res) => {
   const { id } = req.params;
@@ -381,6 +389,8 @@ adminRouter.post("/users/:id/zero-balance", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
 
+// ── Feature 6: recent bets feed ─────────────────────────────────────────────
+
 adminRouter.get("/bets", async (req, res) => {
   try {
     const limit = Math.min(100, Number(req.query.limit) || 50);
@@ -392,6 +402,8 @@ adminRouter.get("/bets", async (req, res) => {
     res.json({ bets });
   } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
+
+// ── Feature 7: payment history ──────────────────────────────────────────────
 
 adminRouter.get("/payments", async (req, res) => {
   try {
@@ -410,6 +422,8 @@ adminRouter.get("/payments", async (req, res) => {
     res.json({ items, total, page, pages: Math.ceil(total / limit) });
   } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
+
+// ── Feature 8 & 9: top players ──────────────────────────────────────────────
 
 adminRouter.get("/top-players", async (_req, res) => {
   try {
@@ -438,6 +452,8 @@ adminRouter.get("/top-players", async (_req, res) => {
   } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
 
+// ── Features 10 & 11: broadcasts ────────────────────────────────────────────
+
 adminRouter.get("/broadcasts", async (_req, res) => {
   const broadcasts = await prisma.broadcast.findMany({ orderBy: { createdAt: "desc" } });
   res.json({ broadcasts });
@@ -456,6 +472,8 @@ adminRouter.delete("/broadcasts/:id", async (req, res) => {
     res.json({ ok: true });
   } catch { res.status(404).json({ error: "Not found" }); }
 });
+
+// ── Features 12, 13, 14: promo codes ────────────────────────────────────────
 
 adminRouter.get("/promos", async (_req, res) => {
   const promos = await prisma.promoCode.findMany({
@@ -491,6 +509,8 @@ adminRouter.delete("/promos/:id", async (req, res) => {
   } catch { res.status(404).json({ error: "Not found" }); }
 });
 
+// ── Features 15 & 16: game controls + maintenance ───────────────────────────
+
 adminRouter.get("/config", async (_req, res) => {
   const configs = await prisma.siteConfig.findMany();
   const obj: Record<string, string> = {};
@@ -510,6 +530,8 @@ adminRouter.post("/config", async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Feature 17: bulk chip giveaway ──────────────────────────────────────────
+
 adminRouter.post("/bulk-chips", async (req, res) => {
   const { chips, note = "bulk giveaway" } = req.body as { chips?: number; note?: string };
   if (!chips || Number(chips) <= 0) return res.status(400).json({ error: "chips must be > 0" });
@@ -525,6 +547,11 @@ adminRouter.post("/bulk-chips", async (req, res) => {
     res.json({ count, chipsEach: Number(chips) });
   } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
+
+// ── Features 18: site settings (starting balance) are stored in SiteConfig
+// (already covered by GET/POST /admin/config above)
+
+// ── Features 19 & 20: NFT management ────────────────────────────────────────
 
 adminRouter.get("/nfts", async (_req, res) => {
   try {
@@ -556,6 +583,11 @@ adminRouter.delete("/nft/:id", async (req, res) => {
   } catch { res.status(404).json({ error: "Not found" }); }
 });
 
+// ──────────────────────────────────────────────────────────────────────────────
+// ANTI-CHEAT — flag management
+// ──────────────────────────────────────────────────────────────────────────────
+
+// GET /admin/flags — list all unresolved anticheat events with user info
 adminRouter.get("/flags", async (_req, res) => {
   try {
     const events = await (prisma as any).anticheatEvent.findMany({
@@ -583,6 +615,7 @@ adminRouter.get("/flags", async (_req, res) => {
   }
 });
 
+// GET /admin/flags/users — list flagged users
 adminRouter.get("/flags/users", async (_req, res) => {
   try {
     const users = await prisma.user.findMany({
@@ -596,6 +629,7 @@ adminRouter.get("/flags/users", async (_req, res) => {
   }
 });
 
+// POST /admin/flags/:eventId/resolve — resolve a specific event
 adminRouter.post("/flags/:eventId/resolve", async (req: AuthedRequest, res) => {
   const { resolution } = req.body as { resolution?: string };
   try {
@@ -609,6 +643,7 @@ adminRouter.post("/flags/:eventId/resolve", async (req: AuthedRequest, res) => {
       },
     });
 
+    // If all events for user are resolved, unflag user
     const remaining = await (prisma as any).anticheatEvent.count({
       where: { userId: event.userId, resolved: false },
     });
@@ -623,6 +658,7 @@ adminRouter.post("/flags/:eventId/resolve", async (req: AuthedRequest, res) => {
   }
 });
 
+// POST /admin/flags/user/:userId/clear — clear all flags for a user
 adminRouter.post("/flags/user/:userId/clear", async (req: AuthedRequest, res) => {
   try {
     await (prisma as any).anticheatEvent.updateMany({
@@ -639,6 +675,7 @@ adminRouter.post("/flags/user/:userId/clear", async (req: AuthedRequest, res) =>
   }
 });
 
+// POST /admin/flags/user/:userId/ban — ban a flagged user
 adminRouter.post("/flags/user/:userId/ban", async (req: AuthedRequest, res) => {
   try {
     await prisma.user.update({
@@ -651,6 +688,9 @@ adminRouter.post("/flags/user/:userId/ban", async (req: AuthedRequest, res) => {
   }
 });
 
+// ===========================================================================
+// 1. MAINTENANCE MODE
+// ===========================================================================
 let maintenanceMode = false;
 
 adminRouter.get("/maintenance", (_req, res) => {
@@ -662,12 +702,35 @@ adminRouter.post("/maintenance/toggle", (_req, res) => {
   res.json({ enabled: maintenanceMode });
 });
 
+// ===========================================================================
+// 2. SITE CONFIG
+// ===========================================================================
 const siteConfig = {
   minBet: 10,
   maxBet: 100000,
   houseEdgeOverride: null as number | null,
 };
 
+adminRouter.get("/config", (_req, res) => {
+  res.json(siteConfig);
+});
+
+adminRouter.post("/config", (req, res) => {
+  const { minBet, maxBet, houseEdgeOverride } = req.body as {
+    minBet?: number;
+    maxBet?: number;
+    houseEdgeOverride?: number | null;
+  };
+  if (minBet !== undefined) siteConfig.minBet = Number(minBet);
+  if (maxBet !== undefined) siteConfig.maxBet = Number(maxBet);
+  if (houseEdgeOverride !== undefined)
+    siteConfig.houseEdgeOverride = houseEdgeOverride === null ? null : Number(houseEdgeOverride);
+  res.json(siteConfig);
+});
+
+// ===========================================================================
+// 3. IP BLOCKS
+// ===========================================================================
 const ipBlockList: Array<{ ip: string; reason: string; addedAt: string }> = [];
 
 adminRouter.get("/ip-blocks", (_req, res) => {
@@ -691,6 +754,9 @@ adminRouter.delete("/ip-blocks/:ip", (req, res) => {
   res.json({ ok: true, blocks: ipBlockList });
 });
 
+// ===========================================================================
+// 4. REPORTS — suspicious users
+// ===========================================================================
 adminRouter.get("/reports/suspicious", async (_req, res) => {
   try {
     const users = await prisma.user.findMany({
@@ -714,6 +780,9 @@ adminRouter.get("/reports/suspicious", async (_req, res) => {
   }
 });
 
+// ===========================================================================
+// 5. ANALYTICS
+// ===========================================================================
 adminRouter.get("/analytics", async (_req, res) => {
   try {
     const sevenDaysAgo = new Date();
@@ -730,6 +799,7 @@ adminRouter.get("/analytics", async (_req, res) => {
       }),
     ]);
 
+    // Daily signups: last 7 days
     const dailyMap: Record<string, number> = {};
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
@@ -743,6 +813,7 @@ adminRouter.get("/analytics", async (_req, res) => {
     }
     const dailySignups = Object.entries(dailyMap).map(([date, count]) => ({ date, count }));
 
+    // Bets per game
     const gameMap: Record<string, { count: number; wagered: number; paidOut: number }> = {};
     for (const bet of bets) {
       const g = bet.game || "unknown";
@@ -755,6 +826,7 @@ adminRouter.get("/analytics", async (_req, res) => {
       .map(([game, stats]) => ({ game, ...stats }))
       .sort((a, b) => b.count - a.count);
 
+    // Win/loss ratio
     const totalBets = bets.length;
     const wins = bets.filter(b => (b.payout ?? 0) > b.amount).length;
     const winLossRatio = totalBets > 0 ? ((wins / totalBets) * 100).toFixed(1) : "0.0";
@@ -766,6 +838,9 @@ adminRouter.get("/analytics", async (_req, res) => {
   }
 });
 
+// ===========================================================================
+// 6. REFERRALS
+// ===========================================================================
 adminRouter.get("/referrals", async (_req, res) => {
   try {
     const users = await prisma.user.findMany({
@@ -787,6 +862,9 @@ adminRouter.get("/referrals", async (_req, res) => {
   }
 });
 
+// ===========================================================================
+// 7. LEADERBOARD
+// ===========================================================================
 adminRouter.get("/leaderboard", async (_req, res) => {
   try {
     const users = await prisma.user.findMany({
@@ -811,6 +889,9 @@ adminRouter.post("/leaderboard/reset", async (_req, res) => {
   }
 });
 
+// ===========================================================================
+// 8. CHAT MODERATION
+// ===========================================================================
 const chatMutedUsers = new Set<string>();
 
 adminRouter.get("/chat/messages", (_req, res) => {
@@ -831,6 +912,9 @@ adminRouter.post("/chat/unmute", (req, res) => {
   res.json({ ok: true, mutedUsers: Array.from(chatMutedUsers) });
 });
 
+// ===========================================================================
+// 9. SCRATCH TICKET STATS
+// ===========================================================================
 adminRouter.get("/scratch/stats", async (_req, res) => {
   try {
     const agg = await prisma.bet.aggregate({
@@ -849,6 +933,9 @@ adminRouter.get("/scratch/stats", async (_req, res) => {
   }
 });
 
+// ===========================================================================
+// 10. PRIZE DRAWS
+// ===========================================================================
 interface Prize {
   id: string;
   name: string;
@@ -898,6 +985,7 @@ adminRouter.post("/prizes/:id/draw", async (req, res) => {
 
     if (!winner) return res.status(400).json({ error: "No eligible users" });
 
+    // Award chips
     if (prize.chipAmount > 0) {
       await prisma.user.update({
         where: { id: winner.id },
@@ -915,6 +1003,11 @@ adminRouter.post("/prizes/:id/draw", async (req, res) => {
   }
 });
 
+// ===========================================================================
+// 11. PATREON SUBSCRIPTION MANAGEMENT
+// ===========================================================================
+
+// GET /admin/subscriptions/pending — users awaiting approval
 adminRouter.get("/subscriptions/pending", async (_req, res) => {
   try {
     const users = await prisma.user.findMany({
@@ -928,6 +1021,7 @@ adminRouter.get("/subscriptions/pending", async (_req, res) => {
   }
 });
 
+// GET /admin/subscriptions — all subscription statuses
 adminRouter.get("/subscriptions", async (_req, res) => {
   try {
     const users = await prisma.user.findMany({
@@ -946,6 +1040,7 @@ const approveSchema = z.object({
   daysValid: z.number().int().min(1).max(365).optional(),
 });
 
+// POST /admin/subscriptions/:userId/approve — approve a user's subscription
 adminRouter.post("/subscriptions/:userId/approve", async (req, res) => {
   const parsed = approveSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
@@ -966,6 +1061,7 @@ adminRouter.post("/subscriptions/:userId/approve", async (req, res) => {
   }
 });
 
+// POST /admin/subscriptions/:userId/revoke — revoke a user's subscription
 adminRouter.post("/subscriptions/:userId/revoke", async (req, res) => {
   const { userId } = req.params;
   try {
@@ -980,6 +1076,7 @@ adminRouter.post("/subscriptions/:userId/revoke", async (req, res) => {
   }
 });
 
+// POST /admin/subscriptions/revoke-expired — revoke all expired subscriptions
 adminRouter.post("/subscriptions/revoke-expired", async (_req, res) => {
   try {
     const result = await prisma.user.updateMany({
@@ -992,6 +1089,7 @@ adminRouter.post("/subscriptions/revoke-expired", async (_req, res) => {
   }
 });
 
+// PATCH /admin/users/:userId/admin — toggle isAdmin flag
 adminRouter.patch("/users/:userId/admin", async (req, res) => {
   const { userId } = req.params;
   const { isAdmin } = req.body as { isAdmin?: boolean };

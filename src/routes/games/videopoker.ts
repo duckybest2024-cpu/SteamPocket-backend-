@@ -80,6 +80,7 @@ videoPokerRouter.post("/draw", requireAuth, requireApproved, async (req: AuthedR
 
   const { hold } = parsed.data;
 
+  // Replace non-held cards with the next cards from the deck (starting at index 5)
   let drawCursor = 5;
   const finalHand = round.hand.map((card, i) => {
     if (hold[i]) return card;
@@ -120,6 +121,8 @@ videoPokerRouter.get("/active", requireAuth, requireApproved, async (req: Authed
     },
   });
 });
+
+// ---------------------------------------------------------------------------
 
 async function settleVideoPoker(
   userId: string,

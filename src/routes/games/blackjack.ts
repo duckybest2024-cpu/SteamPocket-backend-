@@ -52,6 +52,8 @@ blackjackRouter.post("/start", requireAuth, requireApproved, async (req: AuthedR
     });
 
     if (round.state.status === "settled") {
+      // Player blackjack against a non-blackjack dealer never happens here (settled only on
+      // double-blackjack push or dealer blackjack loss) — but guard the path for completeness.
       const result = await finishRound(userId, round);
       return res.status(201).json({ finished: true, ...result });
     }
@@ -130,6 +132,10 @@ blackjackRouter.post("/action", requireAuth, requireApproved, async (req: Authed
   res.json({ finished: false, table: publicTable(round, false) });
 });
 
+// ---------------------------------------------------------------------------
+// Action handlers
+// ---------------------------------------------------------------------------
+
 async function applyHit(hand: BlackjackHand, state: BlackjackState) {
   hand.cards.push(dealCard(state));
   if (isBust(hand.cards)) hand.status = "bust";
@@ -158,6 +164,7 @@ async function applySplit(userId: string, hand: BlackjackHand, state: BlackjackS
   hand.cards.push(dealCard(state));
   newHand.cards.push(dealCard(state));
 
+  // Splitting Aces: standard rule — exactly one card per hand, then both stand automatically.
   if (first.rank === "A") {
     hand.status = "stood";
     newHand.status = "stood";
@@ -174,6 +181,7 @@ async function applyInsurance(userId: string, state: BlackjackState) {
     await applyLedgerEntry(tx, userId, "bet", -insuranceCost, undefined);
 
     if (handValue(state.dealer).total === 21 && state.dealer.length === 2) {
+      // Dealer reveals blackjack immediately — insurance pays 2:1 (stake back + 2x win).
       await applyLedgerEntry(tx, userId, "payout", insuranceCost * 3, "insurance");
     }
   });
@@ -182,6 +190,7 @@ async function applyInsurance(userId: string, state: BlackjackState) {
 
 class BadAction extends Error {}
 
+/** Move to the next hand (for splits) or kick off the dealer's turn once everyone has acted. */
 function advanceIfNeeded(state: BlackjackState) {
   while (state.activeHand < state.hands.length && state.hands[state.activeHand].status !== "playing") {
     state.activeHand += 1;
@@ -190,6 +199,10 @@ function advanceIfNeeded(state: BlackjackState) {
     playDealerHand(state);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Settlement
+// ---------------------------------------------------------------------------
 
 async function finishRound(userId: string, round: BlackjackActiveRound) {
   const settlements = settleHands(round.state);
@@ -252,6 +265,10 @@ async function finishRound(userId: string, round: BlackjackActiveRound) {
     };
   });
 }
+
+// ---------------------------------------------------------------------------
+// View serialisation
+// ---------------------------------------------------------------------------
 
 function publicTable(round: BlackjackActiveRound, revealHole: boolean) {
   const { state } = round;

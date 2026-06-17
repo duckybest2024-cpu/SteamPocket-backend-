@@ -12,6 +12,7 @@ import { InsufficientFundsError } from "../../lib/wallet";
 
 export const instantGamesRouter = Router();
 
+/** Shared error translation so every instant-game route reports the same shape for the same failures. */
 function handleBetError(err: unknown, res: import("express").Response) {
   if (err instanceof InsufficientFundsError) return res.status(400).json({ error: "Insufficient balance" });
   if (err instanceof BadBetInputError) return res.status(400).json({ error: err.message });
@@ -19,6 +20,9 @@ function handleBetError(err: unknown, res: import("express").Response) {
   res.status(500).json({ error: "Something went wrong — please try again" });
 }
 
+// ---------------------------------------------------------------------------
+// Dice — pick over/under a target 0-100, instant resolution.
+// ---------------------------------------------------------------------------
 const diceSchema = z.object({
   amount: z.number().int().positive(),
   target: z.number().min(0.01).max(99.99),
@@ -49,6 +53,9 @@ instantGamesRouter.post("/dice", requireAuth, requireApproved, async (req: Authe
   }
 });
 
+// ---------------------------------------------------------------------------
+// Limbo — pick a target multiplier, win if the rolled multiplier clears it.
+// ---------------------------------------------------------------------------
 const limboSchema = z.object({
   amount: z.number().int().positive(),
   targetMultiplier: z.number().min(1.01).max(1_000_000),
@@ -78,6 +85,9 @@ instantGamesRouter.post("/limbo", requireAuth, requireApproved, async (req: Auth
   }
 });
 
+// ---------------------------------------------------------------------------
+// Plinko — drop a ball through a peg board, land in a multiplier slot.
+// ---------------------------------------------------------------------------
 const plinkoSchema = z.object({
   amount: z.number().int().positive(),
   risk: z.enum(["low", "medium", "high"]),
@@ -109,6 +119,9 @@ instantGamesRouter.post("/plinko", requireAuth, requireApproved, async (req: Aut
   }
 });
 
+// ---------------------------------------------------------------------------
+// Keno — pick 2-10 numbers from 1-80, house draws 20.
+// ---------------------------------------------------------------------------
 const kenoSchema = z.object({
   amount: z.number().int().positive(),
   picks: z.array(z.number().int()).min(2).max(10),
@@ -145,6 +158,9 @@ instantGamesRouter.post("/keno", requireAuth, requireApproved, async (req: Authe
   }
 });
 
+// ---------------------------------------------------------------------------
+// Wheel of Fortune — spin a weighted segment wheel.
+// ---------------------------------------------------------------------------
 const wheelSchema = z.object({
   amount: z.number().int().positive(),
   risk: z.enum(["low", "medium", "high"]),
@@ -180,6 +196,9 @@ instantGamesRouter.post("/wheel", requireAuth, requireApproved, async (req: Auth
   }
 });
 
+// ---------------------------------------------------------------------------
+// Baccarat — player/banker/tie bet with standard baccarat card rules.
+// ---------------------------------------------------------------------------
 const baccaratSchema = z.object({
   amount: z.number().int().positive(),
   bet: z.enum(["player", "banker", "tie"]),

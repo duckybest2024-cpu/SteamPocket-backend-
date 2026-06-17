@@ -27,12 +27,13 @@ const spinSchema = z.object({
   bets: z.array(betSchema).min(1).max(40),
 });
 
-const MAX_TOTAL_STAKE = 5_000_000;
+const MAX_TOTAL_STAKE = 5_000_000; // $50,000 — sanity ceiling on a single spin across all bets combined
 
 rouletteRouter.post("/spin", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = spinSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
+  // Build & validate fully-resolved bets (dozen/column groups expanded to their pocket numbers).
   const bets: RouletteBet[] = [];
   for (const raw of parsed.data.bets) {
     let numbers = raw.numbers ?? [];
@@ -84,6 +85,7 @@ rouletteRouter.post("/spin", requireAuth, requireApproved, async (req: AuthedReq
   }
 });
 
+/** Static reference data for building the betting board client-side (payouts, colours, groups). */
 rouletteRouter.get("/board", (_req, res) => {
   const numbers = Array.from({ length: 37 }, (_, n) => ({ number: n, color: colorOf(n) }));
   res.json({

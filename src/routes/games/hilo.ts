@@ -92,6 +92,7 @@ hiloRouter.post("/action", requireAuth, requireApproved, async (req: AuthedReque
 
   const { action } = parsed.data;
 
+  // --- Cashout ---
   if (action === "cashout") {
     hiloRounds.clear(userId);
     const payout = Math.floor(round.bet * round.currentMultiplier);
@@ -104,10 +105,12 @@ hiloRouter.post("/action", requireAuth, requireApproved, async (req: AuthedReque
     });
   }
 
+  // --- Higher / Lower ---
   const currentCard = round.deck[round.position - 1];
   const nextCard = round.deck[round.position];
 
   if (!nextCard) {
+    // Deck exhausted — treat as auto-cashout
     hiloRounds.clear(userId);
     const payout = Math.floor(round.bet * round.currentMultiplier);
     const settled = await settleHilo(userId, round, payout);
@@ -120,7 +123,7 @@ hiloRouter.post("/action", requireAuth, requireApproved, async (req: AuthedReque
   }
 
   const outcome = hiloOutcome(currentCard, nextCard, action);
-  const remaining = round.deck.slice(round.position + 1);
+  const remaining = round.deck.slice(round.position + 1); // cards still in deck after this draw
 
   if (outcome === "wrong") {
     hiloRounds.clear(userId);
@@ -135,16 +138,24 @@ hiloRouter.post("/action", requireAuth, requireApproved, async (req: AuthedReque
     });
   }
 
+  // Correct or push — advance position
   round.position += 1;
 
   if (outcome === "correct") {
+    // Update multiplier: factor based on win probability from *before* this draw
+    // remaining cards for probability = deck after the card we just drew was revealed
+    const remainingBeforeDraw = round.deck.slice(round.position - 1); // excludes nextCard (it was drawn)
+    // Actually: probability should be computed over cards that were still unseen when guess was made
+    // = deck[position..end] before the draw, i.e., round.deck.slice(old position)
     const unseenBeforeGuess = round.deck.slice(round.position - 1);
     const factor = hiloMultiplierFactor(currentCard, action, unseenBeforeGuess);
     round.currentMultiplier = Number((round.currentMultiplier * factor).toFixed(6));
   }
+  // push: multiplier stays the same
 
   hiloRounds.set(userId, round);
 
+  // Compute next-card hints
   const higherChance = remaining.length > 0
     ? Number((countHigher(nextCard, remaining) / remaining.length).toFixed(4))
     : 0;
@@ -198,6 +209,8 @@ hiloRouter.get("/active", requireAuth, requireApproved, async (req: AuthedReques
     },
   });
 });
+
+// ---------------------------------------------------------------------------
 
 async function settleHilo(userId: string, round: HiloActiveRound, payout: number) {
   const multiplier = round.bet > 0 ? Number((payout / round.bet).toFixed(4)) : 0;

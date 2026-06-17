@@ -33,6 +33,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.06, mult: 4,  label: "Big prize! 🎁" },
       { prob: 0.01, mult: 12, label: "JACKPOT! 🏆" },
     ],
+    // EV: 0 + 0.25 + 0.36 + 0.24 + 0.12 = 0.97
   },
   {
     id: "claw_deluxe",
@@ -47,6 +48,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.04, mult: 8,   label: "Large prize! 🎁" },
       { prob: 0.01, mult: 5,   label: "JACKPOT! 🏆" },
     ],
+    // EV: 0 + 0.10 + 0.20 + 0.30 + 0.32 + 0.05 = 0.97
   },
   {
     id: "capsule_gacha",
@@ -61,6 +63,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.04, mult: 2.5, label: "Epic prize ✨" },
       { prob: 0.01, mult: 2,   label: "Legendary prize 🌟" },
     ],
+    // EV: 0 + 0.20 + 0.35 + 0.30 + 0.10 + 0.02 = 0.97
   },
   {
     id: "magic_egg",
@@ -75,6 +78,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.04, mult: 5,   label: "Lucky egg! 🌟" },
       { prob: 0.01, mult: 2,   label: "Golden egg! 🥇" },
     ],
+    // EV: 0 + 0.15 + 0.30 + 0.30 + 0.20 + 0.02 = 0.97
   },
   {
     id: "fantasy_star",
@@ -89,6 +93,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.03, mult: 4,   label: "Rainbow star! 🌈" },
       { prob: 0.01, mult: 7,   label: "SUPER STAR! 🚀" },
     ],
+    // EV: 0 + 0.28 + 0.27 + 0.24 + 0.12 + 0.07 = 0.98
   },
   {
     id: "ticket_blaster",
@@ -103,6 +108,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.07, mult: 3,   label: "Bullseye! 🎯" },
       { prob: 0.02, mult: 5,   label: "JACKPOT BLAST! 💥" },
     ],
+    // EV: 0 + 0.15 + 0.22 + 0.28 + 0.21 + 0.10 = 0.96
   },
   {
     id: "stacker",
@@ -117,6 +123,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.02, mult: 5,  label: "Perfect stack! ⭐" },
       { prob: 0.01, mult: 10, label: "JACKPOT! 🏆" },
     ],
+    // EV: 0 + 0.25 + 0.30 + 0.21 + 0.10 + 0.10 = 0.96
   },
   {
     id: "basketball",
@@ -131,6 +138,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.02, mult: 5,   label: "Half-court shot! 🏆" },
       { prob: 0.01, mult: 7,   label: "BUZZER BEATER! 🎉" },
     ],
+    // EV: 0 + 0.25 + 0.27 + 0.27 + 0.10 + 0.07 = 0.96
   },
   {
     id: "whack_mole",
@@ -145,6 +153,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.04, mult: 4,  label: "Mole frenzy! 🌟" },
       { prob: 0.01, mult: 10, label: "PERFECT ROUND! 🏆" },
     ],
+    // EV: 0 + 0.15 + 0.25 + 0.30 + 0.16 + 0.10 = 0.96
   },
   {
     id: "fishing",
@@ -159,6 +168,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.05, mult: 4,   label: "Rare fish! 🦈" },
       { prob: 0.01, mult: 12,  label: "LEGENDARY CATCH! 🏆" },
     ],
+    // EV: 0 + 0.125 + 0.25 + 0.28 + 0.20 + 0.12 = 0.975
   },
   {
     id: "lucky_punch",
@@ -173,6 +183,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.04, mult: 5,   label: "Knockout! ⭐" },
       { prob: 0.01, mult: 12,  label: "MEGA PUNCH! 🏆" },
     ],
+    // EV: 0 + 0.14 + 0.22 + 0.30 + 0.20 + 0.12 = 0.98
   },
   {
     id: "coin_pusher",
@@ -187,6 +198,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.06, mult: 3,   label: "Coin avalanche! 🎰" },
       { prob: 0.02, mult: 5,   label: "JACKPOT COINS! 🏆" },
     ],
+    // EV: 0 + 0.15 + 0.26 + 0.28 + 0.18 + 0.10 = 0.97
   },
   {
     id: "prize_ladder",
@@ -201,6 +213,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.05, mult: 4,   label: "Top rung! 🌟" },
       { prob: 0.01, mult: 12,  label: "JACKPOT RUNG! 🏆" },
     ],
+    // EV: 0 + 0.15 + 0.22 + 0.28 + 0.20 + 0.12 = 0.97
   },
   {
     id: "crane_master",
@@ -215,6 +228,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.02, mult: 5,  label: "Precision elite! 💎" },
       { prob: 0.01, mult: 10, label: "GRAND MASTER! 🏆" },
     ],
+    // EV: 0 + 0.25 + 0.30 + 0.21 + 0.10 + 0.10 = 0.96
   },
   {
     id: "egg_machine",
@@ -229,6 +243,7 @@ const ARCADE_GAMES: ArcadeGameDef[] = [
       { prob: 0.04, mult: 4,   label: "Golden egg! 💛" },
       { prob: 0.01, mult: 12,  label: "DRAGON EGG! 🐉" },
     ],
+    // EV: 0 + 0.175 + 0.28 + 0.24 + 0.16 + 0.12 = 0.975
   },
 ];
 
