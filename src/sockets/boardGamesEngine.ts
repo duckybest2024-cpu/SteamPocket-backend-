@@ -10,7 +10,7 @@ import { prisma } from "../lib/prisma";
 import { config } from "../lib/config";
 import { applyLedgerEntry } from "../lib/wallet";
 
-// ─── Types ──────────────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────────────
 
 interface AuthedSocket extends Socket { data: { userId?: string; username?: string } }
 
@@ -37,11 +37,11 @@ interface Room {
   escrowedUserIds: Set<string>;
 }
 
-// ─── In-memory store ───────────────────────────────────────────────────────────────────────
+// ─── In-memory store ────────────────────────────────────────────────────────────────
 
 const rooms = new Map<string, Room>();
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────────
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -52,6 +52,7 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+/** Returns a serialisable snapshot of the room (hidden info redacted for clientUserId). */
 function roomView(room: Room, clientUserId?: string): object {
   return {
     id: room.id,
@@ -118,7 +119,7 @@ function redactState(room: Room, clientUserId?: string): GameState {
   }
 }
 
-// ─── Winner resolution ──────────────────────────────────────────────────────────────
+// ─── Winner resolution ────────────────────────────────────────────────────────────
 
 async function resolveWinner(room: Room, winnerId: string | null): Promise<number> {
   const totalPotCents = room.betChips * 100 * room.escrowedUserIds.size;
@@ -137,9 +138,9 @@ async function resolveWinner(room: Room, winnerId: string | null): Promise<numbe
   return prize;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════════════
 // 1. CHESS
-// ═════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════════════
 
 function initChessBoard(): string[][] {
   const b: string[][] = Array.from({ length: 8 }, () => Array(8).fill(""));
@@ -318,6 +319,7 @@ function applyChessMove(
   if (piece === "wR") { if (move.from[1] === 7) newCastling.wK = false; if (move.from[1] === 0) newCastling.wQ = false; }
   if (piece === "bR") { if (move.from[1] === 7) newCastling.bK = false; if (move.from[1] === 0) newCastling.bQ = false; }
 
+  // Castling — move the rook
   if (piece === "wK" && move.from[0] === 7 && move.to[0] === 7) {
     if (move.to[1] === 6) { newBoard[7][5] = "wR"; newBoard[7][7] = ""; }
     if (move.to[1] === 2) { newBoard[7][3] = "wR"; newBoard[7][0] = ""; }
@@ -327,6 +329,7 @@ function applyChessMove(
     if (move.to[1] === 2) { newBoard[0][3] = "bR"; newBoard[0][0] = ""; }
   }
 
+  // En passant capture
   let newEnPassant: [number, number] | null = null;
   if (piece === "wP" && move.from[0] === 6 && move.to[0] === 4) newEnPassant = [5, move.to[1]];
   if (piece === "bP" && move.from[0] === 1 && move.to[0] === 3) newEnPassant = [2, move.to[1]];
@@ -361,9 +364,9 @@ function getChessWinner(state: ChessState): string | null {
   return null;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════
 // 2. CHECKERS
-// ═════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════════════
 
 interface CheckersState {
   board: number[][];
@@ -460,9 +463,9 @@ function applyCheckersMove(
   };
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════
 // 3. BATTLESHIP
-// ═════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════════════
 
 interface BattleshipPlayerState {
   grid: number[][];
@@ -543,9 +546,9 @@ function applyBattleshipMove(
   return s;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════
 // 4. DURAK
-// ═════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════════════
 
 const DURAK_RANKS = ["6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 const DURAK_SUITS = ["♠", "♥", "♦", "♣"];
@@ -557,6 +560,7 @@ function makeDurakDeck(): string[] {
 }
 
 function durakRankVal(card: string): number {
+  // Suit is the last unicode char; rank is everything before it
   const rank = card.slice(0, -1);
   return DURAK_RANKS.indexOf(rank);
 }
@@ -687,9 +691,9 @@ function applyDurakMove(
   return s;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════
 // 5. WILD CARDS (UNO-like)
-// ═════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════════════
 
 function makeWildCardsDeck(): string[] {
   const colors = ["red", "blue", "green", "yellow"];
@@ -808,9 +812,9 @@ function applyWildCardsMove(
   return s;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════
 // 6. POKER (Texas Hold'em)
-// ═════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════════════
 
 const POKER_SUITS = ["♠", "♥", "♦", "♣"];
 const POKER_RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
@@ -957,9 +961,9 @@ function applyPokerMove(
   return s;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════
 // 7. BRIDGE (simplified)
-// ═════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════════════
 
 const BRIDGE_SUITS = ["♠", "♥", "♦", "♣"];
 const BRIDGE_RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
@@ -1084,9 +1088,9 @@ function applyBridgeMove(
   return s;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════
 // 8. MONOPOLY (simplified)
-// ═════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════════════
 
 interface MonopolyProperty {
   name: string;
@@ -1188,7 +1192,7 @@ function applyMonopolyMove(
     }
 
     const newPos = (p.pos + d1 + d2) % 40;
-    if (newPos < p.pos) p.money += 20000;
+    if (newPos < p.pos) p.money += 20000; // Pass Go
     p.pos = newPos;
 
     if (newPos === 30) { p.jailed = true; p.pos = 10; }
@@ -1241,9 +1245,9 @@ function applyMonopolyMove(
   return s;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════
 // Game dispatcher
-// ═════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════════════
 
 function startGame(room: Room): void {
   switch (room.game) {
@@ -1328,9 +1332,9 @@ function getWinnerId(room: Room): string | null | undefined {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════════════
 // Main attach function
-// ═════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════════════
 
 export function attachBoardGames(io: Server): void {
   io.of("/boardgames").use(async (socket: AuthedSocket, next) => {
@@ -1347,12 +1351,14 @@ export function attachBoardGames(io: Server): void {
 
   const ns = io.of("/boardgames");
 
+  /** Emit room-update to every player in the room with their own redacted view. */
   function broadcastRoom(room: Room): void {
     for (const p of room.players) {
       ns.to(p.socketId).emit("bg:room-update", roomView(room, p.userId));
     }
   }
 
+  /** Handle a player leaving/disconnecting. Forfeits mid-game. */
   async function handleLeave(room: Room, userId: string): Promise<void> {
     const pidx = room.players.findIndex((p) => p.userId === userId);
     if (pidx === -1) return;
@@ -1391,6 +1397,7 @@ export function attachBoardGames(io: Server): void {
   ns.on("connection", (socket: AuthedSocket) => {
     let currentRoomId = "";
 
+    // ── bg:rooms ───────────────────────────────────────────────────────────────────
     socket.on("bg:rooms", () => {
       const list = [...rooms.values()]
         .filter((r) => r.status !== "finished")
@@ -1405,6 +1412,7 @@ export function attachBoardGames(io: Server): void {
       socket.emit("bg:rooms", { rooms: list });
     });
 
+    // ── bg:create ──────────────────────────────────────────────────────────────────
     socket.on("bg:create", ({ game, betChips, maxPlayers }: { game: GameType; betChips: number; maxPlayers: number }) => {
       if (!socket.data.userId) return socket.emit("bg:error", { message: "Login required" });
       const validGames: GameType[] = ["chess","checkers","battleship","durak","wildcards","poker","bridge","monopoly"];
@@ -1431,6 +1439,7 @@ export function attachBoardGames(io: Server): void {
       socket.emit("bg:create", { roomId, room: roomView(room, socket.data.userId) });
     });
 
+    // ── bg:join ────────────────────────────────────────────────────────────────────
     socket.on("bg:join", ({ roomId }: { roomId: string }) => {
       if (!socket.data.userId) return socket.emit("bg:error", { message: "Login required" });
       const room = rooms.get(roomId);
@@ -1445,6 +1454,7 @@ export function attachBoardGames(io: Server): void {
       broadcastRoom(room);
     });
 
+    // ── bg:leave ──────────────────────────────────────────────────────────────────
     socket.on("bg:leave", async () => {
       if (!currentRoomId) return;
       const room = rooms.get(currentRoomId);
@@ -1453,6 +1463,7 @@ export function attachBoardGames(io: Server): void {
       currentRoomId = "";
     });
 
+    // ── bg:ready ──────────────────────────────────────────────────────────────────
     socket.on("bg:ready", async () => {
       if (!socket.data.userId) return socket.emit("bg:error", { message: "Login required" });
       if (!currentRoomId) return socket.emit("bg:error", { message: "Not in a room" });
@@ -1497,6 +1508,7 @@ export function attachBoardGames(io: Server): void {
       broadcastRoom(room);
     });
 
+    // ── bg:move ───────────────────────────────────────────────────────────────────
     socket.on("bg:move", async ({ move }: { move: unknown }) => {
       if (!socket.data.userId) return socket.emit("bg:error", { message: "Login required" });
       if (!currentRoomId) return socket.emit("bg:error", { message: "Not in a room" });
@@ -1536,6 +1548,7 @@ export function attachBoardGames(io: Server): void {
       }
     });
 
+    // ── disconnect ───────────────────────────────────────────────────────────────
     socket.on("disconnect", async () => {
       if (!currentRoomId) return;
       const room = rooms.get(currentRoomId);
