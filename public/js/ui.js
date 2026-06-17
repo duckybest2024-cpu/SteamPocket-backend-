@@ -38,6 +38,7 @@ const UI = (() => {
   function setLevel(level, xp) {
     const lvlEl = document.getElementById("user-level-label") || document.getElementById("user-level");
     if (lvlEl) lvlEl.textContent = `Level ${level}`;
+    // XP curve mirrors the backend: level N needs N*1000 cumulative XP.
     let remaining = xp;
     let threshold = 1000;
     let lvl = 1;
@@ -68,6 +69,7 @@ const UI = (() => {
     }
     if (patch.leveledUp) toast(`🎉 Level up! You're now level ${state.level} (+${money(state.level * 500)} bonus)`, "win");
 
+    // Engagement system hooks
     if (typeof Engagement !== "undefined" && patch.result) {
       const r = patch.result;
       const isWin = r.result === "win";

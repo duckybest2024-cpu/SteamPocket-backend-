@@ -95,6 +95,8 @@ const App = (() => {
   let activeCleanup = null;
   let activeKey = null;
 
+  // ── Sidebar ────────────────────────────────────────────────
+
   function buildSidebar() {
     const nav = document.getElementById("sidebar-nav");
     nav.innerHTML = "";
@@ -137,6 +139,8 @@ const App = (() => {
     });
   }
 
+  // ── Sidebar open/close ─────────────────────────────────────
+
   function openSidebar() {
     document.getElementById("sidebar").classList.add("open");
     document.getElementById("sidebar-overlay").classList.add("open");
@@ -146,6 +150,8 @@ const App = (() => {
     document.getElementById("sidebar").classList.remove("open");
     document.getElementById("sidebar-overlay").classList.remove("open");
   }
+
+  // ── Sidebar search ─────────────────────────────────────────
 
   function wireSearch() {
     document.getElementById("sidebar-search").addEventListener("input", (e) => {
@@ -162,6 +168,8 @@ const App = (() => {
     });
   }
 
+  // ── Mount a game ───────────────────────────────────────────
+
   function mount(key) {
     if (activeKey === key) { return; }
     if (activeCleanup) { try { activeCleanup(); } catch { /**/ } activeCleanup = null; }
@@ -169,6 +177,7 @@ const App = (() => {
     activeKey = key;
     updateActiveNav(key);
 
+    // Update topbar breadcrumb
     const item = allItems.find((i) => i.key === key);
     const label = item ? `${item.icon} ${item.label}` : key;
     const bc = document.getElementById("topbar-breadcrumb");
@@ -187,6 +196,8 @@ const App = (() => {
     }
   }
 
+  // ── Account sync ───────────────────────────────────────────
+
   async function refreshAccount() {
     const { user } = await Api.me();
     state.id = user.id;
@@ -201,12 +212,15 @@ const App = (() => {
     state.patreonUsername = user.patreonUsername ?? null;
     state.patreonTier = user.patreonTier ?? null;
 
+    // Sidebar balance
     const balEl = document.getElementById("balance-amount");
     if (balEl) balEl.textContent = Math.floor(state.balance / 100).toLocaleString() + " 🪙";
 
+    // Topbar balance
     const tbEl = document.getElementById("topbar-balance");
     if (tbEl) tbEl.textContent = Math.floor(state.balance / 100).toLocaleString();
 
+    // Subscription tier badge
     const tierEl = document.getElementById("sb-tier-row");
     if (tierEl) {
       const TIER_LABELS = {
@@ -229,6 +243,8 @@ const App = (() => {
 
     return user;
   }
+
+  // ── Auth screens ───────────────────────────────────────────
 
   function showScreen(name) {
     document.getElementById("auth-screen").classList.toggle("hidden", name !== "auth");
@@ -279,6 +295,7 @@ const App = (() => {
   }
 
   function wireAuthForms() {
+    // Tab switching
     document.querySelectorAll(".auth-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
         document.querySelectorAll(".auth-tab").forEach((t) => t.classList.remove("active"));
@@ -376,6 +393,7 @@ const App = (() => {
       mount("lobby");
     }
 
+    // Engagement system
     if (typeof Engagement !== "undefined") {
       setTimeout(() => Engagement.checkDailyBonus(state), 1500);
       Engagement.jackpotTicker.start(50000);

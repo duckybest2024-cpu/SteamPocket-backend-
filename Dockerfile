@@ -1,4 +1,4 @@
-# ── Stage 1: build ────────────────────────────────────────────
+# ── Stage 1: build ──────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -13,7 +13,7 @@ COPY src ./src/
 
 RUN npm run build
 
-# ── Stage 2: runtime ───────────────────────────────────────────────
+# ── Stage 2: runtime ─────────────────────────────────────────────────────────
 FROM node:20-alpine AS runtime
 
 WORKDIR /app

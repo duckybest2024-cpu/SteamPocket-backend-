@@ -32,6 +32,7 @@ const Api = (() => {
     if (!res.ok) {
       const message = (data && data.error) || `Request failed (${res.status})`;
       const err = new Error(message);
+      // Attach extra fields from the server response so callers can inspect them
       if (data) {
         if (data.emailNotVerified) err.emailNotVerified = true;
         if (data.email) err.email = data.email;
@@ -53,6 +54,7 @@ const Api = (() => {
     post,
     patch,
     delete: del,
+    // Convenience wrappers used throughout the app:
     register: (payload) => post("/auth/register", payload),
     login: (payload) => post("/auth/login", payload),
     me: () => get("/auth/me"),

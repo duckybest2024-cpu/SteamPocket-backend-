@@ -18,7 +18,7 @@ export interface CaseDefinition {
 }
 
 export const CASES: CaseDefinition[] = [
-  // ─── TIER 1 — Starter (50–150 chips) ──────────────────────────────────────
+  // ─── TIER 1 — Starter (50–150 chips) ─────────────────────────────────────
   {
     id: "lucky_starter",
     name: "Lucky Starter",
@@ -110,7 +110,7 @@ export const CASES: CaseDefinition[] = [
     dropTable: { common: 65, uncommon: 28, rare: 6, epic: 1, legendary: 0, unique: 0 },
   },
 
-  // ─── TIER 2 — Standard (175–400 chips) ─────────────────────────────────────
+  // ─── TIER 2 — Standard (175–400 chips) ───────────────────────────────────
   {
     id: "card_collector",
     name: "Card Collector",
@@ -177,7 +177,7 @@ export const CASES: CaseDefinition[] = [
   {
     id: "street_king_box",
     name: "Street King Box",
-    emoji: "💟",
+    emoji: "👟",
     description: "Rule the block — a street-culture case loaded with rare urban style drops.",
     priceChips: 350,
     collectionFilter: null,
@@ -202,7 +202,7 @@ export const CASES: CaseDefinition[] = [
     dropTable: { common: 20, uncommon: 50, rare: 25, epic: 5, legendary: 0, unique: 0 },
   },
 
-  // ─── TIER 3 — Premium (450–900 chips) ──────────────────────────────────────
+  // ─── TIER 3 — Premium (450–900 chips) ────────────────────────────────────
   {
     id: "rare_finds",
     name: "Rare Finds",
@@ -294,7 +294,7 @@ export const CASES: CaseDefinition[] = [
     dropTable: { common: 5, uncommon: 30, rare: 50, epic: 14, legendary: 1, unique: 0 },
   },
 
-  // ─── TIER 4 — Elite (1000–3000 chips) ──────────────────────────────────────
+  // ─── TIER 4 — Elite (1000–3000 chips) ────────────────────────────────────
   {
     id: "elite_collection",
     name: "Elite Collection",
@@ -316,7 +316,7 @@ export const CASES: CaseDefinition[] = [
   {
     id: "legendary_hunt",
     name: "Legendary Hunt",
-    emoji: "🦱",
+    emoji: "🦁",
     description: "The hunt for legendary prey begins here — stalk your quarry through epic-tier wilderness.",
     priceChips: 1500,
     collectionFilter: ["legends"],
@@ -325,7 +325,7 @@ export const CASES: CaseDefinition[] = [
   {
     id: "casino_legends",
     name: "Casino Legends",
-    emoji: "🃔",
+    emoji: "🎴",
     description: "Only the greatest players open Casino Legends — epic drops and legendary wins await.",
     priceChips: 1750,
     collectionFilter: ["casino_royale"],
@@ -386,7 +386,7 @@ export const CASES: CaseDefinition[] = [
     dropTable: { common: 0, uncommon: 10, rare: 37, epic: 43, legendary: 10, unique: 0 },
   },
 
-  // ─── TIER 5 — Legendary (4000–15000 chips) ─────────────────────────────────
+  // ─── TIER 5 — Legendary (4000–15000 chips) ───────────────────────────────
   {
     id: "titan_box",
     name: "Titan Box",
@@ -444,7 +444,7 @@ export const CASES: CaseDefinition[] = [
   {
     id: "shadow_vault",
     name: "Shadow Vault",
-    emoji: "🖣️",
+    emoji: "🕳️",
     description: "Hidden in the darkest corner of the collection — unique shadow-forged items emerge from within.",
     priceChips: 11000,
     collectionFilter: null,
