@@ -2,7 +2,7 @@ const StatsGame = (() => {
   const GAME_ICONS = {
     dice:"🎲", mines:"💣", plinko:"🪂", limbo:"🎯", crash:"🚀",
     roulette:"🎡", blackjack:"🃏", slots:"🎰", hilo:"🃏", keno:"🟡",
-    baccarat:"🊴", videopoker:"♠️", wheel:"🎡", tower:"🗼",
+    baccarat:"🎴", videopoker:"♠️", wheel:"🎡", tower:"🗼",
   };
 
   function icon(game) { return GAME_ICONS[game] || "🎮"; }
@@ -51,7 +51,7 @@ const StatsGame = (() => {
           ${isWin ? "+" : ""}${money(net)}
         </td>
         <td>${b.multiplier.toFixed(2)}×</td>
-        <td style="color:${isWin ? "var(--win)" : "var(--loss)"};">${isWin ? "WIN" : "LOSS"}</td>
+        <td style="color:${isWin ? "var(--win)" : "var(--loss)"}">${isWin ? "WIN" : "LOSS"}</td>
         <td style="color:var(--text-dim);font-size:0.75rem">${new Date(b.createdAt).toLocaleDateString()}</td>
       </tr>`;
   }
