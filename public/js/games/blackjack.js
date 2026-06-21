@@ -5,11 +5,13 @@ const BlackjackGame = (() => {
 
     container.innerHTML = `
       <div class="game-panel"><div class="game-layout">
+
         <div class="bet-panel">
           <div class="bp-tabs">
-            <button class="bp-tab active">Manual</button>
-            <button class="bp-tab">Auto</button>
+            <button class="bp-tab active" id="bj-tab-manual">Manual</button>
+            <button class="bp-tab" id="bj-tab-auto">Auto</button>
           </div>
+
           <div class="bp-field">
             <div class="bp-label">Bet Amount ($)</div>
             <div class="bp-input-row">
@@ -18,13 +20,17 @@ const BlackjackGame = (() => {
               <button class="quick-btn" id="bj-dbl">2×</button>
             </div>
           </div>
+
           <hr class="bp-divider" />
+
           <div id="bj-deal-row">
             <button id="bj-deal" class="play-btn">Deal</button>
           </div>
         </div>
+
         <div class="game-canvas">
           <div class="bj-area" id="bj-table"></div>
+
           <div class="btn-row hidden" id="bj-action-row" style="flex-wrap:wrap;">
             <button id="bj-hit" class="primary-btn">Hit</button>
             <button id="bj-stand" class="secondary-btn">Stand</button>
@@ -33,9 +39,11 @@ const BlackjackGame = (() => {
             <button id="bj-surrender" class="secondary-btn">Surrender</button>
             <button id="bj-insurance" class="secondary-btn hidden">Insurance</button>
           </div>
+
           <div id="bj-result" class="result-banner"></div>
           <div id="bj-fairness" class="fairness-line"></div>
         </div>
+
       </div></div>
     `;
 
@@ -57,14 +65,20 @@ const BlackjackGame = (() => {
       fairness: container.querySelector("#bj-fairness"),
     };
 
+    // ½ and 2× quick buttons
     els.half.addEventListener("click", () => { els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 50) / 100); });
     els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100; });
+
+    // Manual/Auto tabs (visual only)
     container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
       container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
       this.classList.add("active");
     }));
 
-    const STATUS_LABEL = { playing:"Playing", stood:"Stood", bust:"Bust", blackjack:"Blackjack!", surrendered:"Surrendered", win:"Won", loss:"Lost", push:"Push", "blackjack-pay":"Blackjack pays 3:2" };
+    const STATUS_LABEL = {
+      playing: "Playing", stood: "Stood", bust: "Bust", blackjack: "Blackjack!",
+      surrendered: "Surrendered", win: "Won", loss: "Lost", push: "Push", "blackjack-pay": "Blackjack pays 3:2",
+    };
 
     function renderHandRow(label, hand, isActive, settlement) {
       const statusClass = settlement ? settlement.outcome : hand.status;
@@ -79,11 +93,15 @@ const BlackjackGame = (() => {
     }
 
     function renderTable(table, settlements) {
-      const dealerCards = table.dealer.cards.map((c, i) => UI.renderCard(c, table.dealer.holeHidden && i === 1)).join("");
+      const dealerCards = table.dealer.cards.map((c, i) =>
+        UI.renderCard(c, table.dealer.holeHidden && i === 1)
+      ).join("");
       const dealerValue = table.dealer.value ? `${table.dealer.value.total}${table.dealer.value.soft ? " (soft)" : ""}` : "?";
+
       const handsHtml = table.hands.map((hand, i) =>
         renderHandRow(table.hands.length > 1 ? `Hand ${i + 1}` : "Your hand", hand, i === table.activeHand && table.status === "player_turn", settlements?.find((s) => s.handIndex === i))
       ).join("");
+
       els.table.innerHTML = `
         <div class="hand-row">
           <h4>Dealer ${table.dealer.holeHidden ? "" : `— ${dealerValue}`}</h4>
@@ -103,6 +121,10 @@ const BlackjackGame = (() => {
       els.insurance.classList.toggle("hidden", !(table.insuranceOffered && !table.insuranceTaken && table.hands.length === 1 && hand?.cards.length === 2));
     }
 
+    function showFairness(table) {
+      els.fairness.innerHTML = UI.fairnessLine(table.fairness);
+    }
+
     function enterRoundUI(table) {
       inRound = true;
       els.dealRow.classList.add("hidden");
@@ -111,7 +133,7 @@ const BlackjackGame = (() => {
       els.result.className = "result-banner";
       renderTable(table);
       setActionAvailability(table);
-      els.fairness.innerHTML = UI.fairnessLine(table.fairness);
+      showFairness(table);
     }
 
     function exitRoundUI() {
@@ -121,12 +143,12 @@ const BlackjackGame = (() => {
       els.amount.disabled = false;
     }
 
-    function describeFinish(fp) {
-      const totalWagered = fp.table.hands.reduce((sum, h) => sum + h.bet, 0);
-      const net = fp.payout - totalWagered;
-      const isWin = fp.payout > totalWagered;
+    function describeFinish(finishPayload) {
+      const totalWagered = finishPayload.table.hands.reduce((sum, h) => sum + h.bet, 0);
+      const net = finishPayload.payout - totalWagered;
+      const isWin = finishPayload.payout > totalWagered;
       els.result.className = `result-banner show ${isWin ? "win" : net === 0 ? "" : "loss"}`;
-      if (net > 0) els.result.textContent = `🎉 Round over — won net ${UI.money(net)} (paid out ${UI.money(fp.payout)}).`;
+      if (net > 0) els.result.textContent = `🎉 Round over — won net ${UI.money(net)} (paid out ${UI.money(finishPayload.payout)}).`;
       else if (net === 0) els.result.textContent = `🤝 Round over — pushed, your ${UI.money(totalWagered)} stake was returned.`;
       else els.result.textContent = `Round over — lost net ${UI.money(-net)}.`;
     }
@@ -135,6 +157,7 @@ const BlackjackGame = (() => {
       if (busy || inRound) return;
       const dollars = Number(els.amount.value);
       if (!dollars || dollars <= 0) return UI.toast("Enter a bet amount.", "loss");
+
       busy = true;
       try {
         const res = await Api.post("/games/blackjack/start", { amount: Math.round(dollars * 100) });
@@ -172,6 +195,7 @@ const BlackjackGame = (() => {
         } else {
           renderTable(res.table);
           setActionAvailability(res.table);
+          // Doubling/splitting silently deducts extra stake mid-hand — refresh the displayed balance.
           App.refreshAccount();
         }
       } catch (err) {
@@ -188,13 +212,17 @@ const BlackjackGame = (() => {
     els.surrender.addEventListener("click", () => sendAction("surrender"));
     els.insurance.addEventListener("click", () => sendAction("insurance"));
 
-    (async () => {
+    async function resumeIfActive() {
       try {
         const { table } = await Api.get("/games/blackjack/active");
         enterRoundUI(table);
         UI.toast("Resumed your in-progress hand.", "info");
-      } catch { exitRoundUI(); }
-    })();
+      } catch {
+        exitRoundUI();
+      }
+    }
+
+    resumeIfActive();
   }
 
   return { render };
