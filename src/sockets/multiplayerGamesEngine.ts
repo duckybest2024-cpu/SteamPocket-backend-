@@ -33,6 +33,7 @@ export function attachBattleDice(io: Server) {
   authMiddleware(io, "/battledice");
   const ns = io.of("/battledice");
 
+  // Rooms: up to 8 players each, 30s betting, then roll
   const rooms = new Map<string, {
     bets: Map<string, { username: string; amount: number }>;
     phase: "betting" | "rolling" | "results";
@@ -129,8 +130,8 @@ export function attachRPS(io: Server) {
   }
 
   const queue: Waiting[] = [];
-  const matches = new Map<string, Match>();
-  const playerMatch = new Map<string, string>();
+  const matches = new Map<string, Match>(); // matchId -> match
+  const playerMatch = new Map<string, string>(); // userId -> matchId
 
   function resolve(c1: Choice, c2: Choice): number {
     if (c1 === c2) return 0;
@@ -151,6 +152,7 @@ export function attachRPS(io: Server) {
         return socket.emit("error", err.message || "Bet failed");
       }
 
+      // Find opponent with same amount
       const opponentIdx = queue.findIndex((w) => w.amount === amount && w.userId !== socket.data.userId!);
       if (opponentIdx !== -1) {
         const opp = queue.splice(opponentIdx, 1)[0];
@@ -192,6 +194,7 @@ export function attachRPS(io: Server) {
         if (result === 1) { winnerId = match.p1.userId; winnerName = match.p1.username; }
         else if (result === 2) { winnerId = match.p2.userId; winnerName = match.p2.username; }
         else {
+          // Tie — refund both
           try { await applyLedgerEntry(prisma, match.p1.userId, "payout", match.p1.amount, "rps_tie"); } catch {}
           try { await applyLedgerEntry(prisma, match.p2.userId, "payout", match.p2.amount, "rps_tie"); } catch {}
         }
@@ -236,7 +239,7 @@ export function attachRaffle(io: Server) {
   authMiddleware(io, "/raffle");
   const ns = io.of("/raffle");
 
-  const TICKET_PRICE = 1000;
+  const TICKET_PRICE = 1000; // 10 chips per ticket
   const DRAW_INTERVAL_MS = 5 * 60 * 1000;
 
   let tickets: { userId: string; username: string; ticketNum: number }[] = [];
@@ -305,7 +308,7 @@ export function attachBingo(io: Server) {
   authMiddleware(io, "/bingo");
   const ns = io.of("/bingo");
 
-  const BUY_IN = 5000;
+  const BUY_IN = 5000; // 50 chips
   const DRAW_INTERVAL_MS = 3000;
 
   let players = new Map<string, { username: string; card: number[][]; marks: boolean[][]; amount: number }>();
@@ -323,6 +326,7 @@ export function attachBingo(io: Server) {
       shuffle(range(46, 60)).slice(0, 5),
       shuffle(range(61, 75)).slice(0, 5),
     ];
+    // Transpose cols to rows
     return Array.from({ length: 5 }, (_, r) => cols.map((c) => c[r]));
   }
 
@@ -330,8 +334,11 @@ export function attachBingo(io: Server) {
   function shuffle<T>(arr: T[]): T[] { return arr.sort(() => Math.random() - 0.5); }
 
   function checkBingo(card: number[][], marks: boolean[][]): boolean {
+    // Check rows
     for (let r = 0; r < 5; r++) if (marks[r].every(Boolean)) return true;
+    // Check cols
     for (let c = 0; c < 5; c++) if (marks.map((row) => row[c]).every(Boolean)) return true;
+    // Check diagonals
     if ([0,1,2,3,4].every((i) => marks[i][i])) return true;
     if ([0,1,2,3,4].every((i) => marks[i][4-i])) return true;
     return false;
@@ -397,6 +404,7 @@ export function attachBingo(io: Server) {
         socket.emit("card", { card });
         ns.emit("player_joined", { players: players.size, username: socket.data.username });
 
+        // Start game when we have 2+ players, after 10s wait
         if (players.size === 2 && phase === "waiting") {
           if (waitTimer) clearTimeout(waitTimer);
           waitTimer = setTimeout(() => { if (players.size >= 2) startGame(); }, 10_000);
@@ -416,10 +424,11 @@ export function attachTower(io: Server) {
   authMiddleware(io, "/tower");
   const ns = io.of("/tower");
 
+  // Each player has their own independent tower session
   const sessions = new Map<string, { level: number; bet: number; multiplier: number; active: boolean }>();
 
   const LEVELS = [1.05, 1.10, 1.20, 1.35, 1.55, 1.80, 2.15, 2.60, 3.20, 4.00, 5.00, 6.50, 8.50, 11.0, 15.0, 20.0, 30.0, 50.0, 75.0, 100.0];
-  const FAIL_PROB = 0.20;
+  const FAIL_PROB = 0.20; // 20% chance of losing on each floor
 
   ns.on("connection", (socket: AuthedSocket) => {
     socket.on("start", async ({ amount }: { amount: number }) => {
@@ -453,6 +462,7 @@ export function attachTower(io: Server) {
         socket.emit("tower_state", { level: session.level, multiplier: session.multiplier, maxLevels: LEVELS.length });
 
         if (session.level >= LEVELS.length) {
+          // Auto cashout at top
           const payout = Math.floor(session.bet * session.multiplier);
           try { await applyLedgerEntry(prisma, socket.data.userId!, "payout", payout, "tower_win"); } catch {}
           session.active = false;
@@ -597,7 +607,7 @@ export function attachPoker(io: Server) {
   function shuffle<T>(arr: T[]): T[] { return arr.sort(() => Math.random() - 0.5); }
   function rankVal(card: string) { return RANKS.indexOf(card.slice(0, -1)); }
   function handScore(hand: string[]): number {
-    const ranks = hand.map(rankVal).sort((a,b) => b-a);
+    const ranks = hand.map(rankVal).sort((a,b) => b - a);
     const suits = hand.map((c) => c.slice(-1));
     const flush = suits.every((s) => s === suits[0]);
     const straight = ranks[0] - ranks[4] === 4 && new Set(ranks).size === 5;
@@ -641,6 +651,7 @@ export function attachPoker(io: Server) {
     }
     ns.to(tableId).emit("table_phase", { phase: "drawing", players: table.players.size });
 
+    // 30s drawing phase
     table.phase = "drawing";
     table.timer = setTimeout(() => showdown(tableId), 30_000);
     ns.to(tableId).emit("draw_timer", 30_000);
