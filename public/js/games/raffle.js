@@ -109,8 +109,8 @@ const RaffleGame = (() => {
       const isWinner = winner === state.username;
       resultEl.className = "result-banner " + (isWinner ? "win" : "loss");
       resultEl.innerHTML = isWinner
-        ? `🏙️ YOUR ticket #${winnerTicket} was drawn! +${(prize/100).toLocaleString()} chips 🏆`
-        : `🏙️ Ticket #${winnerTicket} (${winner}) wins ${(prize/100).toLocaleString()} chips from ${totalTickets} tickets`;
+        ? `🏟️ YOUR ticket #${winnerTicket} was drawn! +${(prize/100).toLocaleString()} chips 🏆`
+        : `🏟️ Ticket #${winnerTicket} (${winner}) wins ${(prize/100).toLocaleString()} chips from ${totalTickets} tickets`;
       if (isWinner) App.refreshAccount();
       myTickets = [];
       myTicketsEl.textContent = "You have no tickets this round yet.";
