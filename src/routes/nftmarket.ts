@@ -40,7 +40,7 @@ nftMarketRouter.get("/catalog", async (_req, res: Response) => {
     const supplyRecords = await prisma.nftSupply.findMany({
       where: { templateId: { in: limitedIds } },
     });
-    const supplyMap = new Map(supplyRecords.map((r) => [r.templateId, r.minted]));
+    const supplyMap = new Map<string, number>(supplyRecords.map((r) => [r.templateId, r.minted]));
 
     const withRemaining = buildTemplateWithRemaining(NFT_CATALOG, supplyMap);
     const sorted = sortTemplates(withRemaining);
@@ -66,7 +66,7 @@ nftMarketRouter.get("/catalog/:collectionId", async (req, res: Response) => {
     const supplyRecords = await prisma.nftSupply.findMany({
       where: { templateId: { in: limitedIds } },
     });
-    const supplyMap = new Map(supplyRecords.map((r) => [r.templateId, r.minted]));
+    const supplyMap = new Map<string, number>(supplyRecords.map((r) => [r.templateId, r.minted]));
 
     const withRemaining = buildTemplateWithRemaining(filtered, supplyMap);
     const sorted = sortTemplates(withRemaining);
@@ -380,7 +380,7 @@ nftMarketRouter.get("/search", async (req, res: Response) => {
     const supplyRecords = limitedIds.length
       ? await prisma.nftSupply.findMany({ where: { templateId: { in: limitedIds } } })
       : [];
-    const supplyMap = new Map(supplyRecords.map((r) => [r.templateId, r.minted]));
+    const supplyMap = new Map<string, number>(supplyRecords.map((r) => [r.templateId, r.minted]));
 
     const withRemaining = buildTemplateWithRemaining(results, supplyMap);
     const sorted = sortTemplates(withRemaining);
@@ -455,7 +455,7 @@ nftMarketRouter.get("/listings", async (_req, res: Response) => {
     const nfts = nftIds.length
       ? await prisma.nft.findMany({ where: { id: { in: nftIds } } })
       : [];
-    const nftMap = new Map(nfts.map((n) => [n.id, n]));
+    const nftMap = new Map<string, any>(nfts.map((n) => [n.id, n]));
 
     const result = listings.map((l: any) => ({
       ...l,

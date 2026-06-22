@@ -31,7 +31,7 @@ casesRouter.get("/history", requireAuth, async (req: AuthedRequest, res: Respons
     const nfts = nftIds.length
       ? await prisma.nft.findMany({ where: { id: { in: nftIds } }, select: { id: true, name: true, rarity: true, emoji: true } })
       : [];
-    const nftMap = new Map(nfts.map((n) => [n.id, n]));
+    const nftMap = new Map<string, any>(nfts.map((n) => [n.id, n]));
     const enriched = openings.map((o) => ({ ...o, ...nftMap.get(o.nftId) }));
     res.json({ openings: enriched });
   } catch (err) {
@@ -59,7 +59,7 @@ casesRouter.get("/:caseId", async (req, res: Response) => {
     const nfts = nftIds.length
       ? await prisma.nft.findMany({ where: { id: { in: nftIds } }, select: { id: true, name: true, rarity: true, emoji: true } })
       : [];
-    const nftMap = new Map(nfts.map((n) => [n.id, n]));
+    const nftMap = new Map<string, any>(nfts.map((n) => [n.id, n]));
     const enriched = recentOpenings.map((o) => ({ ...o, nft: nftMap.get(o.nftId) ?? null }));
 
     res.json({ case: caseDef, recentOpenings: enriched });

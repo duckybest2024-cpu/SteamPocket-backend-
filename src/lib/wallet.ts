@@ -1,7 +1,6 @@
-import { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "./prisma";
 
-type Db = PrismaClient | Prisma.TransactionClient;
+type Db = any;
 
 export class InsufficientFundsError extends Error {
   constructor() {

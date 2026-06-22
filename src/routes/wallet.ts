@@ -268,7 +268,7 @@ walletRouter.get("/leaderboard", async (req, res) => {
     where: { id: { in: ranked.map((r) => r.userId) } },
     select: { id: true, username: true, level: true },
   });
-  const userMap = new Map(users.map((u) => [u.id, u]));
+  const userMap = new Map<string, any>(users.map((u) => [u.id, u]));
 
   res.json({
     metric,
