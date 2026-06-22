@@ -35,7 +35,6 @@ if [ ! -f .env ]; then
   echo ""
   echo "⚙️   Creating .env file…"
   cat > .env <<'ENVEOF'
-DATABASE_URL="file:./prisma/casino-local.db"
 JWT_SECRET="casino-aurelius-local-change-me"
 PORT=3000
 ENVEOF
@@ -47,12 +46,7 @@ echo ""
 echo "🔨  Building TypeScript…"
 npm run build
 
-# ── 5. Run database migrations ───────────────────────────────
-echo ""
-echo "🗄️   Running database migrations…"
-npx prisma migrate deploy
-
-# ── 6. Start the server ──────────────────────────────────────
+# ── 5. Start the server ──────────────────────────────────────
 echo ""
 echo "────────────────────────────────────"
 echo "🚀  Casino Aurelius is starting!"
