@@ -438,7 +438,7 @@ adminRouter.get("/top-players", async (_req, res) => {
       where: { id: { in: grouped.map((g) => g.userId) } },
       select: { id: true, username: true, level: true },
     });
-    const userMap = new Map(userList.map((u) => [u.id, u]));
+    const userMap = new Map<string, any>(userList.map((u) => [u.id, u]));
     res.json({
       players: grouped.map((g) => ({
         username: userMap.get(g.userId)?.username ?? "unknown",
@@ -600,7 +600,7 @@ adminRouter.get("/flags", async (_req, res) => {
     const users = userIds.length
       ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, username: true, balance: true, flagged: true, flagReason: true, flaggedAt: true, isBanned: true } })
       : [];
-    const userMap = new Map(users.map((u) => [u.id, u]));
+    const userMap = new Map<string, any>(users.map((u) => [u.id, u]));
 
     res.json({
       events: events.map((e: any) => ({
