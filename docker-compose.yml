@@ -12,8 +12,6 @@ services:
       JWT_SECRET: "casino-aurelius-local-secret-change-me"
       # Optional — leave blank to disable real payments:
       # STRIPE_SECRET_KEY: ""
-      # LIQPAY_PUBLIC_KEY: ""
-      # LIQPAY_PRIVATE_KEY: ""
     depends_on:
       db:
         condition: service_healthy

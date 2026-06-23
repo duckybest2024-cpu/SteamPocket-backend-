@@ -187,8 +187,8 @@ const LobbyGame = (() => {
           <div class="lobby-promo-card" data-nav="chipshop">
             <div class="lpc-icon">🏦</div>
             <div>
-              <div class="lpc-title">Buy Chips</div>
-              <div class="lpc-desc">$1 = 10 chips. Instant credit via Stripe & LiqPay.</div>
+              <div class="lpc-title">Chip Bank</div>
+              <div class="lpc-desc">Cash chips out to your bank, move them back to the table, or redeem a promo code.</div>
             </div>
           </div>
           <div class="lobby-promo-card" data-nav="download">

@@ -25,9 +25,6 @@ import { scratchRouter } from "./routes/scratch";
 import { eventsRouter } from "./routes/events";
 import { statsRouter } from "./routes/stats";
 import { prisma } from "./lib/prisma";
-import { getLiqpayKeys, verifyLiqpayCallback, liqpayDecode } from "./lib/liqpay";
-import { CHIP_PACKAGES } from "./lib/stripe";
-import { applyLedgerEntry } from "./lib/wallet";
 
 export function createApp() {
   const app = express();
@@ -39,52 +36,6 @@ export function createApp() {
 
   // Stripe webhook must receive the raw body — register before express.json()
   app.post("/wallet/stripe-webhook", express.raw({ type: "application/json" }), stripeWebhookHandler);
-
-  // LiqPay callback — receives application/x-www-form-urlencoded, must be before express.json()
-  app.post("/wallet/liqpay-callback", express.urlencoded({ extended: false }), async (req, res) => {
-    const keys = getLiqpayKeys();
-    if (!keys) { console.error("LiqPay callback: keys not configured"); return res.status(503).send("not configured"); }
-
-    const { data, signature } = req.body as { data?: string; signature?: string };
-    if (!data || !signature) return res.status(400).send("missing params");
-
-    if (!verifyLiqpayCallback(keys.privateKey, data, signature)) {
-      console.error("LiqPay callback: invalid signature");
-      return res.status(400).send("invalid signature");
-    }
-
-    const payload = liqpayDecode(data) as Record<string, string>;
-    console.log("LiqPay callback status:", payload.status, "order:", payload.order_id);
-
-    if (payload.status === "success" || payload.status === "sandbox") {
-      // order_id format: userId_packageId_timestamp  (no underscores in cuid or package ids)
-      const parts = String(payload.order_id).split("_");
-      const userId = parts[0];
-      const packageId = parts[1];
-      const pkg = CHIP_PACKAGES.find((p) => p.id === packageId);
-
-      if (!userId || !pkg) {
-        console.error("LiqPay callback: cannot parse order_id", payload.order_id);
-        return res.status(400).send("invalid order");
-      }
-
-      // Idempotency: skip if this payment_id was already processed
-      const ref = `liqpay_${payload.payment_id}`;
-      const exists = await prisma.transaction.findFirst({ where: { reference: ref } });
-      if (exists) { console.log("LiqPay callback: duplicate, skipping", ref); return res.send("ok"); }
-
-      try {
-        const chips = pkg.chips * 100; // chips in cents
-        await applyLedgerEntry(prisma, userId, "deposit", chips, ref);
-        console.log(`LiqPay: credited ${pkg.chips} chips to ${userId} (${ref})`);
-      } catch (err) {
-        console.error("LiqPay: failed to credit chips:", err);
-        return res.status(500).send("credit failed");
-      }
-    }
-
-    res.send("ok");
-  });
 
   app.use(express.json());
 

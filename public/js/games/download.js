@@ -141,21 +141,22 @@ const DownloadGame = (() => {
             <div class="dl-step-num">1</div>
             <div class="dl-step-text">
               <strong>Download the app</strong> — Click the button above to download
-              <code>GrilledCoin-Windows.zip</code>, then unzip it anywhere.
+              <code>GrilledCoin-Windows.zip</code>.
             </div>
           </div>
           <div class="dl-step">
             <div class="dl-step-num">2</div>
             <div class="dl-step-text">
-              <strong>Install Node.js</strong> (one time) — Grab the free LTS build from
-              <code>nodejs.org</code> if you don't already have it.
+              <strong>Extract it</strong> — Right-click the zip and choose "Extract All...", then
+              open the extracted folder. (You can't run the app from inside the zip view.)
             </div>
           </div>
           <div class="dl-step">
             <div class="dl-step-num">3</div>
             <div class="dl-step-text">
               <strong>Run the launcher</strong> — Double-click <code>START.bat</code> (Windows) or
-              <code>START.command</code> (Mac/Linux). The first launch sets things up in about a minute.
+              <code>START.command</code> (Mac/Linux). If Node.js isn't installed, it's installed for
+              you automatically — just run the launcher once more when it asks.
             </div>
           </div>
           <div class="dl-step">
@@ -170,13 +171,12 @@ const DownloadGame = (() => {
           <h3>System Requirements</h3>
           <ul>
             <li>Windows 10/11, macOS, or Linux (64-bit)</li>
-            <li>Node.js 18 or newer (free, one-time install)</li>
             <li>4 GB RAM minimum (8 GB recommended)</li>
             <li>Internet connection (connects to the live GrilledCoin servers)</li>
           </ul>
           <div class="dl-note">
             ⚠️ Windows SmartScreen may warn about the launcher script — click "More info" → "Run anyway".
-            The launcher only installs Electron and opens the GrilledCoin window.
+            The launcher only installs Node.js/Electron and opens the GrilledCoin window.
           </div>
         </div>
       </div>
@@ -184,7 +184,7 @@ const DownloadGame = (() => {
 
     const dlBtn = container.querySelector("#dl-download-btn");
     dlBtn.addEventListener("click", () => {
-      UI.toast("Download starting — unzip it and run START.bat", "info");
+      UI.toast("Download starting — extract the zip, then run START.bat", "info");
     });
   }
 
