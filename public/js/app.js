@@ -11,22 +11,32 @@ const App = (() => {
       ],
     },
     {
-      section: "Casino",
+      section: "Originals",
       items: [
         { key: "crash",       icon: "🚀", label: "Crash",        mod: () => CrashGame },
         { key: "dice",        icon: "🎲", label: "Dice",          mod: () => DiceGame },
         { key: "limbo",       icon: "📈", label: "Limbo",         mod: () => LimboGame },
         { key: "mines",       icon: "💣", label: "Mines",         mod: () => MinesGame },
         { key: "plinko",      icon: "🔵", label: "Plinko",        mod: () => PlinkoGame },
+        { key: "wheel",       icon: "🎡", label: "Wheel",         mod: () => WheelGame },
+        { key: "keno",        icon: "🎯", label: "Keno",          mod: () => KenoGame },
+        { key: "hilo",        icon: "↕️",  label: "Hi-Lo",         mod: () => HiloGame },
+        { key: "tower",       icon: "🗼", label: "Tower",         mod: () => TowerGame },
+      ],
+    },
+    {
+      section: "Table Games",
+      items: [
         { key: "roulette",    icon: "🎡", label: "Roulette",      mod: () => RouletteGame },
         { key: "blackjack",   icon: "🃏", label: "Blackjack",     mod: () => BlackjackGame },
-        { key: "slots",       icon: "🎰", label: "Slots",         mod: () => SlotsGame },
-        { key: "keno",        icon: "🎯", label: "Keno",          mod: () => KenoGame },
-        { key: "wheel",       icon: "🎡", label: "Wheel",         mod: () => WheelGame },
         { key: "baccarat",    icon: "🎴", label: "Baccarat",      mod: () => BaccaratGame },
-        { key: "hilo",        icon: "↕️",  label: "Hi-Lo",         mod: () => HiloGame },
         { key: "videopoker",  icon: "🃏", label: "Video Poker",   mod: () => VideoPokerGame },
-        { key: "tower",       icon: "🗼", label: "Tower",         mod: () => TowerGame },
+      ],
+    },
+    {
+      section: "Slots",
+      items: [
+        { key: "slots",       icon: "🎰", label: "Slots",         mod: () => SlotsGame },
       ],
     },
     {
