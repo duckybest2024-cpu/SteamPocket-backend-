@@ -1,7 +1,7 @@
 {
-  "name": "casino-aurelius",
+  "name": "grilledcoin",
   "version": "1.0.0",
-  "description": "Provably-fair casino backend — dice, crash, mines, limbo, roulette, blackjack, plinko, slots",
+  "description": "Provably-fair casino backend (GrilledCoin) — dice, crash, mines, limbo, roulette, blackjack, plinko, slots",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -17,6 +17,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
+    "google-auth-library": "^9.15.1",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^8.0.11",
     "socket.io": "^4.8.1",

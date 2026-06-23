@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Battleship Board Game — Casino Aurelius
+   Battleship Board Game — GrilledCoin
    Exported global: BattleshipGame
    Entry point:     BattleshipGame.renderBoard(container, socket, room, myUserId)
    ═══════════════════════════════════════════════════════════════ */

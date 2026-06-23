@@ -72,7 +72,7 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
     },
     icon: path.join(__dirname, "icon.ico"),
-    title: "Casino Aurelius",
+    title: "GrilledCoin",
     backgroundColor: "#0f212e",
     show: false,
   });
@@ -101,7 +101,7 @@ function createWindow() {
 function buildMenu() {
   const template = [
     {
-      label: "Casino Aurelius",
+      label: "GrilledCoin",
       submenu: [
         { label: "Home", click: () => mainWindow?.loadURL(SERVER_URL) },
         { type: "separator" },
@@ -134,8 +134,8 @@ function buildMenu() {
           click: () => {
             dialog.showMessageBox(mainWindow, {
               type: "info",
-              title: "About Casino Aurelius",
-              message: "Casino Aurelius",
+              title: "About GrilledCoin",
+              message: "GrilledCoin",
               detail: "Provably fair online casino\nVersion 1.0.0",
               buttons: ["OK"],
             });
@@ -177,7 +177,7 @@ app.whenReady().then(async () => {
     splash.close();
     dialog.showErrorBox(
       "Startup Error",
-      "Failed to start the Casino Aurelius server:\n" + err.message
+      "Failed to start the GrilledCoin server:\n" + err.message
     );
     app.quit();
   }

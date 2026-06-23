@@ -103,7 +103,7 @@ const DownloadGame = (() => {
         <div class="dl-hero">
           <div class="dl-hero-icon">🖥️</div>
           <div class="dl-hero-text">
-            <h2>Casino Aurelius — Windows App</h2>
+            <h2>GrilledCoin — Windows App</h2>
             <p>The full casino experience as a native Windows desktop application.<br>
             No browser needed — the server runs locally on your machine.</p>
             <a class="dl-btn" href="#" id="dl-download-btn">
@@ -141,7 +141,7 @@ const DownloadGame = (() => {
             <div class="dl-step-num">1</div>
             <div class="dl-step-text">
               <strong>Download the installer</strong> — Click the button above to download
-              <code>Casino Aurelius Setup 1.0.0.exe</code>
+              <code>GrilledCoin Setup 1.0.0.exe</code>
             </div>
           </div>
           <div class="dl-step">
@@ -154,7 +154,7 @@ const DownloadGame = (() => {
           <div class="dl-step">
             <div class="dl-step-num">3</div>
             <div class="dl-step-text">
-              <strong>Launch the app</strong> — Open Casino Aurelius from the Start Menu or desktop shortcut.
+              <strong>Launch the app</strong> — Open GrilledCoin from the Start Menu or desktop shortcut.
               The server starts automatically on first launch (takes ~5 seconds).
             </div>
           </div>

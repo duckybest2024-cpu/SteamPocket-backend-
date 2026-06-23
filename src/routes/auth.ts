@@ -2,12 +2,14 @@ import crypto from "crypto";
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { OAuth2Client } from "google-auth-library";
 import { prisma } from "../lib/prisma";
 import { signToken, requireAuth, AuthedRequest } from "../middleware/auth";
 import { createSeedPair } from "../lib/provablyFair";
 import { config } from "../lib/config";
 import { sendVerificationEmail } from "../lib/mailer";
 import { isOwner } from "../lib/owner";
+import { getSiteConfig } from "../lib/siteConfig";
 
 export const authRouter = Router();
 
@@ -165,6 +167,79 @@ authRouter.post("/login", async (req, res) => {
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Login failed — please try again" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Google Sign-In — verifies a Google ID token, then logs in or registers
+// ---------------------------------------------------------------------------
+async function usernameFromEmail(email: string): Promise<string> {
+  const base = email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "").slice(0, 16) || "player";
+  let candidate = base;
+  let suffix = 0;
+  while (await prisma.user.findUnique({ where: { username: candidate } })) {
+    suffix += 1;
+    candidate = `${base}${suffix}`.slice(0, 20);
+  }
+  return candidate;
+}
+
+authRouter.post("/google", async (req, res) => {
+  const { idToken } = req.body as { idToken?: string };
+  if (!idToken) return res.status(400).json({ error: "Missing Google ID token" });
+
+  try {
+    const googleClientId = (await getSiteConfig("google_client_id")) ?? process.env.GOOGLE_CLIENT_ID ?? null;
+    if (!googleClientId) return res.status(503).json({ error: "Google Sign-In is not configured" });
+
+    const client = new OAuth2Client(googleClientId);
+    const ticket = await client.verifyIdToken({ idToken, audience: googleClientId });
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email || !payload.email_verified) {
+      return res.status(401).json({ error: "Invalid Google account" });
+    }
+
+    const email = payload.email.toLowerCase();
+    let user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      const username = await usernameFromEmail(email);
+      const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+      const seedPair = createSeedPair();
+      user = await prisma.user.create({
+        data: {
+          username,
+          email,
+          passwordHash,
+          balance: 0,
+          serverSeed: seedPair.serverSeed,
+          serverSeedHash: seedPair.serverSeedHash,
+          clientSeed: seedPair.clientSeed,
+          emailVerified: true,
+          isApproved: false,
+        },
+      });
+    }
+
+    if (user.isBanned) return res.status(403).json({ error: "Account banned. Contact support." });
+
+    const token = signToken(user.id);
+    const pub = publicUser(user);
+    const ownerUser = isOwner(user.username);
+
+    if (!ownerUser && !user.isAdmin && user.isApproved && user.approvedUntil && user.approvedUntil < new Date()) {
+      await prisma.user.update({ where: { id: user.id }, data: { isApproved: false } });
+      return res.json({ token, user: { ...pub, isApproved: false }, pendingApproval: true });
+    }
+
+    if (!ownerUser && !user.isAdmin && !user.isApproved) {
+      return res.json({ token, user: pub, pendingApproval: true });
+    }
+
+    res.json({ token, user: pub });
+  } catch (err) {
+    console.error("Google sign-in error:", err);
+    res.status(401).json({ error: "Google sign-in failed" });
   }
 });
 

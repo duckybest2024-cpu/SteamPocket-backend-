@@ -1110,6 +1110,34 @@ const AdminGame = (() => {
               </div>
             </div>
           </div>
+
+          <!-- Google Integrations -->
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🔗 Google Integrations</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              These IDs are public identifiers (not secrets) and take effect immediately for all visitors — no redeploy needed.
+            </p>
+            <div style="${S.form};max-width:420px;">
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Google Sign-In Client ID</label>
+                <input id="adm-google-client-id" type="text" placeholder="xxxxxxxx.apps.googleusercontent.com"
+                  value="${cfg["google_client_id"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Google Analytics Measurement ID</label>
+                <input id="adm-ga-id" type="text" placeholder="G-XXXXXXXXXX"
+                  value="${cfg["ga_measurement_id"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Google AdSense Publisher ID</label>
+                <input id="adm-adsense-id" type="text" placeholder="ca-pub-XXXXXXXXXXXXXXXX"
+                  value="${cfg["adsense_publisher_id"] || ""}" style="${S.formInput}" />
+              </div>
+              <div>
+                <button id="adm-google-save" style="${S.submitBtn}">Save Google Settings</button>
+              </div>
+            </div>
+          </div>
         `;
 
         // Maintenance toggle
@@ -1179,6 +1207,27 @@ const AdminGame = (() => {
             UI.toast(err.message || "Failed.", "loss");
           } finally {
             btn.disabled = false; btn.textContent = "Save Settings";
+          }
+        });
+
+        // Save Google integration settings
+        pane.querySelector("#adm-google-save").addEventListener("click", async () => {
+          const googleClientId = pane.querySelector("#adm-google-client-id").value.trim();
+          const gaId = pane.querySelector("#adm-ga-id").value.trim();
+          const adsenseId = pane.querySelector("#adm-adsense-id").value.trim();
+          const btn = pane.querySelector("#adm-google-save");
+          btn.disabled = true; btn.textContent = "Saving…";
+          try {
+            await Api.post("/admin/config", {
+              google_client_id: googleClientId,
+              ga_measurement_id: gaId,
+              adsense_publisher_id: adsenseId,
+            });
+            UI.toast("Google settings saved.", "win");
+          } catch (err) {
+            UI.toast(err.message || "Failed.", "loss");
+          } finally {
+            btn.disabled = false; btn.textContent = "Save Google Settings";
           }
         });
 
