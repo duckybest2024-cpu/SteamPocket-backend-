@@ -1,18 +1,60 @@
 const SlotsGame = (() => {
-  // ── Symbol maps ─────────────────────────────────────────────────
-  const SYMBOL_GLYPHS = {
-    wild: "⭐", scatter: "💫", crown: "👑", gem: "💎", bell: "🔔",
-    clover: "🍀", horseshoe: "🧲", ace: "🅰️", king: "👑", queen: "♛",
-    seven: "7️⃣", bar: "🎰", cherry: "🍒", lemon: "🍋", orange: "🍊",
-    grape: "🍇", dragon: "🐉",
+  // ── Slot machine catalog ─────────────────────────────────────
+  // The server always deals a fixed 5-reel × 3-row grid using ten symbol
+  // keys (wild, scatter, crown, gem, bell, clover, horseshoe, ace, king,
+  // queen) with one fixed paytable — every "machine" below is the same
+  // provably-fair engine wearing a different skin. `icons` supplies four
+  // themed glyphs that are cycled across the eight paying tiers so the
+  // landed result (not just the spin animation) matches the theme.
+  const SLOT_TYPES = {
+    vegas:          { label: "Vegas Slots",          icon: "🎰", reels: 5, maxLines: 25, wild: "⭐", scatter: "💫", icons: ["👑","💎","🔔","🍀"], bonus: null },
+    classic:        { label: "Classic Fruits",       icon: "🍒", reels: 3, maxLines: 5,  wild: "🃏", scatter: "💥", icons: ["7️⃣","🎰","🍋","🍊"], bonus: null },
+    lucky7:         { label: "Lucky 7s",             icon: "7️⃣", reels: 3, maxLines: 5,  wild: "🍀", scatter: "✨", icons: ["7️⃣","🎰","🍇","🍓"], bonus: "High Payout Mode" },
+    mega:           { label: "Mega Spin",            icon: "💫", reels: 5, maxLines: 25, wild: "🌠", scatter: "💥", icons: ["👑","💎","🧲","🅰️"], bonus: null },
+    dragon:         { label: "Fortune Dragon",       icon: "🐉", reels: 5, maxLines: 25, wild: "🐲", scatter: "💫", icons: ["👑","🏮","🐍","🎏"], bonus: "Dragon Bonus Feature" },
+    egypt:          { label: "Golden Pharaoh",       icon: "🔺", reels: 5, maxLines: 25, wild: "👁️", scatter: "📜", icons: ["🔺","🪲","🐍","💰"], bonus: "Pharaoh's Free Spins" },
+    pirate:         { label: "Pirate's Treasure",    icon: "🗝️", reels: 5, maxLines: 25, wild: "💀", scatter: "🗝️", icons: ["⚓","🚢","🦜","💰"], bonus: "Treasure Chest Bonus" },
+    space:          { label: "Space Odyssey",        icon: "🚀", reels: 5, maxLines: 25, wild: "👽", scatter: "☄️", icons: ["🚀","🪐","🛸","⭐"], bonus: "Warp Free Spins" },
+    safari:         { label: "Wild Safari",          icon: "🦁", reels: 5, maxLines: 25, wild: "🦁", scatter: "🌴", icons: ["🐘","🦒","🦓","🐒"], bonus: "Stampede Bonus" },
+    diamondstrike:  { label: "Diamond Strike",       icon: "💎", reels: 5, maxLines: 25, wild: "💎", scatter: "✨", icons: ["💍","👑","🔔","🍀"], bonus: "Diamond Respin" },
+    leprechaun:     { label: "Leprechaun's Luck",    icon: "🍀", reels: 3, maxLines: 5,  wild: "🌈", scatter: "💰", icons: ["🎩","🍀","🧲","💍"], bonus: "Pot of Gold Bonus" },
+    mystic:         { label: "Mystic Fortune",       icon: "🔮", reels: 5, maxLines: 25, wild: "🧙", scatter: "✨", icons: ["🔮","🌙","💎","👑"], bonus: "Mystic Free Spins" },
+    candy:          { label: "Candy Carnival",       icon: "🍬", reels: 3, maxLines: 5,  wild: "🍭", scatter: "🧁", icons: ["🍬","🍩","🍒","🍓"], bonus: null },
+    chicken:        { label: "Chicken Run",          icon: "🐔", reels: 5, maxLines: 25, wild: "🐔", scatter: "🥚", icons: ["🌽","🍀","🔔","👑"], bonus: "Egg Multiplier Bonus" },
+    piggies:        { label: "Piggy Bank Riches",    icon: "🐷", reels: 5, maxLines: 25, wild: "🐷", scatter: "🪙", icons: ["🏦","💎","🔔","👑"], bonus: "Piggy Smash Bonus" },
+    moonwolf:       { label: "Wolf Moon",            icon: "🐺", reels: 5, maxLines: 25, wild: "🐺", scatter: "🌙", icons: ["🧲","👑","💎","🔔"], bonus: "Howling Wilds" },
+    olympusgold:    { label: "Mount Olympus Gold",   icon: "⚡", reels: 5, maxLines: 25, wild: "⚡", scatter: "🏔️", icons: ["👑","💎","🔔","🍀"], bonus: "Zeus Multiplier" },
+    doghouse:       { label: "Doghouse Bones",       icon: "🐶", reels: 5, maxLines: 25, wild: "🐶", scatter: "🦴", icons: ["🐾","🔔","🍀","👑"], bonus: "Bone Collector Free Spins" },
+    skullfortune:   { label: "Skull Fortune",        icon: "💀", reels: 5, maxLines: 25, wild: "💀", scatter: "🕯️", icons: ["👑","💎","🔔","🍀"], bonus: "Skull Multiplier" },
+    pyramidriches:  { label: "Pyramid Riches",       icon: "🔺", reels: 5, maxLines: 25, wild: "🔺", scatter: "🪲", icons: ["💰","💎","👑","🔔"], bonus: "Pyramid Free Spins" },
+    firerays:       { label: "Fire Rays Blaze",      icon: "🔥", reels: 5, maxLines: 25, wild: "🔥", scatter: "☀️", icons: ["⚡","👑","💎","🔔"], bonus: "Blaze Multiplier" },
+    wildcrown:      { label: "Wild Crown Double",    icon: "👑", reels: 5, maxLines: 25, wild: "👑", scatter: "💫", icons: ["💎","🔔","🍀","🧲"], bonus: "Double Wild Feature" },
+    fishfrenzy:     { label: "Fish Frenzy Fortune",  icon: "🐟", reels: 5, maxLines: 25, wild: "🐟", scatter: "🐚", icons: ["⚓","💎","🔔","👑"], bonus: "Frenzy Free Spins" },
+    berlinnights:   { label: "Berlin Nights",        icon: "🏙️", reels: 5, maxLines: 25, wild: "🏙️", scatter: "🕰️", icons: ["💎","👑","🔔","🍀"], bonus: "Night Multiplier" },
+    coinstrike:     { label: "Coin Strike Vault",    icon: "🪙", reels: 5, maxLines: 25, wild: "🪙", scatter: "🔒", icons: ["🏦","💎","👑","🔔"], bonus: "Hold & Win Bonus" },
+    footballdiamond:{ label: "Football Diamond",     icon: "⚽", reels: 5, maxLines: 25, wild: "⚽", scatter: "🏆", icons: ["👟","💎","👑","🔔"], bonus: "Champions Free Spins" },
+    slothstash:     { label: "Sloth's Stash",        icon: "🦥", reels: 3, maxLines: 5,  wild: "🦥", scatter: "🍃", icons: ["🌴","🔔","🍀","👑"], bonus: null },
+    neonnights:     { label: "Neon Nights",          icon: "🪩", reels: 5, maxLines: 25, wild: "🪩", scatter: "✨", icons: ["💎","👑","🔔","🍀"], bonus: "Neon Multiplier" },
+    jungledrums:    { label: "Jungle Drums",         icon: "🥁", reels: 5, maxLines: 25, wild: "🥁", scatter: "🦜", icons: ["🌿","💎","👑","🔔"], bonus: "Drum Beat Free Spins" },
+    royaljewels:    { label: "Royal Jewels",         icon: "💍", reels: 3, maxLines: 5,  wild: "💍", scatter: "✨", icons: ["👑","💎","🔔","🍀"], bonus: null },
   };
 
-  // Default symbol pool (Vegas / full)
-  const VEGAS_SYMBOLS    = ["wild","scatter","crown","gem","bell","clover","horseshoe","ace","king","queen"];
-  const CLASSIC_SYMBOLS  = ["seven","bar","cherry","lemon","orange","grape","bell"];
-  const LUCKY7_SYMBOLS   = ["seven","bar","cherry"];
-  const DRAGON_SYMBOLS   = ["dragon","gem","crown","scatter","wild","bell","clover"];
-  const MEGA_SYMBOLS     = ["wild","scatter","crown","gem","bell","clover","horseshoe","ace","king","queen","dragon"];
+  const ROWS = 3; // server always deals 3 rows — keep every machine in sync with that
+
+  // Eight paying tiers in the server's payout order (highest → lowest);
+  // cycled across each theme's four icons so the landed grid stays on-theme.
+  const TIER_ORDER = ["crown","gem","bell","clover","horseshoe","ace","king","queen"];
+
+  function themedGlyph(cfg, key) {
+    if (key === "wild") return cfg.wild;
+    if (key === "scatter") return cfg.scatter;
+    const idx = TIER_ORDER.indexOf(key);
+    return cfg.icons[idx >= 0 ? idx % cfg.icons.length : 0] || "❓";
+  }
+  function randomGlyph(cfg) {
+    const pool = [cfg.wild, cfg.scatter, ...cfg.icons];
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
 
   // ── Paylines (mirrors server) ────────────────────────────────
   const PAYLINES = [
@@ -23,15 +65,6 @@ const SlotsGame = (() => {
     [2,0,0,0,2],[1,0,2,0,1],[1,2,0,2,1],[0,0,2,0,0],[2,2,0,2,2],
   ];
 
-  // ── Slot type definitions ──────────────────────────────────
-  const SLOT_TYPES = {
-    vegas:   { label: "VEGAS SLOTS",    reels: 5, rows: 3, maxLines: 25, symbols: VEGAS_SYMBOLS,   bonus: null },
-    classic: { label: "CLASSIC SLOTS",  reels: 3, rows: 3, maxLines: 5,  symbols: CLASSIC_SYMBOLS, bonus: null },
-    lucky7:  { label: "LUCKY 7s",       reels: 3, rows: 3, maxLines: 5,  symbols: LUCKY7_SYMBOLS,  bonus: "High Payout Mode" },
-    mega:    { label: "MEGA SPIN",       reels: 5, rows: 4, maxLines: 30, symbols: MEGA_SYMBOLS,    bonus: null },
-    dragon:  { label: "FORTUNE DRAGON",  reels: 5, rows: 3, maxLines: 25, symbols: DRAGON_SYMBOLS,  bonus: "Dragon Bonus Feature" },
-  };
-
   // ── Styles (injected once) ────────────────────────────────
   const STYLE_ID = "slots-machine-styles";
   function injectStyles() {
@@ -39,34 +72,44 @@ const SlotsGame = (() => {
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
-/* ── Slot type selector ────────────────────── */
-.slot-type-btns {
+/* ── Slots lobby (machine picker) ────────────── */
+.slots-lobby { padding: 20px; }
+.slots-lobby-header h2 { margin: 0 0 4px; font-size: 1.3rem; font-weight: 800; }
+.slots-lobby-header p { margin: 0 0 18px; color: var(--text-dim); font-size: 0.85rem; }
+.slots-lobby-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.slot-tile {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.slot-type-btn {
-  flex: 1;
-  min-width: 0;
-  padding: 5px 4px;
-  background: var(--bg);
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 10px;
+  background: linear-gradient(160deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text-dim);
-  font-size: 0.72rem;
-  font-weight: 700;
+  border-radius: 12px;
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition: transform 0.15s, border-color 0.15s;
 }
-.slot-type-btn:hover { border-color: var(--accent); color: var(--text); }
-.slot-type-btn.active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: rgba(0,231,1,0.10);
+.slot-tile:hover { transform: translateY(-3px); border-color: var(--gold); }
+.slot-tile-icon { font-size: 2.2rem; }
+.slot-tile-name { font-size: 0.82rem; font-weight: 700; color: var(--text); text-align: center; line-height: 1.25; }
+.slot-tile-lines { font-size: 0.7rem; color: var(--text-dim); }
+
+/* ── Back-to-lobby button ─────────────────────── */
+.slots-back-btn {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  cursor: pointer;
 }
+.slots-back-btn:hover { color: var(--text); border-color: var(--accent); }
 
 /* ── Machine frame ────────────────────────────── */
 .slots-machine {
@@ -298,316 +341,306 @@ const SlotsGame = (() => {
     let busy = false;
     let currentType = "vegas";
 
-    container.innerHTML = `
-      <div class="game-panel"><div class="game-layout">
-
-        <div class="bet-panel">
-          <div class="bp-tabs">
-            <button class="bp-tab active" id="slots-tab-manual">Manual</button>
-            <button class="bp-tab" id="slots-tab-auto">Auto</button>
-          </div>
-
-          <div class="bp-field">
-            <div class="bp-label">Slot Type</div>
-            <div class="slot-type-btns">
-              <button class="slot-type-btn active" data-type="vegas">🎰 Vegas</button>
-              <button class="slot-type-btn" data-type="classic">🍒 Classic</button>
-              <button class="slot-type-btn" data-type="lucky7">7️⃣ Lucky 7s</button>
-              <button class="slot-type-btn" data-type="mega">💫 Mega</button>
-              <button class="slot-type-btn" data-type="dragon">🐉 Dragon</button>
+    // ── Lobby: pick a machine ──────────────────────────────────
+    function renderLobby() {
+      container.innerHTML = `
+        <div class="game-panel">
+          <div class="slots-lobby">
+            <div class="slots-lobby-header">
+              <h2>🎰 Slots</h2>
+              <p>${Object.keys(SLOT_TYPES).length} machines, one provably-fair engine — pick one to play.</p>
+            </div>
+            <div class="slots-lobby-grid">
+              ${Object.entries(SLOT_TYPES).map(([key, cfg]) => `
+                <button class="slot-tile" data-type="${key}">
+                  <div class="slot-tile-icon">${cfg.icon}</div>
+                  <div class="slot-tile-name">${cfg.label}</div>
+                  <div class="slot-tile-lines">${cfg.maxLines} lines</div>
+                </button>
+              `).join("")}
             </div>
           </div>
-
-          <div class="bp-field">
-            <div class="bp-label">Bet Per Line ($)</div>
-            <div class="bp-input-row">
-              <input type="number" id="slots-linebet" value="0.20" min="0.01" step="0.01" />
-              <button class="quick-btn" id="slots-half">½</button>
-              <button class="quick-btn" id="slots-dbl">2×</button>
-            </div>
-          </div>
-
-          <div class="bp-field">
-            <div class="bp-label">Lines (1–<span id="slots-max-lines">25</span>)</div>
-            <input type="number" id="slots-lines" value="10" min="1" max="25" step="1" />
-          </div>
-
-          <div class="bp-field">
-            <div class="bp-label">Total Bet</div>
-            <div id="slots-total" style="font-size:1.1rem; font-weight:800; color:var(--gold);">0 🪙</div>
-          </div>
-
-          <hr class="bp-divider" />
-
-          <button id="slots-spin" class="play-btn">Spin</button>
         </div>
+      `;
 
-        <div class="game-canvas">
+      container.querySelectorAll(".slot-tile").forEach(btn => {
+        btn.addEventListener("click", () => {
+          currentType = btn.dataset.type;
+          renderMachine();
+        });
+      });
+    }
 
-          <div class="slots-machine">
-            <div class="slots-header">
-              <div class="slots-type-name" id="slots-type-name">VEGAS SLOTS</div>
-              <div class="slots-lights">
-                <span class="slots-light"></span>
-                <span class="slots-light"></span>
-                <span class="slots-light"></span>
-                <span class="slots-light"></span>
-                <span class="slots-light"></span>
+    // ── Machine: bet panel + reels for the selected type ───────
+    function renderMachine() {
+      const cfg = SLOT_TYPES[currentType];
+
+      container.innerHTML = `
+        <div class="game-panel"><div class="game-layout">
+
+          <aside class="bet-panel">
+            <button class="slots-back-btn" id="slots-back">← All Slots</button>
+
+            <div class="bp-tabs">
+              <button class="bp-tab active" id="slots-tab-manual">Manual</button>
+              <button class="bp-tab" id="slots-tab-auto">Auto</button>
+            </div>
+
+            <div class="bp-field">
+              <div class="bp-label">Bet Per Line ($)</div>
+              <div class="bp-input-row">
+                <input type="number" id="slots-linebet" value="0.20" min="0.01" step="0.01" />
+                <button class="quick-btn" id="slots-half">½</button>
+                <button class="quick-btn" id="slots-dbl">2×</button>
               </div>
             </div>
-            <div class="slots-viewport">
-              <div class="slots-reels-container" id="slots-reels"></div>
-              <div class="slots-overlay" id="slots-overlay"></div>
+
+            <div class="bp-field">
+              <div class="bp-label">Lines (1–${cfg.maxLines})</div>
+              <input type="number" id="slots-lines" value="${Math.min(10, cfg.maxLines)}" min="1" max="${cfg.maxLines}" step="1" />
             </div>
-            <div class="slots-footer">
-              <div class="win-display" id="slots-win-display">WIN: 0 🪙</div>
+
+            <div class="bp-field">
+              <div class="bp-label">Total Bet</div>
+              <div id="slots-total" style="font-size:1.1rem; font-weight:800; color:var(--gold);">0 🪙</div>
             </div>
+
+            <hr class="bp-divider" />
+
+            <button id="slots-spin" class="play-btn">Spin</button>
+          </aside>
+
+          <div class="game-canvas">
+
+            <div class="slots-machine">
+              <div class="slots-header">
+                <div class="slots-type-name" id="slots-type-name">${cfg.icon} ${cfg.label}</div>
+                <div class="slots-lights">
+                  <span class="slots-light"></span>
+                  <span class="slots-light"></span>
+                  <span class="slots-light"></span>
+                  <span class="slots-light"></span>
+                  <span class="slots-light"></span>
+                </div>
+              </div>
+              <div class="slots-viewport">
+                <div class="slots-reels-container" id="slots-reels"></div>
+                <div class="slots-overlay" id="slots-overlay"></div>
+              </div>
+              <div class="slots-footer">
+                <div class="win-display" id="slots-win-display">WIN: 0 🪙</div>
+              </div>
+            </div>
+
+            <div id="slots-result" class="result-banner"></div>
+            <div id="slots-fairness" class="fairness-line"></div>
           </div>
 
-          <div id="slots-result" class="result-banner"></div>
-          <div id="slots-fairness" class="fairness-line"></div>
-        </div>
+        </div></div>
+      `;
 
-      </div></div>
-    `;
+      const els = {
+        reels:      container.querySelector("#slots-reels"),
+        lineBet:    container.querySelector("#slots-linebet"),
+        half:       container.querySelector("#slots-half"),
+        dbl:        container.querySelector("#slots-dbl"),
+        lines:      container.querySelector("#slots-lines"),
+        total:      container.querySelector("#slots-total"),
+        spin:       container.querySelector("#slots-spin"),
+        result:     container.querySelector("#slots-result"),
+        fairness:   container.querySelector("#slots-fairness"),
+        winDisplay: container.querySelector("#slots-win-display"),
+        back:       container.querySelector("#slots-back"),
+      };
 
-    const els = {
-      reels:      container.querySelector("#slots-reels"),
-      lineBet:    container.querySelector("#slots-linebet"),
-      half:       container.querySelector("#slots-half"),
-      dbl:        container.querySelector("#slots-dbl"),
-      lines:      container.querySelector("#slots-lines"),
-      maxLines:   container.querySelector("#slots-max-lines"),
-      total:      container.querySelector("#slots-total"),
-      spin:       container.querySelector("#slots-spin"),
-      result:     container.querySelector("#slots-result"),
-      fairness:   container.querySelector("#slots-fairness"),
-      typeName:   container.querySelector("#slots-type-name"),
-      winDisplay: container.querySelector("#slots-win-display"),
-    };
-
-    // ── Type selector ────────────────────────────────────────────
-    container.querySelectorAll(".slot-type-btn").forEach(btn => {
-      btn.addEventListener("click", function () {
+      els.back.addEventListener("click", () => {
         if (busy) return;
-        container.querySelectorAll(".slot-type-btn").forEach(b => b.classList.remove("active"));
+        renderLobby();
+      });
+
+      // ── Quick bet buttons ───────────────────────────────────────
+      els.half.addEventListener("click", () => {
+        els.lineBet.value = Math.max(0.01, Math.floor(Number(els.lineBet.value) * 0.5 * 100) / 100);
+        refreshTotal();
+      });
+      els.dbl.addEventListener("click", () => {
+        els.lineBet.value = Math.floor(Number(els.lineBet.value) * 2 * 100) / 100;
+        refreshTotal();
+      });
+
+      // ── Manual/Auto tabs (visual only) ────────────────────────────
+      container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function () {
+        container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
         this.classList.add("active");
-        currentType = this.dataset.type;
-        applyType(currentType);
-        buildGrid(null);
-      });
-    });
+      }));
 
-    function applyType(type) {
-      const cfg = SLOT_TYPES[type];
-      els.typeName.textContent = cfg.label;
-      els.maxLines.textContent = cfg.maxLines;
-      const linesInput = els.lines;
-      linesInput.max = cfg.maxLines;
-      if (Number(linesInput.value) > cfg.maxLines) linesInput.value = cfg.maxLines;
-      refreshTotal();
-    }
+      // ── Grid builder ────────────────────────────────────────────
+      // Returns: { reelEls, symbolEls }
+      function buildGrid() {
+        els.reels.innerHTML = "";
 
-    // ── Quick bet buttons ───────────────────────────────────────
-    els.half.addEventListener("click", () => {
-      els.lineBet.value = Math.max(0.01, Math.floor(Number(els.lineBet.value) * 0.5 * 100) / 100);
-      refreshTotal();
-    });
-    els.dbl.addEventListener("click", () => {
-      els.lineBet.value = Math.floor(Number(els.lineBet.value) * 2 * 100) / 100;
-      refreshTotal();
-    });
+        const reelEls   = [];
+        const symbolEls = [];
 
-    // ── Manual/Auto tabs (visual only) ────────────────────────────
-    container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function () {
-      container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
-      this.classList.add("active");
-    }));
+        for (let reel = 0; reel < cfg.reels; reel++) {
+          const reelDiv = document.createElement("div");
+          reelDiv.className = "slot-reel";
+          reelDiv.dataset.reel = reel;
+          reelDiv.style.height = `${ROWS * 70}px`;
 
-    // ── Grid builder ────────────────────────────────────────────
-    // Returns: { reelEls, symbolEls }
-    // reelEls[r] = the .slot-reel div for reel r
-    // symbolEls[r][row] = the .slot-symbol span for that cell
-    function buildGrid(grid) {
-      const cfg = SLOT_TYPES[currentType];
-      els.reels.innerHTML = "";
+          const strip = document.createElement("div");
+          strip.className = "reel-strip";
+          reelDiv.appendChild(strip);
 
-      const reelEls   = [];
-      const symbolEls = [];
+          const rowEls = [];
+          for (let row = 0; row < ROWS; row++) {
+            const cell = document.createElement("div");
+            cell.className = "slot-symbol";
+            cell.dataset.reel = reel;
+            cell.dataset.row  = row;
+            cell.textContent  = randomGlyph(cfg);
+            strip.appendChild(cell);
+            rowEls.push(cell);
+          }
 
-      for (let reel = 0; reel < cfg.reels; reel++) {
-        const reelDiv = document.createElement("div");
-        reelDiv.className = "slot-reel";
-        reelDiv.dataset.reel = reel;
-
-        // height = rows * 70px
-        reelDiv.style.height = `${cfg.rows * 70}px`;
-
-        const strip = document.createElement("div");
-        strip.className = "reel-strip";
-        reelDiv.appendChild(strip);
-
-        const rowEls = [];
-        for (let row = 0; row < cfg.rows; row++) {
-          const sym = grid ? grid[reel][row] : cfg.symbols[Math.floor(Math.random() * cfg.symbols.length)];
-          const cell = document.createElement("div");
-          cell.className = "slot-symbol";
-          cell.dataset.reel = reel;
-          cell.dataset.row  = row;
-          cell.textContent  = SYMBOL_GLYPHS[sym] || "❓";
-          strip.appendChild(cell);
-          rowEls.push(cell);
+          els.reels.appendChild(reelDiv);
+          reelEls.push(reelDiv);
+          symbolEls.push(rowEls);
         }
 
-        els.reels.appendChild(reelDiv);
-        reelEls.push(reelDiv);
-        symbolEls.push(rowEls);
+        return { reelEls, symbolEls };
       }
 
-      return { reelEls, symbolEls };
-    }
+      // ── Reel animation ─────────────────────────────────────────────
+      function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-    // ── Reel animation ─────────────────────────────────────────────
-    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+      function animateReel(reelEl, rowEls, finalSymbols, stopDelay) {
+        return new Promise(resolve => {
+          reelEl.classList.add("is-spinning");
 
-    function animateReel(reelEl, rowEls, finalSymbols, stopDelay) {
-      return new Promise(resolve => {
-        const cfg = SLOT_TYPES[currentType];
-        reelEl.classList.add("is-spinning");
-
-        let count = 0;
-        const threshold = 10 + stopDelay * 3;
-        const interval = setInterval(() => {
-          rowEls.forEach(el => {
-            const sym = cfg.symbols[Math.floor(Math.random() * cfg.symbols.length)];
-            el.textContent = SYMBOL_GLYPHS[sym] || "❓";
-          });
-          count++;
-          if (count >= threshold) {
-            clearInterval(interval);
-            reelEl.classList.remove("is-spinning");
-            finalSymbols.forEach((sym, i) => {
-              if (rowEls[i]) rowEls[i].textContent = SYMBOL_GLYPHS[sym] || sym;
-            });
-            reelEl.classList.add("reel-bounce");
-            setTimeout(() => {
-              reelEl.classList.remove("reel-bounce");
-              resolve();
-            }, 200);
-          }
-        }, 80);
-      });
-    }
-
-    async function animateReels(finalGrid) {
-      const { reelEls, symbolEls } = buildGrid(null);
-      const cfg = SLOT_TYPES[currentType];
-
-      // Fire each reel with stagger; we start them quickly but they stop in sequence
-      const promises = [];
-      for (let r = 0; r < cfg.reels; r++) {
-        promises.push(animateReel(reelEls[r], symbolEls[r], finalGrid[r], r));
-        await sleep(180);
-      }
-      await Promise.all(promises);
-
-      return { reelEls, symbolEls };
-    }
-
-    // ── Total display ───────────────────────────────────────────
-    function refreshTotal() {
-      const cfg = SLOT_TYPES[currentType];
-      const lines = Math.max(1, Math.min(cfg.maxLines, Math.round(Number(els.lines.value) || 1)));
-      const lineBetCents = Math.round((Number(els.lineBet.value) || 0) * 100);
-      els.total.textContent = UI.money(lineBetCents * lines);
-    }
-    els.lineBet.addEventListener("input", refreshTotal);
-    els.lines.addEventListener("input", refreshTotal);
-
-    // ── Spin handler ──────────────────────────────────────────────
-    els.spin.addEventListener("click", async () => {
-      if (busy) return;
-      const cfg = SLOT_TYPES[currentType];
-
-      const lineBet = Math.round((Number(els.lineBet.value) || 0) * 100);
-      const rawLines = Math.max(1, Math.min(cfg.maxLines, Math.round(Number(els.lines.value) || 1)));
-      // For types with fewer than 25 lines, cap at the type's max
-      const lines = Math.min(rawLines, cfg.maxLines);
-      if (lineBet <= 0) return UI.toast("Enter a bet per line.", "loss");
-
-      busy = true;
-      els.spin.disabled = true;
-      els.result.className = "result-banner";
-      els.winDisplay.className = "win-display";
-      els.winDisplay.textContent = "WIN: 0 🪙";
-
-      const spinSalt = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-
-      try {
-        const res = await Api.post("/games/slots/spin", { lineBet, lines, spinSalt });
-        const { grid, lineWins, scatterCount, scatterPayout, freeSpinsAwarded } = res.result.state;
-
-        // Animate reels — server grid may have fewer reels than the visual layout for
-        // classic/lucky7 (3 reels), so pad if needed.
-        const paddedGrid = [];
-        for (let r = 0; r < cfg.reels; r++) {
-          paddedGrid.push(grid[r] || grid[r % grid.length]);
-        }
-
-        const { reelEls, symbolEls } = await animateReels(paddedGrid);
-
-        // Highlight winning cells
-        for (const win of lineWins) {
-          const positions = PAYLINES[win.line];
-          if (!positions) continue;
-          const count = Math.min(win.count, cfg.reels);
-          for (let r = 0; r < count; r++) {
-            const row = positions[r] ?? 1;
-            const clampedRow = Math.min(row, cfg.rows - 1);
-            const cell = symbolEls[r]?.[clampedRow];
-            cell?.classList.add("win-cell");
-          }
-        }
-
-        const isWin = res.result.result === "win";
-        els.result.className = `result-banner show ${isWin ? "win" : "loss"}`;
-        const bits = [];
-        if (lineWins.length) bits.push(`${lineWins.length} winning line${lineWins.length > 1 ? "s" : ""}`);
-        if (scatterCount >= 3) bits.push(`${scatterCount} scatters (+${scatterPayout}x bet)`);
-        if (freeSpinsAwarded) bits.push(`${freeSpinsAwarded} free spins! 🎁`);
-        if (cfg.bonus && isWin) bits.push(cfg.bonus);
-
-        els.result.textContent = isWin
-          ? `🎉 ${bits.join(" · ") || "You won!"} — paid ${UI.money(res.result.payout)}.`
-          : `No win this spin — paid ${UI.money(res.result.payout)} on a ${UI.money(lineBet * lines)} bet.`;
-
-        // Win display panel
-        if (isWin) {
-          els.winDisplay.textContent = `WIN: ${UI.money(res.result.payout)}`;
-          els.winDisplay.classList.add("is-win");
-        } else {
-          els.winDisplay.textContent = "WIN: 0 🪙";
-        }
-
-        els.fairness.innerHTML = UI.fairnessLine({
-          serverSeedHash: accountState.fairness?.activeServerSeedHash,
-          clientSeed: accountState.fairness?.clientSeed,
+          let count = 0;
+          const threshold = 10 + stopDelay * 3;
+          const interval = setInterval(() => {
+            rowEls.forEach(el => { el.textContent = randomGlyph(cfg); });
+            count++;
+            if (count >= threshold) {
+              clearInterval(interval);
+              reelEl.classList.remove("is-spinning");
+              finalSymbols.forEach((sym, i) => {
+                if (rowEls[i]) rowEls[i].textContent = themedGlyph(cfg, sym);
+              });
+              reelEl.classList.add("reel-bounce");
+              setTimeout(() => {
+                reelEl.classList.remove("reel-bounce");
+                resolve();
+              }, 200);
+            }
+          }, 80);
         });
-
-        UI.applyAccountUpdate(accountState, res);
-        UI.toast(isWin ? `Won ${UI.money(res.result.payout)} on Slots!` : "No win this spin.", isWin ? "win" : "info");
-      } catch (err) {
-        UI.toast(err.message, "loss");
-      } finally {
-        busy = false;
-        els.spin.disabled = false;
       }
-    });
 
-    // Initial build
-    applyType(currentType);
-    buildGrid(null);
-    refreshTotal();
+      async function animateReels(finalGrid) {
+        const { reelEls, symbolEls } = buildGrid();
+
+        const promises = [];
+        for (let r = 0; r < cfg.reels; r++) {
+          promises.push(animateReel(reelEls[r], symbolEls[r], finalGrid[r], r));
+          await sleep(180);
+        }
+        await Promise.all(promises);
+
+        return { reelEls, symbolEls };
+      }
+
+      // ── Total display ───────────────────────────────────────────
+      function refreshTotal() {
+        const lines = Math.max(1, Math.min(cfg.maxLines, Math.round(Number(els.lines.value) || 1)));
+        const lineBetCents = Math.round((Number(els.lineBet.value) || 0) * 100);
+        els.total.textContent = UI.money(lineBetCents * lines);
+      }
+      els.lineBet.addEventListener("input", refreshTotal);
+      els.lines.addEventListener("input", refreshTotal);
+
+      // ── Spin handler ──────────────────────────────────────────────
+      els.spin.addEventListener("click", async () => {
+        if (busy) return;
+
+        const lineBet = Math.round((Number(els.lineBet.value) || 0) * 100);
+        const lines = Math.max(1, Math.min(cfg.maxLines, Math.round(Number(els.lines.value) || 1)));
+        if (lineBet <= 0) return UI.toast("Enter a bet per line.", "loss");
+
+        busy = true;
+        els.spin.disabled = true;
+        els.back.disabled = true;
+        els.result.className = "result-banner";
+        els.winDisplay.className = "win-display";
+        els.winDisplay.textContent = "WIN: 0 🪙";
+
+        const spinSalt = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+        try {
+          const res = await Api.post("/games/slots/spin", { lineBet, lines, spinSalt });
+          const { grid, lineWins, scatterCount, scatterPayout, freeSpinsAwarded } = res.result.state;
+
+          // The server always deals 5 reels — pad/trim down to this machine's reel count.
+          const paddedGrid = [];
+          for (let r = 0; r < cfg.reels; r++) paddedGrid.push(grid[r] || grid[r % grid.length]);
+
+          const { symbolEls } = await animateReels(paddedGrid);
+
+          // Highlight winning cells
+          for (const win of lineWins) {
+            const positions = PAYLINES[win.line];
+            if (!positions) continue;
+            const count = Math.min(win.count, cfg.reels);
+            for (let r = 0; r < count; r++) {
+              const row = positions[r] ?? 1;
+              const cell = symbolEls[r]?.[row];
+              cell?.classList.add("win-cell");
+            }
+          }
+
+          const isWin = res.result.result === "win";
+          els.result.className = `result-banner show ${isWin ? "win" : "loss"}`;
+          const bits = [];
+          if (lineWins.length) bits.push(`${lineWins.length} winning line${lineWins.length > 1 ? "s" : ""}`);
+          if (scatterCount >= 3) bits.push(`${scatterCount} scatters (+${scatterPayout}x bet)`);
+          if (freeSpinsAwarded) bits.push(`${freeSpinsAwarded} free spins! 🎁`);
+          if (cfg.bonus && isWin) bits.push(cfg.bonus);
+
+          els.result.textContent = isWin
+            ? `🎉 ${bits.join(" · ") || "You won!"} — paid ${UI.money(res.result.payout)}.`
+            : `No win this spin — paid ${UI.money(res.result.payout)} on a ${UI.money(lineBet * lines)} bet.`;
+
+          if (isWin) {
+            els.winDisplay.textContent = `WIN: ${UI.money(res.result.payout)}`;
+            els.winDisplay.classList.add("is-win");
+          } else {
+            els.winDisplay.textContent = "WIN: 0 🪙";
+          }
+
+          els.fairness.innerHTML = UI.fairnessLine({
+            serverSeedHash: accountState.fairness?.activeServerSeedHash,
+            clientSeed: accountState.fairness?.clientSeed,
+          });
+
+          UI.applyAccountUpdate(accountState, res);
+          UI.toast(isWin ? `Won ${UI.money(res.result.payout)} on ${cfg.label}!` : "No win this spin.", isWin ? "win" : "info");
+        } catch (err) {
+          UI.toast(err.message, "loss");
+        } finally {
+          busy = false;
+          els.spin.disabled = false;
+          els.back.disabled = false;
+        }
+      });
+
+      // Initial build
+      buildGrid();
+      refreshTotal();
+    }
+
+    renderLobby();
   }
 
   return { render };
