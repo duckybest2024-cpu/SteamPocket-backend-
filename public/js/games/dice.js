@@ -43,7 +43,7 @@ const DiceGame = (() => {
 
         <div class="game-canvas">
 
-          <div id="dice-3d-wrap" style="display:flex;justify-content:center;align-items:center;padding:20px 0 10px">
+          <div id="dice-3d-wrap" class="dice-3d-wrap" style="display:flex;justify-content:center;align-items:center;padding:20px 0 10px">
             <div id="dice-3d" class="dice-3d">
               <div class="dice-face dice-front">
                 <div class="dice-dot dc-c"></div>
@@ -90,13 +90,14 @@ const DiceGame = (() => {
               75%  { transform: rotateX(300deg) rotateY(500deg); }
               100% { transform: rotateX(360deg) rotateY(720deg) rotateX(-20deg) rotateY(30deg); }
             }
-            .dice-3d.win-state { transform: rotateX(-20deg) rotateY(30deg); filter: drop-shadow(0 0 16px #34d399); }
-            .dice-3d.loss-state { transform: rotateX(-20deg) rotateY(30deg); filter: drop-shadow(0 0 16px #ef4444); }
+            .dice-3d-wrap { transition: filter 0.3s ease; }
+            .dice-3d-wrap.win-state { filter: drop-shadow(0 0 16px #34d399); }
+            .dice-3d-wrap.loss-state { filter: drop-shadow(0 0 16px #ef4444); }
             .dice-face {
               position: absolute;
               width: 90px; height: 90px;
-              background: linear-gradient(145deg, #1e3a5f, #0f2140);
-              border: 2px solid rgba(255,255,255,0.15);
+              background: linear-gradient(155deg, #fdfbf5 0%, #f4ecd8 45%, #e3d6b8 100%);
+              border: 1px solid #c9b98c;
               border-radius: 14px;
               display: grid;
               grid-template-areas:
@@ -106,6 +107,19 @@ const DiceGame = (() => {
               padding: 10px;
               box-sizing: border-box;
               backface-visibility: hidden;
+              box-shadow:
+                inset 0 2px 3px rgba(255,255,255,0.85),
+                inset 0 -6px 10px rgba(120,100,60,0.25),
+                0 2px 6px rgba(0,0,0,0.35);
+              overflow: hidden;
+            }
+            .dice-face::before {
+              content: "";
+              position: absolute;
+              inset: 0;
+              z-index: 0;
+              background: radial-gradient(circle at 28% 22%, rgba(255,255,255,0.85), rgba(255,255,255,0) 55%);
+              pointer-events: none;
             }
             .dice-front  { transform: translateZ(45px); }
             .dice-back   { transform: rotateY(180deg) translateZ(45px); }
@@ -114,12 +128,14 @@ const DiceGame = (() => {
             .dice-top    { transform: rotateX(90deg) translateZ(45px); }
             .dice-bottom { transform: rotateX(-90deg) translateZ(45px); }
             .dice-dot {
+              position: relative;
+              z-index: 1;
               width: 14px; height: 14px;
-              background: radial-gradient(circle, #fff 30%, #c0deff 100%);
+              background: radial-gradient(circle at 35% 30%, #ff6b5e 0%, #c0392b 55%, #7a1f12 100%);
               border-radius: 50%;
               align-self: center;
               justify-self: center;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+              box-shadow: inset 0 1px 1px rgba(255,255,255,0.45), 0 1px 2px rgba(0,0,0,0.5);
             }
             .dc-tl { grid-area: tl; } .dc-tr { grid-area: tr; }
             .dc-bl { grid-area: bl; } .dc-br { grid-area: br; }
@@ -178,6 +194,7 @@ const DiceGame = (() => {
       result: container.querySelector("#dice-result"),
       fairness: container.querySelector("#dice-fairness"),
       dice3d: container.querySelector("#dice-3d"),
+      dice3dWrap: container.querySelector("#dice-3d-wrap"),
     };
 
     function refreshOdds() {
@@ -235,7 +252,7 @@ const DiceGame = (() => {
 
       // Animate the 3D dice
       if (els.dice3d) {
-        els.dice3d.classList.remove("win-state", "loss-state");
+        els.dice3dWrap.classList.remove("win-state", "loss-state");
         els.dice3d.classList.add("rolling");
         setTimeout(() => els.dice3d.classList.remove("rolling"), 620);
       }
@@ -251,8 +268,8 @@ const DiceGame = (() => {
 
         // Set dice win/loss glow
         if (els.dice3d) {
-          els.dice3d.classList.remove("win-state", "loss-state");
-          els.dice3d.classList.add(isWin ? "win-state" : "loss-state");
+          els.dice3dWrap.classList.remove("win-state", "loss-state");
+          els.dice3dWrap.classList.add(isWin ? "win-state" : "loss-state");
         }
 
         els.result.className = `result-banner show ${isWin ? "win" : "loss"}`;

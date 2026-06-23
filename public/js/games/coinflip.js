@@ -34,6 +34,78 @@ const CoinflipGame = (() => {
           <div id="cf-result" class="result-banner"></div>
         </aside>
         <div class="game-canvas">
+          <div class="cf-coin-scene">
+            <div class="cf-coin-glow" id="cf-coin-glow">
+              <div class="cf-coin" id="cf-coin">
+                <div class="coin-face coin-face-front">
+                  <div class="coin-ring"></div>H
+                </div>
+                <div class="coin-face coin-face-back">
+                  <div class="coin-ring"></div>T
+                </div>
+              </div>
+            </div>
+          </div>
+          <style>
+            .cf-coin-scene { perspective: 700px; display: flex; justify-content: center; padding: 8px 0 2px; }
+            .cf-coin-glow { transition: filter 0.3s ease; }
+            .cf-coin-glow.win-state  { filter: drop-shadow(0 0 16px #34d399); }
+            .cf-coin-glow.loss-state { filter: drop-shadow(0 0 16px #ef4444); }
+            .cf-coin {
+              width: 100px; height: 100px;
+              position: relative;
+              transform-style: preserve-3d;
+              transform: rotateY(0deg);
+              transition: transform 0.5s ease;
+            }
+            .cf-coin::before {
+              content: "";
+              position: absolute;
+              inset: -4px;
+              border-radius: 50%;
+              background: repeating-conic-gradient(from 0deg, #e8b73a 0deg 6deg, #a3760f 6deg 12deg);
+              z-index: -1;
+              box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            }
+            .cf-coin.show-tails { transform: rotateY(180deg); }
+            .cf-coin.flipping { animation: cf-coin-spin 0.9s cubic-bezier(0.3,0.6,0.3,1); }
+            @keyframes cf-coin-spin {
+              0%   { transform: rotateY(0deg)    translateY(0); }
+              20%  { transform: rotateY(360deg)  translateY(-26px); }
+              50%  { transform: rotateY(900deg)  translateY(-10px); }
+              80%  { transform: rotateY(1500deg) translateY(-4px); }
+              100% { transform: rotateY(1800deg) translateY(0); }
+            }
+            .coin-face {
+              position: absolute;
+              inset: 0;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              backface-visibility: hidden;
+              transform: translateZ(1px);
+              font-family: Georgia, serif;
+              font-weight: 800;
+              font-size: 2.3rem;
+              color: #6b4a10;
+              text-shadow: 0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.2);
+              background: radial-gradient(circle at 32% 28%, #fff6d2 0%, #f0c244 35%, #c8941f 72%, #8a6212 100%);
+              border: 3px solid #c8941f;
+              box-shadow:
+                inset 0 0 0 4px rgba(255,255,255,0.22),
+                inset 0 -8px 14px rgba(0,0,0,0.25),
+                0 4px 10px rgba(0,0,0,0.45);
+            }
+            .coin-face-back { transform: rotateY(180deg) translateZ(1px); }
+            .coin-ring {
+              position: absolute;
+              inset: 7px;
+              border-radius: 50%;
+              border: 2px solid rgba(255,255,255,0.35);
+              pointer-events: none;
+            }
+          </style>
           <div style="background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:14px">
             <div style="font-size:0.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:10px">Open Challenges (<span id="cf-challenge-count">0</span>)</div>
             <div id="cf-challenges-list"></div>
@@ -56,7 +128,22 @@ const CoinflipGame = (() => {
       challengeCount: container.querySelector("#cf-challenge-count"),
       challengesList: container.querySelector("#cf-challenges-list"),
       resultsList:    container.querySelector("#cf-results-list"),
+      coin:           container.querySelector("#cf-coin"),
+      coinGlow:       container.querySelector("#cf-coin-glow"),
     };
+
+    function flipCoin(won) {
+      if (!els.coin) return;
+      els.coinGlow.classList.remove("win-state", "loss-state");
+      els.coin.classList.remove("flipping", "show-tails");
+      void els.coin.offsetWidth; // restart animation
+      els.coin.classList.add("flipping");
+      setTimeout(() => {
+        els.coin.classList.remove("flipping");
+        els.coin.classList.toggle("show-tails", !won);
+        els.coinGlow.classList.add(won ? "win-state" : "loss-state");
+      }, 900);
+    }
 
     els.half.addEventListener("click", () => {
       els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 0.5));
@@ -167,6 +254,7 @@ const CoinflipGame = (() => {
         if (resp?.error) { UI.toast(resp.error, "loss"); return; }
         const won = resp.winnerName === accountState.username;
         App.refreshAccount();
+        flipCoin(won);
         if (won) {
           showResult(`🏆 You won! +${fmtChips(resp.payout)}`, "win");
           UI.toast(`Coinflip: You beat ${resp.creatorName}! +${fmtChips(resp.payout)}`, "win");
@@ -227,6 +315,7 @@ const CoinflipGame = (() => {
         setMyChallenge(null);
         App.refreshAccount();
         const won = r.winnerName === accountState.username;
+        flipCoin(won);
         if (won) {
           showResult(`🏆 ${r.joinerName} joined your challenge — you won! +${fmtChips(r.payout)}`, "win");
           UI.toast(`Coinflip: You beat ${r.joinerName}! +${fmtChips(r.payout)}`, "win");
