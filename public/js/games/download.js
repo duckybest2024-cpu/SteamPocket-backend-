@@ -103,35 +103,35 @@ const DownloadGame = (() => {
         <div class="dl-hero">
           <div class="dl-hero-icon">🖥️</div>
           <div class="dl-hero-text">
-            <h2>Casino Aurelius — Windows App</h2>
-            <p>The full casino experience as a native Windows desktop application.<br>
-            No browser needed — the server runs locally on your machine.</p>
-            <a class="dl-btn" href="#" id="dl-download-btn">
-              ⬇️ Download for Windows (.exe)
+            <h2>GrilledCoin — Desktop App</h2>
+            <p>GrilledCoin in its own native desktop window — no browser tabs,
+            no address bar. Works on Windows, macOS and Linux.</p>
+            <a class="dl-btn" href="/downloads/GrilledCoin-Windows.zip" id="dl-download-btn" download="GrilledCoin-Windows.zip">
+              ⬇️ Download GrilledCoin (.zip)
             </a>
           </div>
         </div>
 
         <div class="dl-features">
           <div class="dl-feature">
-            <div class="dl-feature-icon">⚡</div>
-            <div class="dl-feature-title">Faster Performance</div>
-            <div class="dl-feature-desc">Runs the server locally — zero network latency on game calls.</div>
+            <div class="dl-feature-icon">🪟</div>
+            <div class="dl-feature-title">Its Own Window</div>
+            <div class="dl-feature-desc">A clean, distraction-free app window — no browser tabs or address bar.</div>
           </div>
           <div class="dl-feature">
-            <div class="dl-feature-icon">📦</div>
-            <div class="dl-feature-title">Self-Contained</div>
-            <div class="dl-feature-desc">No Node.js or setup required. Single .exe installer does everything.</div>
+            <div class="dl-feature-icon">💻</div>
+            <div class="dl-feature-title">Cross-Platform</div>
+            <div class="dl-feature-desc">One download runs on Windows, macOS and Linux.</div>
           </div>
           <div class="dl-feature">
-            <div class="dl-feature-icon">🔒</div>
-            <div class="dl-feature-title">Local Database</div>
-            <div class="dl-feature-desc">Your account and chips are stored in %APPDATA% — private and persistent.</div>
+            <div class="dl-feature-icon">🔄</div>
+            <div class="dl-feature-title">Same Account</div>
+            <div class="dl-feature-desc">Connects to the live servers, so your chips and progress are exactly the same as on the web.</div>
           </div>
           <div class="dl-feature">
             <div class="dl-feature-icon">🎮</div>
             <div class="dl-feature-title">All Games Included</div>
-            <div class="dl-feature-desc">Every game available on the web version works in the desktop app.</div>
+            <div class="dl-feature-desc">Every game on the web version works in the desktop app.</div>
           </div>
         </div>
 
@@ -140,28 +140,28 @@ const DownloadGame = (() => {
           <div class="dl-step">
             <div class="dl-step-num">1</div>
             <div class="dl-step-text">
-              <strong>Download the installer</strong> — Click the button above to download
-              <code>Casino Aurelius Setup 1.0.0.exe</code>
+              <strong>Download the app</strong> — Click the button above to download
+              <code>GrilledCoin-Windows.zip</code>, then unzip it anywhere.
             </div>
           </div>
           <div class="dl-step">
             <div class="dl-step-num">2</div>
             <div class="dl-step-text">
-              <strong>Run the installer</strong> — Double-click the .exe and follow the install wizard.
-              Windows SmartScreen may warn you — click "More info" → "Run anyway".
+              <strong>Install Node.js</strong> (one time) — Grab the free LTS build from
+              <code>nodejs.org</code> if you don't already have it.
             </div>
           </div>
           <div class="dl-step">
             <div class="dl-step-num">3</div>
             <div class="dl-step-text">
-              <strong>Launch the app</strong> — Open Casino Aurelius from the Start Menu or desktop shortcut.
-              The server starts automatically on first launch (takes ~5 seconds).
+              <strong>Run the launcher</strong> — Double-click <code>START.bat</code> (Windows) or
+              <code>START.command</code> (Mac/Linux). The first launch sets things up in about a minute.
             </div>
           </div>
           <div class="dl-step">
             <div class="dl-step-num">4</div>
             <div class="dl-step-text">
-              <strong>Create an account</strong> — Register a new local account. Your data is stored only on this machine.
+              <strong>Log in</strong> — Sign in with the same GrilledCoin account you use on the web.
             </div>
           </div>
         </div>
@@ -169,23 +169,22 @@ const DownloadGame = (() => {
         <div class="dl-req">
           <h3>System Requirements</h3>
           <ul>
-            <li>Windows 10 or Windows 11 (64-bit)</li>
+            <li>Windows 10/11, macOS, or Linux (64-bit)</li>
+            <li>Node.js 18 or newer (free, one-time install)</li>
             <li>4 GB RAM minimum (8 GB recommended)</li>
-            <li>200 MB free disk space</li>
-            <li>Internet connection not required after installation</li>
+            <li>Internet connection (connects to the live GrilledCoin servers)</li>
           </ul>
           <div class="dl-note">
-            ⚠️ The desktop app uses a separate local database — your web account and local account are independent.
-            Chips and progress do not sync between the web and desktop versions.
+            ⚠️ Windows SmartScreen may warn about the launcher script — click "More info" → "Run anyway".
+            The launcher only installs Electron and opens the GrilledCoin window.
           </div>
         </div>
       </div>
     `;
 
     const dlBtn = container.querySelector("#dl-download-btn");
-    dlBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      UI.toast("Build the Windows installer with: cd windows-app && npm install && npm run dist:win", "info");
+    dlBtn.addEventListener("click", () => {
+      UI.toast("Download starting — unzip it and run START.bat", "info");
     });
   }
 

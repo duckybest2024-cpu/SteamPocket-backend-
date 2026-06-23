@@ -1,4 +1,4 @@
-/* Casino Aurelius — App shell with Stake-inspired sidebar layout */
+/* GrilledCoin — App shell with Stake-inspired sidebar layout */
 const App = (() => {
   const state = { id: null, username: null, nickname: null, rank: "free", balance: 0, bank: 0, fairness: null, isAdmin: false, isApproved: false, patreonUsername: null, patreonTier: null };
   let _lowBalanceToastShown = false;
@@ -422,9 +422,71 @@ const App = (() => {
     document.getElementById("sidebar-overlay").addEventListener("click", closeSidebar);
   }
 
+  // ── Google integrations (Analytics, AdSense, Sign-In) ──────
+  // IDs are admin-configurable (Admin Panel → Controls → Google Integrations)
+  // and served back publicly via GET /config — none of them are secrets.
+  async function loadGoogleIntegrations() {
+    let cfg = {};
+    try { cfg = await fetch("/config").then((r) => r.json()); } catch { return; }
+
+    if (cfg.ga_measurement_id) {
+      const s = document.createElement("script");
+      s.async = true;
+      s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(cfg.ga_measurement_id)}`;
+      document.head.appendChild(s);
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = window.gtag || function gtag() { window.dataLayer.push(arguments); };
+      window.gtag("js", new Date());
+      window.gtag("config", cfg.ga_measurement_id);
+    }
+
+    if (cfg.adsense_publisher_id) {
+      const s = document.createElement("script");
+      s.async = true;
+      s.crossOrigin = "anonymous";
+      s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(cfg.adsense_publisher_id)}`;
+      document.head.appendChild(s);
+    }
+
+    if (cfg.google_client_id) {
+      const s = document.createElement("script");
+      s.src = "https://accounts.google.com/gsi/client";
+      s.async = true;
+      s.defer = true;
+      s.onload = () => {
+        if (!window.google || !window.google.accounts) return;
+        window.google.accounts.id.initialize({
+          client_id: cfg.google_client_id,
+          callback: handleGoogleSignIn,
+        });
+        const wrap = document.getElementById("google-signin-wrap");
+        if (wrap) window.google.accounts.id.renderButton(wrap, { theme: "outline", size: "large", width: 280 });
+      };
+      document.head.appendChild(s);
+    }
+  }
+
+  async function handleGoogleSignIn(response) {
+    const errorEl = document.getElementById("auth-error");
+    errorEl.classList.add("hidden");
+    try {
+      const data = await Api.post("/auth/google", { idToken: response.credential });
+      Api.setToken(data.token);
+      if (data.pendingApproval || (data.user && data.user.isApproved === false)) {
+        showPendingApproval(data.user || {});
+      } else {
+        await enterApp();
+      }
+    } catch (err) {
+      errorEl.textContent = err.message || "Google sign-in failed.";
+      errorEl.classList.remove("hidden");
+    }
+  }
+
   async function init() {
     wireAuthForms();
     wireTopbar();
+    loadGoogleIntegrations();
 
     if (Api.getToken()) {
       try {

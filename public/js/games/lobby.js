@@ -154,7 +154,7 @@ const LobbyGame = (() => {
       <div class="lobby-wrap">
 
         <div class="lobby-hero">
-          <div class="lobby-hero-title">🎰 Casino Aurelius</div>
+          <div class="lobby-hero-title">🎰 GrilledCoin</div>
           <div class="lobby-hero-sub">Provably fair · 99% RTP · Real-time multiplayer</div>
           <div class="lobby-hero-stats">
             <div class="lhs-item">

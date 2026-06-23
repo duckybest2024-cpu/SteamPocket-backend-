@@ -1,4 +1,4 @@
-/* Casino Aurelius — Group Chat */
+/* GrilledCoin — Group Chat */
 const ChatGame = (() => {
   const RANK_COLORS = {
     bronze:   "#cd7f32",

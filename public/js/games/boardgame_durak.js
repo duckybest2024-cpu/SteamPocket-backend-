@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Durak Card Game — Casino Aurelius
+   Durak Card Game — GrilledCoin
    Exported global: DurakGame
    Entry point:     DurakGame.renderBoard(container, socket, room, myUserId)
 

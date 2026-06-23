@@ -1,4 +1,4 @@
-const CACHE = "casino-aurelius-v2";
+const CACHE = "grilledcoin-v2";
 const STATIC = [
   "/",
   "/css/style.css",

@@ -1,4 +1,4 @@
-/* Casino Aurelius — Engagement System
+/* GrilledCoin — Engagement System
    IIFE module — no imports required. Exposes global `Engagement`. */
 const Engagement = (() => {
   // ─── Audio Context (lazy) ─────────────────────────────────────────────────
