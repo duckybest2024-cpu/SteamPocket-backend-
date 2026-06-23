@@ -19,7 +19,7 @@ const HowToPlay = (() => {
       de: { title: "Crash", steps: ["Lege deinen Einsatz und optional einen Auto-Cashout-Multiplikator fest.", "Klicke vor Rundenstart auf 'Setzen'.", "Der Multiplikator steigt — cashe aus bevor er crasht!", "Wenn du vor dem Crash nicht auszahlst, verlierst du deinen Einsatz."] },
       pt: { title: "Crash", steps: ["Defina seu valor de aposta e um multiplicador de cashout automático opcional.", "Clique em 'Apostar' antes do início da rodada.", "O multiplicador sobe — retire antes que caia!", "Se não retirar antes do crash, você perde a aposta."] },
       ru: { title: "Краш", steps: ["Установите ставку и необязательный множитель автовывода.", "Нажмите «Ставка» до начала раунда.", "Множитель растёт — выведите деньги до краша!", "Если не вывести до краша — ставка потеряна."] },
-      zh: { title: "崩溃", steps: ["设置投注金额和可选的自动提现倍数。", "在轮次开始前点击"投注"。", "倍数不断上升——在崩溃之前提现！", "如果在崩溃前未提现，您将损失赌注。"] },
+      zh: { title: "崩溃", steps: ["设置投注金额和可选的自动提现倍数。", "在轮次开始前点击「投注」。", "倍数不断上升——在崩溃之前提现！", "如果在崩溃前未提现，您将损失赌注。"] },
       ja: { title: "クラッシュ", steps: ["賭け金と自動キャッシュアウト倍率を設定します。", "ラウンド開始前に「ベット」をクリック。", "倍率が上昇中にキャッシュアウト！", "クラッシュ前にキャッシュアウトしないと賭け金を失います。"] },
     },
     dice: {
@@ -29,7 +29,7 @@ const HowToPlay = (() => {
       de: { title: "Würfel", steps: ["Setze deinen Einsatz.", "Wähle Drüber oder Drunter und gib deine Zielzahl ein (0–99).", "Klicke auf Würfeln — wenn das Ergebnis dein Ziel schlägt, gewinnst du!", "Niedrigere Ziele = höherer Multiplikator, geringere Gewinnchance."] },
       pt: { title: "Dados", steps: ["Defina o valor da aposta.", "Escolha Acima ou Abaixo e defina seu número alvo (0–99).", "Clique em Rolar — se o resultado bater seu alvo, você ganha!", "Alvos menores = maior multiplicador, mas menor chance."] },
       ru: { title: "Кости", steps: ["Установите ставку.", "Выберите Выше или Ниже и задайте целевое число (0–99).", "Нажмите Бросить — если результат превышает цель, вы выигрываете!", "Низкие цели = высокий множитель, но меньше шансов."] },
-      zh: { title: "骰子", steps: ["设置投注金额。", "选择"大于"或"小于"并设置目标数（0–99）。", "点击"掷骰"——如果结果超过目标，您就赢了！", "目标越低=倍数越高但获胜概率越低。"] },
+      zh: { title: "骰子", steps: ["设置投注金额。", "选择「大于」或「小于」并设置目标数（0–99）。", "点击「掷骰」——如果结果超过目标，您就赢了！", "目标越低=倍数越高但获胜概率越低。"] },
       ja: { title: "ダイス", steps: ["賭け金を設定。", "「以上」か「以下」を選び目標数（0–99）を入力。", "「ロール」をクリック — 結果が目標を超えたら勝ち！", "低い目標 = 高い倍率、低い勝率。"] },
     },
     mines: {
@@ -39,7 +39,7 @@ const HowToPlay = (() => {
       de: { title: "Minen", steps: ["Setze Einsatz und Anzahl der Minen.", "Klicke auf 'Start' und decke Felder auf.", "Jedes sichere Feld erhöht deinen Multiplikator.", "Klicke auf 'Auszahlen' um Gewinne zu sichern.", "Treffe eine Mine und verliere alles!"] },
       pt: { title: "Minas", steps: ["Defina a aposta e o número de minas.", "Clique em 'Iniciar' e revele células.", "Cada célula segura aumenta seu multiplicador.", "Clique em 'Sacar' para garantir seus ganhos.", "Acerte uma mina e perde tudo!"] },
       ru: { title: "Мины", steps: ["Установите ставку и количество мин.", "Нажмите «Старт» и открывайте клетки.", "Каждая безопасная клетка повышает множитель.", "Нажмите «Вывести» чтобы зафиксировать выигрыш.", "Попадёте на мину — потеряете всё!"] },
-      zh: { title: "扫雷", steps: ["设置投注和地雷数量。", "点击"开始"然后翻开方块。", "每个安全方块增加倍数。", "点击"提现"锁定奖金。", "碰到地雷会失去一切！"] },
+      zh: { title: "扫雷", steps: ["设置投注和地雷数量。", "点击「开始」然后翻开方块。", "每个安全方块增加倍数。", "点击「提现」锁定奖金。", "碰到地雷会失去一切！"] },
       ja: { title: "マインズ", steps: ["賭け金と地雷数を設定。", "「スタート」をクリックしてタイルを開く。", "安全なタイルごとに倍率アップ。", "「キャッシュアウト」で勝ち確定。", "地雷に当たると全損！"] },
     },
     jackpot: {
@@ -69,7 +69,7 @@ const HowToPlay = (() => {
       de: { title: "Schere Stein Papier", steps: ["Setze deinen Einsatz und klicke auf 'Gegner suchen'.", "Du wirst mit jemand mit gleichem Einsatz gepaart.", "Wähle Stein, Papier oder Schere.", "Der Gewinner bekommt 95% des kombinierten Topfes!", "Unentschieden = beide Spieler werden erstattet."] },
       pt: { title: "Pedra Papel Tesoura", steps: ["Defina sua aposta e clique em 'Encontrar Partida'.", "Você será emparelhado com alguém com a mesma aposta.", "Escolha Pedra, Papel ou Tesoura.", "O vencedor leva 95% do pote combinado!", "Empate = ambos os jogadores recebem reembolso."] },
       ru: { title: "Камень Ножницы Бумага", steps: ["Установите ставку и нажмите «Найти матч».", "Вас свяжут с игроком с той же ставкой.", "Выберите Камень, Ножницы или Бумагу.", "Победитель забирает 95% общего банка!", "Ничья = обоим возвращают ставки."] },
-      zh: { title: "剪刀石头布", steps: ["设置赌注并点击"寻找对手"。", "您将与投注相同金额的玩家配对。", "选择石头、布或剪刀。", "获胜者获得合并奖池的95%！", "平局=两位玩家都退款。"] },
+      zh: { title: "剪刀石头布", steps: ["设置赌注并点击「寻找对手」。", "您将与投注相同金额的玩家配对。", "选择石头、布或剪刀。", "获胜者获得合并奖池的95%！", "平局=两位玩家都退款。"] },
       ja: { title: "じゃんけん", steps: ["賭け金を設定して「対戦相手を探す」をクリック。", "同じ金額をベットした相手とマッチング。", "グー、チョキ、パーを選択。", "勝者が合計ポットの95%を獲得！", "あいこ = 両者返金。"] },
     },
     poker: {
@@ -79,7 +79,7 @@ const HowToPlay = (() => {
       de: { title: "Poker (5-Karten-Draw)", steps: ["Wähle einen Tisch und zahle den Buy-in.", "Du erhältst 5 Karten wenn 2+ Spieler beitreten.", "Klicke auf Karten um sie abzuwerfen, dann 'Karten ziehen'.", "Beste Pokerhand gewinnt den Topf.", "Hände: Paar < Zwei Paare < Drilling < Straße < Flush < Full House < Vierling < Straight Flush."] },
       pt: { title: "Poker (Troca de 5 cartas)", steps: ["Selecione uma mesa e faça o buy-in.", "Você recebe 5 cartas quando 2+ jogadores entrarem.", "Clique nas cartas para descartá-las, depois 'Comprar Cartas'.", "A melhor mão de poker ganha o pote.", "Mãos: Par < Dois Pares < Trinca < Sequência < Flush < Full < Quadra < Straight Flush."] },
       ru: { title: "Покер (5 карт)", steps: ["Выберите стол и внесите байин.", "Вы получите 5 карт, когда 2+ игроков войдут.", "Кликайте по картам для сброса, затем «Добрать карты».", "Лучшая рука выигрывает банк.", "Руки: Пара < Две пары < Тройка < Стрит < Флеш < Фулл-хаус < Каре < Стрит-флеш."] },
-      zh: { title: "扑克（换牌）", steps: ["选择桌子并买入。", "2人以上入场后您将获得5张牌。", "点击要丢弃的牌，然后点击"换牌"。", "最好的牌型赢得奖池。", "牌型：对子<两对<三条<顺子<同花<葫芦<四条<同花顺。"] },
+      zh: { title: "扑克（换牌）", steps: ["选择桌子并买入。", "2人以上入场后您将获得5张牌。", "点击要丢弃的牌，然后点击「换牌」。", "最好的牌型赢得奖池。", "牌型：对子<两对<三条<顺子<同花<葫芦<四条<同花顺。"] },
       ja: { title: "ポーカー（5枚交換）", steps: ["テーブルを選んでバイインします。", "2人以上が参加すると5枚のカードが配られます。", "捨てるカードをクリックして「カードを引く」。", "最も強い役がポットを獲得。", "役: ペア<2ペア<3カード<ストレート<フラッシュ<フルハウス<4カード<ストレートフラッシュ"] },
     },
   };
