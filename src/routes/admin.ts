@@ -1050,10 +1050,17 @@ adminRouter.post("/subscriptions/:userId/approve", async (req, res) => {
 
   try {
     const approvedUntil = new Date(Date.now() + daysValid * 24 * 60 * 60 * 1000);
+    // Netherite Patron ($75/mo) is the admin tier — grant admin powers on approval.
+    const data: { isApproved: boolean; approvedUntil: Date; patreonTier: string; isAdmin?: boolean } = {
+      isApproved: true,
+      approvedUntil,
+      patreonTier,
+    };
+    if (patreonTier === "netherite_patron") data.isAdmin = true;
     const user = await prisma.user.update({
       where: { id: userId },
-      data: { isApproved: true, approvedUntil, patreonTier },
-      select: { id: true, username: true, isApproved: true, approvedUntil: true, patreonTier: true },
+      data,
+      select: { id: true, username: true, isApproved: true, approvedUntil: true, patreonTier: true, isAdmin: true },
     });
     res.json({ ok: true, user });
   } catch (err) {
@@ -1065,9 +1072,13 @@ adminRouter.post("/subscriptions/:userId/approve", async (req, res) => {
 adminRouter.post("/subscriptions/:userId/revoke", async (req, res) => {
   const { userId } = req.params;
   try {
+    // If they held the Netherite (admin) tier, their admin powers came from the
+    // subscription — strip them too. Owners keep admin via isOwner() regardless.
+    const existing = await prisma.user.findUnique({ where: { id: userId }, select: { patreonTier: true } });
+    const stripAdmin = existing?.patreonTier === "netherite_patron";
     const user = await prisma.user.update({
       where: { id: userId },
-      data: { isApproved: false, approvedUntil: null, patreonTier: null },
+      data: { isApproved: false, approvedUntil: null, patreonTier: null, ...(stripAdmin ? { isAdmin: false } : {}) },
       select: { id: true, username: true, isApproved: true },
     });
     res.json({ ok: true, user });
@@ -1079,8 +1090,14 @@ adminRouter.post("/subscriptions/:userId/revoke", async (req, res) => {
 // POST /admin/subscriptions/revoke-expired — revoke all expired subscriptions
 adminRouter.post("/subscriptions/revoke-expired", async (_req, res) => {
   try {
+    const now = new Date();
+    // Strip admin from expired Netherite patrons before clearing their tier.
+    await prisma.user.updateMany({
+      where: { isApproved: true, approvedUntil: { lt: now }, patreonTier: "netherite_patron" },
+      data: { isAdmin: false },
+    });
     const result = await prisma.user.updateMany({
-      where: { isApproved: true, approvedUntil: { lt: new Date() } },
+      where: { isApproved: true, approvedUntil: { lt: now } },
       data: { isApproved: false, patreonTier: null },
     });
     res.json({ ok: true, revoked: result.count });

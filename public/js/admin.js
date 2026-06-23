@@ -28,6 +28,7 @@ const AdminGame = (() => {
     gold_patron:     { label: "🥇 Gold Patron",     c: "#ffd700", price: "$10/mo" },
     platinum_patron: { label: "💠 Platinum Patron", c: "#b9f2ff", price: "$25/mo" },
     diamond_patron:  { label: "💎 Diamond Patron",  c: "#00e5ff", price: "$50/mo" },
+    netherite_patron:{ label: "⚫ Netherite Patron", c: "#4a4a52", price: "$75/mo" },
   };
 
   const RANK_OPTS = ["newcomer","beginner","amateur","apprentice","bronze","silver","gold","platinum","diamond","emerald","sapphire","ruby","jade","crystal","elite","master","grandmaster","legend","titan"];
