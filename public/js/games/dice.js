@@ -149,7 +149,7 @@ const DiceGame = (() => {
             <div class="range-marker" id="dice-marker" style="left: 50%"></div>
           </div>
 
-          <div class="range-ticks">
+          <div class="range-track-labels">
             <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
           </div>
 
@@ -159,7 +159,7 @@ const DiceGame = (() => {
               <div class="sb-value" id="dice-mult-display">1.98×</div>
             </div>
             <div class="stat-box" id="dice-target-box">
-              <div class="sb-label">Roll Under</div>
+              <div class="sb-label" id="dice-target-label">Roll Under</div>
               <div class="sb-value" id="dice-target-display">&lt; 50.00</div>
             </div>
             <div class="stat-box" id="dice-chance-box">
@@ -167,6 +167,8 @@ const DiceGame = (() => {
               <div class="sb-value" id="dice-chance-display">50.00%</div>
             </div>
           </div>
+
+          <p class="dice-explainer" id="dice-explainer"></p>
 
           <div id="dice-result" class="result-banner"></div>
           <div id="dice-fairness" class="fairness-line"></div>
@@ -182,8 +184,10 @@ const DiceGame = (() => {
       chance: container.querySelector("#dice-chance-display"),
       mult: container.querySelector("#dice-mult-display"),
       multDisplay: container.querySelector("#dice-mult-display"),
+      targetLabel: container.querySelector("#dice-target-label"),
       targetDisplay: container.querySelector("#dice-target-display"),
       chanceDisplay: container.querySelector("#dice-chance-display"),
+      explainer: container.querySelector("#dice-explainer"),
       amount: container.querySelector("#dice-amount"),
       half: container.querySelector("#dice-half"),
       dbl: container.querySelector("#dice-dbl"),
@@ -212,8 +216,12 @@ const DiceGame = (() => {
           : `linear-gradient(90deg, var(--loss) 0%, var(--loss) ${target}%, var(--win) ${target}%, var(--win) 100%)`;
 
       els.multDisplay.textContent = `${outcome.multiplier.toFixed(4)}×`;
+      els.targetLabel.textContent = direction === "under" ? "Roll Under" : "Roll Over";
       els.targetDisplay.textContent = direction === "under" ? `< ${target.toFixed(2)}` : `> ${target.toFixed(2)}`;
       els.chanceDisplay.textContent = `${outcome.winChance.toFixed(4)}%`;
+      els.explainer.textContent = direction === "under"
+        ? `A random number between 0 and 100 will be rolled. You win if it lands below ${target.toFixed(2)}.`
+        : `A random number between 0 and 100 will be rolled. You win if it lands above ${target.toFixed(2)}.`;
     }
 
     els.target.addEventListener("input", refreshOdds);

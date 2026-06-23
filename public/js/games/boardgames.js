@@ -150,6 +150,8 @@ const BoardGamesGame = (() => {
         openCreateRoomModal(gameId);
       });
     });
+
+    attachLobbyListeners();
   }
 
   function renderGameCard(game) {
