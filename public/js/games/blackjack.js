@@ -47,6 +47,8 @@ const BlackjackGame = (() => {
       </div></div>
     `;
 
+    HowToPlay.addButton(container, "blackjack");
+
     const els = {
       table: container.querySelector("#bj-table"),
       amount: container.querySelector("#bj-amount"),

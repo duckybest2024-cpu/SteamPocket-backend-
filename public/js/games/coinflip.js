@@ -116,6 +116,7 @@ const CoinflipGame = (() => {
           </div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "coinflip");
 
     const els = {
       status:         container.querySelector("#cf-status"),

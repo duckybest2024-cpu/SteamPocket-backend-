@@ -30,6 +30,7 @@ const ScratchGame = (() => {
 
     container.innerHTML = buildShell();
     addStyles();
+    HowToPlay.addButton(container, "scratch");
     loadTickets(container);
 
     return () => { /* cleanup */ };

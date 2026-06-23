@@ -45,6 +45,8 @@ const BaccaratGame = (() => {
       </div></div>
     `;
 
+    HowToPlay.addButton(container, "baccarat");
+
     const els = {
       table: container.querySelector("#bacc-table"),
       amount: container.querySelector("#bacc-amount"),

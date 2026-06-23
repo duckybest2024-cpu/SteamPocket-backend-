@@ -49,6 +49,7 @@ const MultiRouletteGame = (() => {
           <div id="mr-result" class="result-banner" style="margin-top:auto"></div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "multiroulette");
 
     const ballEl = container.querySelector("#mr-ball");
     const phaseEl = container.querySelector("#mr-phase");

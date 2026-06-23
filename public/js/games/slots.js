@@ -641,6 +641,8 @@ const SlotsGame = (() => {
     }
 
     renderLobby();
+
+    HowToPlay.addButton(container, "slots");
   }
 
   return { render };

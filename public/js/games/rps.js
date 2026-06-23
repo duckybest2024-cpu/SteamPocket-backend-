@@ -46,6 +46,7 @@ const RPSGame = (() => {
           <div id="rps-result" class="result-banner" style="font-size:1.1rem;margin-top:auto"></div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "rps");
 
     const amountEl = container.querySelector("#rps-amount");
     const queueBtn = container.querySelector("#rps-queue");

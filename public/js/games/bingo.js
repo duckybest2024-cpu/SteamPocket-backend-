@@ -31,6 +31,7 @@ const BingoGame = (() => {
           <div id="bingo-result" class="result-banner" style="margin-top:auto"></div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "bingo");
 
     const phaseEl = container.querySelector("#bingo-phase");
     const playerCountEl = container.querySelector("#bingo-player-count");

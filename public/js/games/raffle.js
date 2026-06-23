@@ -51,6 +51,7 @@ const RaffleGame = (() => {
           </div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "raffle");
 
     const priceEl = container.querySelector("#rf-price");
     const priceLabelEl = container.querySelector("#rf-price-label");

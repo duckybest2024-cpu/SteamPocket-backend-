@@ -56,6 +56,7 @@ const PlinkoGame = (() => {
 
         </div>
     `;
+    HowToPlay.addButton(container, "plinko");
 
     const els = {
       board: container.querySelector("#plinko-board"),

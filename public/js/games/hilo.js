@@ -57,6 +57,7 @@ const HiloGame = (() => {
 
       </div></div>
     `;
+    HowToPlay.addButton(container, "hilo");
 
     const els = {
       card: container.querySelector("#hilo-card"),

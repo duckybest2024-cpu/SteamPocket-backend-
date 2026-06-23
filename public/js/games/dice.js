@@ -176,6 +176,7 @@ const DiceGame = (() => {
 
       </div></div>
     `;
+    HowToPlay.addButton(container, "dice");
 
     const els = {
       number: container.querySelector("#dice-roll-number"),

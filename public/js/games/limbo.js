@@ -48,6 +48,7 @@ const LimboGame = (() => {
 
       </div></div>
     `;
+    HowToPlay.addButton(container, "limbo");
 
     const els = {
       number: container.querySelector("#limbo-number"),

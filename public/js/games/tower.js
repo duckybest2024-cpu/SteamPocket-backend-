@@ -32,6 +32,7 @@ const TowerGame = (() => {
           <div id="tw-result" class="result-banner"></div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "tower");
 
     const amountEl = container.querySelector("#tw-amount");
     const startBtn = container.querySelector("#tw-start");

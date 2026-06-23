@@ -413,6 +413,8 @@ const RouletteGame = (() => {
       </div></div>
     `;
 
+    HowToPlay.addButton(container, "roulette");
+
     const els = {
       numbers: container.querySelector("#roulette-numbers"),
       outside: container.querySelector("#roulette-outside"),

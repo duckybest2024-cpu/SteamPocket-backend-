@@ -264,6 +264,8 @@ const CasesGame = (() => {
           </div>
         </div>`;
 
+      HowToPlay.addButton(container, "cases");
+
       let cases = [];
       let activeFilter = "all";
 

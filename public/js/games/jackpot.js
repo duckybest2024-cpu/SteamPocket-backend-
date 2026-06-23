@@ -47,6 +47,7 @@ const JackpotGame = (() => {
           </div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "jackpot");
 
     const potEl = container.querySelector("#jp-pot");
     const playersEl = container.querySelector("#jp-players");

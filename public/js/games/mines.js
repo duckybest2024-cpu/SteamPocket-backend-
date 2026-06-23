@@ -49,6 +49,7 @@ const MinesGame = (() => {
 
         </div>
     `;
+    HowToPlay.addButton(container, "mines");
 
     const els = {
       grid: container.querySelector("#mines-grid"),

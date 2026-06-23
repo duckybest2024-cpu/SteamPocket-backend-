@@ -55,6 +55,7 @@ const WheelGame = (() => {
 
       </div></div>
     `;
+    HowToPlay.addButton(container, "wheel");
 
     const canvas = container.querySelector("#wheel-canvas");
     const ctx = canvas.getContext("2d");

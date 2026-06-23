@@ -37,6 +37,7 @@ const BattleDiceGame = (() => {
           <div id="bd-result" class="result-banner" style="margin-top:auto"></div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "battledice");
 
     const amountEl = container.querySelector("#bd-amount");
     const joinBtn = container.querySelector("#bd-join");

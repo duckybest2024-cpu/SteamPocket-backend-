@@ -86,28 +86,34 @@ const HowToPlay = (() => {
 
   // Add same-structure guides for remaining games
   const SIMPLE_GAMES = {
-    battledice: { icon: "🎲", en: "Join a room and place your bet. When the timer ends all players roll a die. Highest roll wins the pot (minus 5% house fee). Up to 8 players per room." },
-    raffle: { icon: "🎟️", en: "Buy tickets for 10 chips each. Every 5 minutes one ticket is drawn at random — the holder wins 95% of the ticket pool. More tickets = better odds." },
-    bingo: { icon: "🎱", en: "Pay 50 chips to join. You get a 5×5 bingo card. Numbers are drawn every 3 seconds — first player to complete a row, column, or diagonal calls BINGO and wins!" },
-    tower: { icon: "🗼", en: "Bet any amount and start climbing the Tower. Each floor has a 20% chance of collapsing. Survive and multiply your winnings — cash out whenever you're happy." },
-    multiroulette: { icon: "🎡", en: "Everyone bets on the same spin every 30 seconds. Choose your bet type (Red/Black, Even/Odd, etc.) and amount. Wins pay based on the odds of your chosen type." },
-    limbo: { icon: "📈", en: "Set a target multiplier and bet. A random multiplier is generated — if it's ≥ your target, you win bet × target. Lower target = safer, higher target = more risk." },
-    plinko: { icon: "🔵", en: "Drop a ball into the plinko board. It bounces off pegs and lands in a slot. Higher risk = more extreme payouts. Watch out for the sides!" },
-    keno: { icon: "🎯", en: "Pick 1–10 numbers from 1–80. 20 numbers are drawn. The more of your picks that match, the higher your payout. Check the paytable for exact multipliers." },
-    slots: { icon: "🎰", en: "Set your bet per line and number of lines, then spin. Match symbols across active paylines to win. Bonus symbols trigger special features." },
-    wheel: { icon: "🎡", en: "Choose a risk level (Low/Medium/High), set your bet, and spin the wheel. Higher risk = more segments are zero but big wins pay much more." },
-    hilo: { icon: "↕️", en: "A card is revealed. Bet on whether the next card will be Higher or Lower. Each correct prediction multiplies your winnings. Cash out anytime." },
-    blackjack: { icon: "🃏", en: "Try to get closer to 21 than the dealer without going over. Hit, Stand, Double Down, or Split. Dealer must hit on 16 and stand on 17+. Blackjack pays 1.5x." },
-    baccarat: { icon: "🎴", en: "Bet on Player, Banker, or Tie. Cards are dealt and totals compared — closest to 9 wins. Banker bets pay 0.95x, Tie pays 8x." },
-    videopoker: { icon: "🃏", en: "Place a bet, receive 5 cards, choose which to hold/discard, then draw. Payouts depend on your final poker hand. Aim for at least a pair of Jacks." },
-    coinflip: { icon: "🪙", en: "Create or join a 1v1 challenge. Both players bet the same amount. The coin is flipped using provably fair randomness. Winner takes 99% of the pot." },
-    jackpot: { icon: "🏆", en: "Drop chips into a shared pot. When the round ends, one random player wins — weighted by how much they contributed. Jackpot winner gets 95% of the pot." },
-    horserace: { icon: "🏇", en: "Pick a horse and bet before the race. Higher odds = rarer winner but bigger payout. The race is animated in real time — cheer your horse home!" },
-    rps: { icon: "✊", en: "Find an opponent with the same bet, pick Rock/Paper/Scissors simultaneously. Winner gets 95% of the combined pot. Ties result in full refunds." },
-    raffle: { icon: "🎟️", en: "Buy tickets for 10 chips each. A draw happens every 5 minutes — one winning ticket is chosen at random. More tickets = more chances." },
-    bingo: { icon: "🎱", en: "Pay 50 chips to join. Get a 5×5 card. Numbers drawn every 3s — complete a row/column/diagonal to win!" },
-    poker: { icon: "♠️", en: "Join a table, place buy-in, get 5 cards, swap unwanted cards, best hand wins." },
-    tower: { icon: "🗼", en: "Climb floors risking 20% collapse per floor. Cash out when ready for (bet × current multiplier)." },
+    battledice: { icon: "🎲", title: "Battle Dice", en: "Join a room and place your bet. When the timer ends all players roll a die. Highest roll wins the pot (minus 5% house fee). Up to 8 players per room." },
+    raffle: { icon: "🎟️", title: "Raffle", en: "Buy tickets for 10 chips each. Every 5 minutes one ticket is drawn at random — the holder wins 95% of the ticket pool. More tickets = better odds." },
+    bingo: { icon: "🎱", title: "Bingo", en: "Pay 50 chips to join. You get a 5×5 bingo card. Numbers are drawn every 3 seconds — first player to complete a row, column, or diagonal calls BINGO and wins!" },
+    tower: { icon: "🗼", title: "Tower", en: "Bet any amount and start climbing the Tower. Each floor has a 20% chance of collapsing. Survive and multiply your winnings — cash out whenever you're happy." },
+    multiroulette: { icon: "🎡", title: "Multi Roulette", en: "Everyone bets on the same spin every 30 seconds. Choose your bet type (Red/Black, Even/Odd, etc.) and amount. Wins pay based on the odds of your chosen type." },
+    limbo: { icon: "📈", title: "Limbo", en: "Set a target multiplier and bet. A random multiplier is generated — if it's ≥ your target, you win bet × target. Lower target = safer, higher target = more risk." },
+    plinko: { icon: "🔵", title: "Plinko", en: "Drop a ball into the plinko board. It bounces off pegs and lands in a slot. Higher risk = more extreme payouts. Watch out for the sides!" },
+    keno: { icon: "🎯", title: "Keno", en: "Pick 1–10 numbers from 1–80. 20 numbers are drawn. The more of your picks that match, the higher your payout. Check the paytable for exact multipliers." },
+    slots: { icon: "🎰", title: "Slots", en: "Set your bet per line and number of lines, then spin. Match symbols across active paylines to win. Bonus symbols trigger special features." },
+    wheel: { icon: "🎡", title: "Wheel", en: "Choose a risk level (Low/Medium/High), set your bet, and spin the wheel. Higher risk = more segments are zero but big wins pay much more." },
+    hilo: { icon: "↕️", title: "Hi-Lo", en: "A card is revealed. Bet on whether the next card will be Higher or Lower. Each correct prediction multiplies your winnings. Cash out anytime." },
+    blackjack: { icon: "🃏", title: "Blackjack", en: "Try to get closer to 21 than the dealer without going over. Hit, Stand, Double Down, or Split. Dealer must hit on 16 and stand on 17+. Blackjack pays 1.5x." },
+    baccarat: { icon: "🎴", title: "Baccarat", en: "Bet on Player, Banker, or Tie. Cards are dealt and totals compared — closest to 9 wins. Banker bets pay 0.95x, Tie pays 8x." },
+    videopoker: { icon: "🃏", title: "Video Poker", en: "Place a bet, receive 5 cards, choose which to hold/discard, then draw. Payouts depend on your final poker hand. Aim for at least a pair of Jacks." },
+    coinflip: { icon: "🪙", title: "Coinflip", en: "Create or join a 1v1 challenge. Both players bet the same amount. The coin is flipped using provably fair randomness. Winner takes 99% of the pot." },
+    roulette: { icon: "🎡", title: "Roulette", en: "Place chips on the table — straight numbers, Red/Black, Even/Odd, Dozens, or Columns. The wheel spins (single zero). Straight-up pays 35:1, Red/Black/Even/Odd pays 1:1, Dozens/Columns pay 2:1." },
+    cases: { icon: "📦", title: "Cases", en: "Buy a case to open it. Each case has a fixed pool of items with different rarities and chip values — rarer items are worth more but are less likely to drop. Open instantly and the item's value is added to your balance, or keep it in your inventory to trade." },
+    scratch: { icon: "🎟️", title: "Scratch Cards", en: "Buy a scratch ticket and reveal its 3×3 grid one cell at a time. Match the required pattern of symbols to win the prize shown on the card. Each theme has different odds and top prizes." },
+    arcade: { icon: "🕹️", title: "Arcade", en: "Pick any arcade machine — claw cranes, gacha capsules, ticket blasters, and more. Each costs a fixed number of chips to play and awards a randomly-selected prize from that machine's pool, with rarer prizes worth more chips." },
+    boardgames: { icon: "♟️", title: "Board Games", en: "Pick a game (Chess, Checkers, Battleship, Durak, Wild Cards, Poker, Bridge, or Monopoly) and either create a room with your bet amount or join an open one. Once enough players join, the match starts automatically. Winner takes the pot minus a 5% house fee." },
+    bg_chess: { icon: "♟️", title: "Board Games — Chess", en: "Standard chess rules: castling, en passant, and pawn promotion are all supported. Checkmate, stalemate, or resignation ends the game. Two players, turns alternate, winner takes the pot." },
+    bg_checkers: { icon: "⚫", title: "Board Games — Checkers", en: "Standard checkers: diagonal moves only, jumps are forced when available, and pieces become kings on reaching the far row. Capture all of your opponent's pieces to win the pot." },
+    bg_battleship: { icon: "🚢", title: "Board Games — Battleship", en: "Place your 5 ships on a hidden 10×10 grid, then take turns firing at your opponent's grid. Hits, misses, and sunk ships are revealed as you go. First to sink the entire enemy fleet wins." },
+    bg_durak: { icon: "🃏", title: "Board Games — Durak", en: "Russian card game with a 36-card deck and a trump suit. The attacker plays cards; the defender beats each one with a higher card of the same suit or any trump, or picks up the whole table. Run out of cards before everyone else to avoid being the 'durak' (fool) and win." },
+    bg_wildcards: { icon: "🎨", title: "Board Games — Wild Cards", en: "UNO-style game for 2–6 players. Match the top card by color or number, or play a Skip/Reverse/Draw 2/Wild card. First player to empty their hand wins the pot." },
+    bg_poker: { icon: "♠️", title: "Board Games — Poker", en: "Texas Hold'em with blinds. Each player gets 2 hole cards; 5 community cards are revealed across the flop, turn, and river with a betting round each time. Best 5-card hand at showdown wins the pot." },
+    bg_bridge: { icon: "🌉", title: "Board Games — Bridge", en: "Contract Bridge for exactly 4 players in two partnerships. Bid for a contract (level + suit), then the highest bidder's team tries to win that many tricks with their partner's hand on display. Meeting the contract wins the hand." },
+    bg_monopoly: { icon: "🏠", title: "Board Games — Monopoly", en: "Classic board with all 40 squares, properties, railroads, and utilities. Roll dice, buy properties, collect rent, and bankrupt your opponents — or be the richest player when the round limit is reached." },
   };
 
   let currentLang = localStorage.getItem("casino_lang") || "en";
@@ -122,7 +128,7 @@ const HowToPlay = (() => {
       return { title: langData.title, steps: langData.steps };
     }
     const simple = SIMPLE_GAMES[gameKey];
-    if (simple) return { title: gameKey, steps: [simple.en] };
+    if (simple) return { title: simple.title || gameKey, steps: [simple.en] };
     return null;
   }
 
@@ -162,13 +168,15 @@ const HowToPlay = (() => {
   }
 
   function addButton(container, gameKey) {
+    if (!getGuide(gameKey)) return;
     const btn = document.createElement("button");
     btn.className = "secondary-btn";
-    btn.style.cssText = "font-size:0.75rem;padding:4px 10px;position:absolute;top:12px;right:12px;opacity:0.8";
+    btn.style.cssText = "font-size:0.75rem;padding:4px 10px;position:absolute;top:12px;right:12px;opacity:0.85;z-index:5";
     btn.textContent = "❓ How to Play";
     btn.addEventListener("click", () => showModal(gameKey));
-    const panel = container.querySelector(".game-panel");
-    if (panel) { panel.style.position = "relative"; panel.appendChild(btn); }
+    const panel = container.querySelector(".game-panel") || container.querySelector(".game-layout") || container;
+    panel.style.position = "relative";
+    panel.appendChild(btn);
   }
 
   return { showModal, addButton, getLang };

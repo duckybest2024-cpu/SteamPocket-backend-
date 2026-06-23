@@ -62,6 +62,7 @@ const CrashGame = (() => {
 
       </div></div>
     `;
+    HowToPlay.addButton(container, "crash");
 
     const els = {
       multiplier: container.querySelector("#crash-multiplier"),

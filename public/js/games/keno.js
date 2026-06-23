@@ -56,6 +56,7 @@ const KenoGame = (() => {
 
       </div></div>
     `;
+    HowToPlay.addButton(container, "keno");
 
     const els = {
       grid: container.querySelector("#keno-grid"),

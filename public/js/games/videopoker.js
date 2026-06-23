@@ -62,6 +62,8 @@ const VideoPokerGame = (() => {
       </div></div>
     `;
 
+    HowToPlay.addButton(container, "videopoker");
+
     const els = {
       hand: container.querySelector("#vp-hand"),
       amount: container.querySelector("#vp-amount"),

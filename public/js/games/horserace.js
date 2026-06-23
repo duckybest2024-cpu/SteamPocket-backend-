@@ -45,6 +45,7 @@ const HorseRaceGame = (() => {
           <div id="hr-result" class="result-banner" style="margin-top:auto"></div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "horserace");
 
     const trackEl = container.querySelector("#hr-track");
     const horseBtns = container.querySelector("#hr-horse-btns");

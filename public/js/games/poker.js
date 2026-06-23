@@ -49,6 +49,7 @@ const PokerGame = (() => {
           </div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "poker");
 
     const buyinEl = container.querySelector("#pk-buyin");
     const joinBtn = container.querySelector("#pk-join");
