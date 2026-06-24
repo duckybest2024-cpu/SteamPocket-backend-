@@ -12,6 +12,7 @@ const PokerGame = (() => {
     container.innerHTML = `
       <div class="game-layout">
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("poker", GameThemes.getSaved("poker"))}
           <div>
             <div class="bp-label">Select Table</div>
             <div style="display:flex;flex-direction:column;gap:5px">
@@ -173,6 +174,7 @@ const PokerGame = (() => {
       inHand = false;
     });
 
+    GameThemes.init(container, "poker");
     return () => { if (socket) socket.disconnect(); };
   }
 

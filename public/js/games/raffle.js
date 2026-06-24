@@ -8,6 +8,8 @@ const RaffleGame = (() => {
     container.innerHTML = `
       <div class="game-layout">
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("raffle", GameThemes.getSaved("raffle"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active">Manual</button>
             <button class="bp-tab">Auto</button>
@@ -135,6 +137,8 @@ const RaffleGame = (() => {
         </div>`
       ).join("");
     }
+
+    GameThemes.init(container, "raffle");
 
     return () => { if (socket) socket.disconnect(); if (timerInterval) clearInterval(timerInterval); };
   }

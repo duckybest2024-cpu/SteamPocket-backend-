@@ -364,6 +364,8 @@ const RouletteGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <div class="bet-panel">
+          ${GameThemes.renderPicker("roulette", GameThemes.getSaved("roulette"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="roulette-tab-manual">Manual</button>
             <button class="bp-tab" id="roulette-tab-auto">Auto</button>
@@ -607,6 +609,7 @@ const RouletteGame = (() => {
     buildNumberGrid();
     buildOutsideBets();
     refreshSummary();
+    GameThemes.init(container, "roulette");
   }
 
   return { render };

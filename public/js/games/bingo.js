@@ -7,6 +7,8 @@ const BingoGame = (() => {
     container.innerHTML = `
       <div class="game-layout">
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("bingo", GameThemes.getSaved("bingo"))}
+
           <div style="font-size:0.82rem;color:var(--text-dim);line-height:1.6">
             Buy in for <strong style="color:var(--win)">50 🪙</strong> · Get a 5×5 card · First to complete a row, column, or diagonal wins the pot!
           </div>
@@ -130,6 +132,8 @@ const BingoGame = (() => {
       joinBtn.disabled = true;
       socket.emit("join");
     });
+
+    GameThemes.init(container, "bingo");
 
     return () => { if (socket) socket.disconnect(); };
   }

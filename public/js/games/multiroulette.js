@@ -17,6 +17,7 @@ const MultiRouletteGame = (() => {
     container.innerHTML = `
       <div class="game-layout">
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("multiroulette", GameThemes.getSaved("multiroulette"))}
           <div class="bp-tabs">
             <button class="bp-tab active">Manual</button>
             <button class="bp-tab">Auto</button>
@@ -164,6 +165,7 @@ const MultiRouletteGame = (() => {
       });
     });
 
+    GameThemes.init(container, "multiroulette");
     return () => { if (socket) socket.disconnect(); if (phaseTimer) clearInterval(phaseTimer); };
   }
 

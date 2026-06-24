@@ -8,6 +8,8 @@ const PlinkoGame = (() => {
       <div class="game-layout">
 
           <div class="bet-panel">
+            ${GameThemes.renderPicker("plinko", GameThemes.getSaved("plinko"))}
+
             <div class="bp-tabs">
               <button class="bp-tab active" id="plinko-tab-manual">Manual</button>
               <button class="bp-tab" id="plinko-tab-auto">Auto</button>
@@ -264,6 +266,7 @@ const PlinkoGame = (() => {
 
     // Defer layout so the board has rendered dimensions
     requestAnimationFrame(() => refreshLayout());
+    GameThemes.init(container, "plinko");
     return () => window.removeEventListener("resize", onResize);
   }
 

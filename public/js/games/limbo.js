@@ -6,6 +6,8 @@ const LimboGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("limbo", GameThemes.getSaved("limbo"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="limbo-tab-manual">Manual</button>
             <button class="bp-tab" id="limbo-tab-auto">Auto</button>
@@ -146,6 +148,7 @@ const LimboGame = (() => {
     }
 
     refreshChance();
+    GameThemes.init(container, "limbo");
   }
 
   return { render };

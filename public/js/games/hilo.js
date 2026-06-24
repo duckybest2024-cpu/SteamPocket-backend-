@@ -8,6 +8,8 @@ const HiloGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <div class="bet-panel">
+          ${GameThemes.renderPicker("hilo", GameThemes.getSaved("hilo"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="hilo-tab-manual">Manual</button>
             <button class="bp-tab" id="hilo-tab-auto">Auto</button>
@@ -199,6 +201,8 @@ const HiloGame = (() => {
         // No active round — that's fine
       }
     })();
+
+    GameThemes.init(container, "hilo");
   }
 
   return { render };

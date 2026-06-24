@@ -7,6 +7,8 @@ const BlackjackGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <div class="bet-panel">
+          ${GameThemes.renderPicker("blackjack", GameThemes.getSaved("blackjack"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="bj-tab-manual">Manual</button>
             <button class="bp-tab" id="bj-tab-auto">Auto</button>
@@ -225,6 +227,7 @@ const BlackjackGame = (() => {
     }
 
     resumeIfActive();
+    GameThemes.init(container, "blackjack");
   }
 
   return { render };

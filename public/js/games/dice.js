@@ -7,6 +7,8 @@ const DiceGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("dice", GameThemes.getSaved("dice"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="dice-tab-manual">Manual</button>
             <button class="bp-tab" id="dice-tab-auto">Auto</button>
@@ -302,6 +304,7 @@ const DiceGame = (() => {
     });
 
     refreshOdds();
+    GameThemes.init(container, "dice");
   }
 
   return { render };

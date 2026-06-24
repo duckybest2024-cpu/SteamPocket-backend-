@@ -322,6 +322,7 @@ const BoardGamesGame = (() => {
           <h2 class="bg-waiting__title">${meta.icon || "🎲"} ${meta.name || roomState.gameId} — Waiting Room</h2>
           <button class="bg-waiting__rules secondary-btn">❓ How to Play</button>
           <div class="bg-waiting__meta">Bet: <strong>${roomState.bet} chips/player</strong> &nbsp;|&nbsp; Room: <code>${roomState.id}</code></div>
+          ${GameThemes.renderPicker(`bg_${roomState.gameId}`, GameThemes.getSaved(`bg_${roomState.gameId}`))}
         </div>
 
         <div class="bg-waiting__players">
@@ -362,6 +363,8 @@ const BoardGamesGame = (() => {
         setReady();
       });
     }
+
+    GameThemes.init(_container, `bg_${roomState.gameId}`);
   }
 
   // ─── Game renderer dispatch ────────────────────────────────────────────────
@@ -374,6 +377,7 @@ const BoardGamesGame = (() => {
     if (typeof renderer === "function") {
       _container.innerHTML = "";
       renderer(_container, socket, roomState, myUserId);
+      GameThemes.apply(_container, GameThemes.getSaved(`bg_${roomState.gameId}`));
     } else {
       // Fallback: show a placeholder if the specific game module isn't loaded yet
       _container.innerHTML = `

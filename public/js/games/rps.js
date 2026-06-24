@@ -10,6 +10,8 @@ const RPSGame = (() => {
     container.innerHTML = `
       <div class="game-layout">
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("rps", GameThemes.getSaved("rps"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active">Manual</button>
             <button class="bp-tab">Auto</button>
@@ -143,6 +145,8 @@ const RPSGame = (() => {
         socket.emit("choose", { matchId, choice: btn.dataset.c });
       });
     });
+
+    GameThemes.init(container, "rps");
 
     return () => { if (socket) socket.disconnect(); };
   }
