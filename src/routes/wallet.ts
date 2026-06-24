@@ -4,7 +4,6 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, AuthedRequest } from "../middleware/auth";
 import { applyLedgerEntry, updateHouseChips, InsufficientFundsError } from "../lib/wallet";
 import { getStripe, CHIP_PACKAGES } from "../lib/stripe";
-import { getLiqpayKeys, buildLiqpayCheckout, LIQPAY_CHECKOUT_URL } from "../lib/liqpay";
 
 export const walletRouter = Router();
 
@@ -77,60 +76,6 @@ walletRouter.post("/create-checkout-session", requireAuth, async (req: AuthedReq
   } catch (err) {
     console.error("Stripe checkout error:", err);
     res.status(500).json({ error: "Failed to create checkout session — please try again" });
-  }
-});
-
-// ---------------------------------------------------------------------------
-// LiqPay checkout — create a form submission payload for a chip package
-// ---------------------------------------------------------------------------
-
-const liqpayCheckoutSchema = z.object({
-  packageId: z.string(),
-  currency: z.enum(["USD", "UAH"]).default("USD"),
-});
-
-walletRouter.post("/liqpay-checkout", requireAuth, async (req: AuthedRequest, res) => {
-  try {
-    const keys = getLiqpayKeys();
-    if (!keys) {
-      return res.status(503).json({
-        error: "LiqPay not configured. Add LIQPAY_PUBLIC_KEY and LIQPAY_PRIVATE_KEY to environment variables.",
-      });
-    }
-
-    const parsed = liqpayCheckoutSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
-
-    const { currency } = parsed.data;
-    const pkg = CHIP_PACKAGES.find((p) => p.id === parsed.data.packageId);
-    if (!pkg) return res.status(400).json({ error: "Invalid package" });
-    if (pkg.priceCents < 500) return res.status(400).json({ error: "Minimum deposit is $5" });
-
-    const origin = `${req.protocol}://${req.get("host")}`;
-    const orderId = `${req.userId!}_${pkg.id}_${Date.now()}`;
-    const sandbox = process.env.LIQPAY_SANDBOX === "true";
-
-    // Use UAH price if requested (priceUAH exists on all packages)
-    const amountSmallest = currency === "UAH"
-      ? (pkg as typeof pkg & { priceUAH?: number }).priceUAH ?? pkg.priceCents * 41
-      : pkg.priceCents;
-
-    const { data, signature } = buildLiqpayCheckout({
-      publicKey: keys.publicKey,
-      privateKey: keys.privateKey,
-      amountSmallest,
-      currency,
-      description: `${pkg.name} — ${pkg.chips.toLocaleString()} GrilledCoin chips`,
-      orderId,
-      serverUrl: `${origin}/wallet/liqpay-callback`,
-      resultUrl: `${origin}/?checkout=success`,
-      sandbox,
-    });
-
-    res.json({ data, signature, checkoutUrl: LIQPAY_CHECKOUT_URL });
-  } catch (err) {
-    console.error("LiqPay checkout error:", err);
-    res.status(500).json({ error: "Failed to create payment — please try again" });
   }
 });
 

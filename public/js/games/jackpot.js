@@ -6,6 +6,8 @@ const JackpotGame = (() => {
     container.innerHTML = `
       <div class="game-layout">
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("jackpot", GameThemes.getSaved("jackpot"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active">Manual</button>
             <button class="bp-tab">Auto</button>
@@ -47,6 +49,7 @@ const JackpotGame = (() => {
           </div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "jackpot");
 
     const potEl = container.querySelector("#jp-pot");
     const playersEl = container.querySelector("#jp-players");
@@ -139,6 +142,8 @@ const JackpotGame = (() => {
       socket.emit("enter", { amount });
       setTimeout(() => { enterBtn.disabled = false; }, 1500);
     });
+
+    GameThemes.init(container, "jackpot");
 
     return () => { if (socket) socket.disconnect(); if (countdown) clearInterval(countdown); };
   }

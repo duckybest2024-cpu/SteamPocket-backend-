@@ -10,6 +10,8 @@ const TowerGame = (() => {
     container.innerHTML = `
       <div class="game-layout">
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("tower", GameThemes.getSaved("tower"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active">Manual</button>
             <button class="bp-tab">Auto</button>
@@ -32,6 +34,7 @@ const TowerGame = (() => {
           <div id="tw-result" class="result-banner"></div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "tower");
 
     const amountEl = container.querySelector("#tw-amount");
     const startBtn = container.querySelector("#tw-start");
@@ -127,6 +130,7 @@ const TowerGame = (() => {
     cashoutBtn.addEventListener("click", () => { socket.emit("cashout"); });
 
     renderTower(0);
+    GameThemes.init(container, "tower");
 
     return () => { if (socket) socket.disconnect(); };
   }

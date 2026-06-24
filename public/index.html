@@ -11,6 +11,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="GrilledCoin" />
   <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/images/pwa/icon-192.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/images/pwa/apple-touch-icon.png" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
@@ -65,6 +67,9 @@
           </div>
           <p style="font-size:0.78rem;color:var(--text-dim);margin:4px 0 8px;line-height:1.5;">
             🔒 Access requires an active <a href="https://patreon.com/GrilledCoin" target="_blank" style="color:var(--accent-2)">Patreon subscription</a> ($1/month+). After registering an admin will verify your Patreon and grant your tier.
+          </p>
+          <p style="font-size:0.72rem;color:var(--text-mute);margin:0 0 8px;line-height:1.5;">
+            By creating an account you agree to the <a href="/terms.html" target="_blank" style="color:var(--text-mute)">Terms of Service</a> and <a href="/privacy.html" target="_blank" style="color:var(--text-mute)">Privacy Policy</a>. GrilledCoin uses virtual chips only — no real-money wagering. 18+.
           </p>
           <button type="submit" class="auth-submit">Create Account</button>
         </form>
@@ -137,6 +142,11 @@
           <span id="balance-amount" class="sb-bal-amount">0 🪙</span>
         </div>
         <div id="sb-tier-row" style="font-size:0.78rem;color:var(--text-dim);margin-top:4px;min-height:16px"></div>
+        <div id="ad-slot-sidebar" class="ad-slot"></div>
+        <div style="font-size:0.72rem;color:var(--text-mute);margin-top:8px;">
+          <a href="/privacy.html" target="_blank" style="color:var(--text-mute)">Privacy</a> ·
+          <a href="/terms.html" target="_blank" style="color:var(--text-mute)">Terms</a>
+        </div>
       </div>
     </aside>
 
@@ -175,6 +185,7 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="js/api.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/gameThemes.js"></script>
   <script src="js/games/lobby.js"></script>
   <script src="js/games/dice.js"></script>
   <script src="js/games/limbo.js"></script>
@@ -239,6 +250,15 @@
         navigator.serviceWorker.register("/sw.js").catch(() => {});
       });
     }
+    // Capture the install prompt as early as possible — fires before any
+    // particular screen is mounted, so it must be stashed globally.
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      window.__pwaInstallEvent = e;
+    });
+    window.addEventListener("appinstalled", () => {
+      window.__pwaInstallEvent = null;
+    });
   </script>
 </body>
 </html>

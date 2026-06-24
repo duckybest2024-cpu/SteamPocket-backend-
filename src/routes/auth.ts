@@ -7,11 +7,15 @@ import { prisma } from "../lib/prisma";
 import { signToken, requireAuth, AuthedRequest } from "../middleware/auth";
 import { createSeedPair } from "../lib/provablyFair";
 import { config } from "../lib/config";
-import { sendVerificationEmail } from "../lib/mailer";
+import { sendVerificationCode } from "../lib/mailer";
 import { isOwner } from "../lib/owner";
 import { getSiteConfig } from "../lib/siteConfig";
 
 export const authRouter = Router();
+
+function generateCode(): string {
+  return String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+}
 
 const credentialsSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters").max(20).regex(/^[a-zA-Z0-9_]+$/, "Username: letters, numbers, underscore only"),
@@ -32,6 +36,8 @@ authRouter.post("/register", async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const seedPair = createSeedPair();
+    const emailToken = generateCode();
+    const emailTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
 
     const user = await prisma.user.create({
       data: {
@@ -42,16 +48,20 @@ authRouter.post("/register", async (req, res) => {
         serverSeed: seedPair.serverSeed,
         serverSeedHash: seedPair.serverSeedHash,
         clientSeed: seedPair.clientSeed,
-        emailVerified: true,
+        emailVerified: false,
+        emailToken,
+        emailTokenExpiry,
         patreonUsername: patreonUsername ?? null,
         isApproved: false,
       },
     });
 
+    sendVerificationCode(email, username, emailToken).catch(console.error);
+
     res.status(201).json({
       token: signToken(user.id),
       user: publicUser(user),
-      message: "Account created! Your request is pending admin approval. You must have an active Patreon subscription to play.",
+      message: "Account created! Check your email for a 6-digit verification code.",
     });
   } catch (err: any) {
     if (err?.code === "P2002") {
@@ -64,60 +74,54 @@ authRouter.post("/register", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Verify email via token link — opens in browser from email
+// Verify email via a 6-digit code entered in the app
 // ---------------------------------------------------------------------------
-authRouter.get("/verify-email", async (req, res) => {
-  const token = req.query.token as string;
-  if (!token) return res.redirect("/?emailVerified=error");
+authRouter.post("/verify-email-code", requireAuth, async (req: AuthedRequest, res) => {
+  const { code } = req.body as { code?: string };
+  if (!code) return res.status(400).json({ error: "Code required" });
 
   try {
-    const user = await prisma.user.findFirst({
-      where: { emailToken: token, emailTokenExpiry: { gt: new Date() } },
-    });
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    if (user.emailVerified) return res.json({ user: publicUser(user) });
 
-    if (!user) {
-      // Token not found or expired — redirect to login with error flag
-      return res.redirect("/?emailVerified=expired");
+    if (
+      !user.emailToken ||
+      user.emailToken !== code.trim() ||
+      !user.emailTokenExpiry ||
+      user.emailTokenExpiry < new Date()
+    ) {
+      return res.status(400).json({ error: "Invalid or expired code" });
     }
 
-    await prisma.user.update({
+    const updated = await prisma.user.update({
       where: { id: user.id },
       data: { emailVerified: true, emailToken: null, emailTokenExpiry: null },
     });
 
-    // Redirect to the app; the SPA will detect the query param and show a success message
-    res.redirect("/?emailVerified=ok");
+    res.json({ user: publicUser(updated) });
   } catch (err) {
     console.error("Email verification error:", err);
-    res.redirect("/?emailVerified=error");
+    res.status(500).json({ error: "Verification failed — please try again" });
   }
 });
 
 // ---------------------------------------------------------------------------
-// Resend verification email
+// Resend the verification code
 // ---------------------------------------------------------------------------
-authRouter.post("/resend-verification", async (req, res) => {
-  const { email } = req.body as { email?: string };
-  if (!email) return res.status(400).json({ error: "Email required" });
-
+authRouter.post("/resend-verification", requireAuth, async (req: AuthedRequest, res) => {
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    if (user.emailVerified) return res.json({ message: "Email already verified." });
 
-    // Always return success to avoid leaking whether an email exists
-    if (!user || user.emailVerified) {
-      return res.json({ message: "If that email is registered and unverified, a new link has been sent." });
-    }
-
-    const emailToken = crypto.randomBytes(32).toString("hex");
-    const emailTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const emailToken = generateCode();
+    const emailTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
 
     await prisma.user.update({ where: { id: user.id }, data: { emailToken, emailTokenExpiry } });
+    await sendVerificationCode(user.email, user.username, emailToken).catch(console.error);
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const verificationUrl = `${baseUrl}/auth/verify-email?token=${emailToken}`;
-    await sendVerificationEmail(email, user.username, verificationUrl).catch(console.error);
-
-    res.json({ message: "Verification link generated!", verificationLink: verificationUrl });
+    res.json({ message: "A new code has been sent to your email." });
   } catch (err) {
     console.error("Resend verification error:", err);
     res.status(500).json({ error: "Failed to resend — please try again" });
@@ -148,6 +152,10 @@ authRouter.post("/login", async (req, res) => {
 
     const token = signToken(user.id);
     const pub = publicUser(user);
+
+    if (!user.emailVerified) {
+      return res.json({ token, user: pub, needsEmailVerification: true });
+    }
 
     // Owner is always approved regardless of DB value
     const ownerUser = isOwner(user.username);

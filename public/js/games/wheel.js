@@ -15,6 +15,8 @@ const WheelGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <div class="bet-panel">
+          ${GameThemes.renderPicker("wheel", GameThemes.getSaved("wheel"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="wheel-tab-manual">Manual</button>
             <button class="bp-tab" id="wheel-tab-auto">Auto</button>
@@ -55,6 +57,7 @@ const WheelGame = (() => {
 
       </div></div>
     `;
+    HowToPlay.addButton(container, "wheel");
 
     const canvas = container.querySelector("#wheel-canvas");
     const ctx = canvas.getContext("2d");
@@ -213,6 +216,8 @@ const WheelGame = (() => {
         els.spin.disabled = false;
       }
     });
+
+    GameThemes.init(container, "wheel");
   }
 
   return { render };

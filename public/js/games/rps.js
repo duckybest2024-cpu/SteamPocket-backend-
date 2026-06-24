@@ -10,6 +10,8 @@ const RPSGame = (() => {
     container.innerHTML = `
       <div class="game-layout">
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("rps", GameThemes.getSaved("rps"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active">Manual</button>
             <button class="bp-tab">Auto</button>
@@ -46,6 +48,7 @@ const RPSGame = (() => {
           <div id="rps-result" class="result-banner" style="font-size:1.1rem;margin-top:auto"></div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "rps");
 
     const amountEl = container.querySelector("#rps-amount");
     const queueBtn = container.querySelector("#rps-queue");
@@ -142,6 +145,8 @@ const RPSGame = (() => {
         socket.emit("choose", { matchId, choice: btn.dataset.c });
       });
     });
+
+    GameThemes.init(container, "rps");
 
     return () => { if (socket) socket.disconnect(); };
   }

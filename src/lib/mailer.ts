@@ -17,52 +17,47 @@ function getTransporter() {
 }
 
 /**
- * Send an email verification link.
- * If SMTP is not configured, the link is printed to stdout so it can be found in Railway logs.
+ * Send a 6-digit email verification code.
+ * If SMTP is not configured, the code is printed to stdout so it can be found in dev/Railway logs.
  */
-export async function sendVerificationEmail(
+export async function sendVerificationCode(
   to: string,
   username: string,
-  verificationUrl: string
+  code: string
 ): Promise<void> {
   const transporter = getTransporter();
 
   if (!transporter) {
     console.log(`\n[EMAIL VERIFICATION — no SMTP configured]`);
     console.log(`  To:   ${username} <${to}>`);
-    console.log(`  Link: ${verificationUrl}\n`);
+    console.log(`  Code: ${code}\n`);
     return;
   }
 
   await transporter.sendMail({
     from: SMTP_FROM,
     to,
-    subject: "Verify your GrilledCoin email",
+    subject: `${code} — Verify your GrilledCoin email`,
     text: [
       `Hi ${username},`,
       ``,
-      `Please verify your email address by clicking the link below:`,
-      `${verificationUrl}`,
+      `Your GrilledCoin verification code is: ${code}`,
       ``,
-      `This link expires in 24 hours.`,
+      `Enter this code in the app to verify your email.`,
+      `This code expires in 15 minutes.`,
       `If you didn't create this account, you can ignore this email.`,
     ].join("\n"),
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
         <h2 style="color:#6f5cf2">🍖 GrilledCoin</h2>
         <p>Hi <strong>${username}</strong>,</p>
-        <p>Please verify your email address to finish creating your account.</p>
-        <p style="margin:24px 0">
-          <a href="${verificationUrl}"
-             style="background:#6f5cf2;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700">
-            Verify my email
-          </a>
+        <p>Enter this code in the app to verify your email address:</p>
+        <p style="margin:24px 0;text-align:center">
+          <span style="display:inline-block;background:#6f5cf2;color:white;padding:14px 28px;border-radius:8px;font-weight:700;font-size:1.6rem;letter-spacing:4px">
+            ${code}
+          </span>
         </p>
-        <p style="color:#888;font-size:0.85em">
-          Or copy this URL into your browser:<br/>
-          <a href="${verificationUrl}" style="color:#6f5cf2">${verificationUrl}</a>
-        </p>
-        <p style="color:#888;font-size:0.85em">This link expires in 24 hours.</p>
+        <p style="color:#888;font-size:0.85em">This code expires in 15 minutes.</p>
       </div>`,
   });
 }

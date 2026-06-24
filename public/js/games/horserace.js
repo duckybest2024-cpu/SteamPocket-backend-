@@ -19,6 +19,8 @@ const HorseRaceGame = (() => {
     container.innerHTML = `
       <div class="game-layout">
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("horserace", GameThemes.getSaved("horserace"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active">Manual</button>
             <button class="bp-tab">Auto</button>
@@ -45,6 +47,7 @@ const HorseRaceGame = (() => {
           <div id="hr-result" class="result-banner" style="margin-top:auto"></div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "horserace");
 
     const trackEl = container.querySelector("#hr-track");
     const horseBtns = container.querySelector("#hr-horse-btns");
@@ -166,6 +169,7 @@ const HorseRaceGame = (() => {
     }
 
     renderTrack(positions);
+    GameThemes.init(container, "horserace");
 
     return () => { if (socket) socket.disconnect(); if (phaseTimer) clearInterval(phaseTimer); };
   }

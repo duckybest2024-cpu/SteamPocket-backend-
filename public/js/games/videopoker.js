@@ -27,6 +27,8 @@ const VideoPokerGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <div class="bet-panel">
+          ${GameThemes.renderPicker("videopoker", GameThemes.getSaved("videopoker"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="vp-tab-manual">Manual</button>
             <button class="bp-tab" id="vp-tab-auto">Auto</button>
@@ -61,6 +63,8 @@ const VideoPokerGame = (() => {
 
       </div></div>
     `;
+
+    HowToPlay.addButton(container, "videopoker");
 
     const els = {
       hand: container.querySelector("#vp-hand"),
@@ -192,6 +196,8 @@ const VideoPokerGame = (() => {
         // No active hand
       }
     })();
+
+    GameThemes.init(container, "videopoker");
   }
 
   return { render };

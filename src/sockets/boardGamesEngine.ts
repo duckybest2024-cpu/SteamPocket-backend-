@@ -24,6 +24,7 @@ interface RoomPlayer {
   username: string;
   socketId: string;
   ready: boolean;
+  isBot?: boolean;
 }
 
 interface Room {
@@ -59,7 +60,7 @@ function roomView(room: Room, clientUserId?: string): object {
     game: room.game,
     betChips: room.betChips,
     maxPlayers: room.maxPlayers,
-    players: room.players.map((p) => ({ userId: p.userId, username: p.username, ready: p.ready })),
+    players: room.players.map((p) => ({ userId: p.userId, username: p.username, ready: p.ready, isBot: p.isBot ?? false })),
     status: room.status,
     gameState: redactState(room, clientUserId),
   };
@@ -126,9 +127,9 @@ async function resolveWinner(room: Room, winnerId: string | null): Promise<numbe
   const rake = Math.floor(totalPotCents * 0.05);
   const prize = totalPotCents - rake;
 
-  if (winnerId) {
+  if (winnerId && room.escrowedUserIds.has(winnerId)) {
     await applyLedgerEntry(prisma, winnerId, "bg_win", prize, room.id);
-  } else {
+  } else if (!winnerId) {
     const share = Math.floor(prize / room.escrowedUserIds.size);
     for (const uid of room.escrowedUserIds) {
       await applyLedgerEntry(prisma, uid, "bg_draw", share, room.id);
@@ -1333,6 +1334,222 @@ function getWinnerId(room: Room): string | null | undefined {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════
+// Bots — simple random-legal-move AI for the 8 board games
+// ═════════════════════════════════════════════════════════════════════════════════════
+
+/** Returns the userId whose turn it currently is, or null if the game isn't waiting on a turn. */
+function getCurrentTurnUserId(room: Room): string | null {
+  const gs = room.gameState as GameState;
+  if (!gs) return null;
+  switch (room.game) {
+    case "chess": {
+      const s = gs as ChessState;
+      return s.status === "playing" ? s.playerMap[s.turn] : null;
+    }
+    case "checkers": {
+      const s = gs as CheckersState;
+      return s.status === "playing" ? s.players[s.turn] : null;
+    }
+    case "battleship": {
+      const s = gs as BattleshipState;
+      return s.phase === "battle" && s.status === "playing" ? s.turn : null;
+    }
+    case "durak": {
+      const s = gs as DurakState;
+      return s.status === "playing" ? (s.turn === "attack" ? s.attackerId : s.defenderId) : null;
+    }
+    case "wildcards": {
+      const s = gs as WildCardsState;
+      return s.status === "playing" ? s.currentPlayer : null;
+    }
+    case "poker": {
+      const s = gs as PokerBGState;
+      return s.status === "playing" ? s.currentPlayer : null;
+    }
+    case "bridge": {
+      const s = gs as BridgeState;
+      return s.status === "playing" ? s.currentPlayer : null;
+    }
+    case "monopoly": {
+      const s = gs as MonopolyState;
+      return s.status === "playing" ? s.currentPlayer : null;
+    }
+    default: return null;
+  }
+}
+
+function botChessMove(state: ChessState): { from: [number, number]; to: [number, number] } | null {
+  const moves = chessLegalMoves(state, state.turn);
+  if (moves.length === 0) return null;
+  return moves[Math.floor(Math.random() * moves.length)];
+}
+
+function botCheckersMove(state: CheckersState): { from: [number, number]; to: [number, number] } | null {
+  const board = state.board;
+  const pIdx = state.turn;
+  const mustJump = checkersHasJumps(board, pIdx);
+  const moves: { from: [number, number]; to: [number, number] }[] = [];
+  const pieces = pIdx === 0 ? [1, 3] : [2, 4];
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    if (!pieces.includes(board[r][c])) continue;
+    if (mustJump) {
+      for (const [lr, lc] of checkersGetJumps(board, r, c, board[r][c])) {
+        moves.push({ from: [r, c], to: [lr, lc] });
+      }
+    } else {
+      const isKing = board[r][c] === 3 || board[r][c] === 4;
+      const fwd = pIdx === 0 ? -1 : 1;
+      const dirs: [number, number][] = isKing ? [[fwd, -1], [fwd, 1], [-fwd, -1], [-fwd, 1]] : [[fwd, -1], [fwd, 1]];
+      for (const [dr, dc] of dirs) {
+        const nr = r + dr, nc = c + dc;
+        if (inBounds(nr, nc) && board[nr][nc] === 0) moves.push({ from: [r, c], to: [nr, nc] });
+      }
+    }
+  }
+  if (moves.length === 0) return null;
+  return moves[Math.floor(Math.random() * moves.length)];
+}
+
+/** Random, non-overlapping fleet placement used when a bot needs to place its ships. */
+function generateBattleshipShips(): { cells: [number, number][] }[] {
+  const SHIP_SIZES = [5, 4, 3, 3, 2];
+  const grid: number[][] = Array.from({ length: 10 }, () => Array(10).fill(0));
+  const ships: { cells: [number, number][] }[] = [];
+  for (const size of SHIP_SIZES) {
+    let placed = false;
+    while (!placed) {
+      const horizontal = Math.random() < 0.5;
+      const row = Math.floor(Math.random() * (horizontal ? 10 : 10 - size + 1));
+      const col = Math.floor(Math.random() * (horizontal ? 10 - size + 1 : 10));
+      const cells: [number, number][] = [];
+      for (let i = 0; i < size; i++) cells.push(horizontal ? [row, col + i] : [row + i, col]);
+      if (cells.every(([r, c]) => grid[r][c] === 0)) {
+        for (const [r, c] of cells) grid[r][c] = 1;
+        ships.push({ cells });
+        placed = true;
+      }
+    }
+  }
+  return ships;
+}
+
+function botBattleshipMove(state: BattleshipState, botUserId: string): { row: number; col: number } | null {
+  const oppId = state.playerOrder.find((uid) => uid !== botUserId);
+  if (!oppId) return null;
+  const oppGrid = state.players[oppId].grid as number[][];
+  const candidates: [number, number][] = [];
+  for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) {
+    if (oppGrid[r][c] === 0 || oppGrid[r][c] === 1) candidates.push([r, c]);
+  }
+  if (candidates.length === 0) return null;
+  const [row, col] = candidates[Math.floor(Math.random() * candidates.length)];
+  return { row, col };
+}
+
+function botDurakMove(
+  state: DurakState,
+  botUserId: string
+): { type: string; card?: string; attackCard?: string; defendCard?: string } | null {
+  const hand = state.hands[botUserId];
+  if (state.turn === "attack" && botUserId === state.attackerId) {
+    if (state.table.length === 0) {
+      if (hand.length === 0) return null;
+      return { type: "attack", card: hand[Math.floor(Math.random() * hand.length)] };
+    }
+    const tableRanks = new Set(
+      state.table.flatMap((p) => [durakCardRank(p.attack), p.defend ? durakCardRank(p.defend) : null].filter((x): x is string => x !== null))
+    );
+    const playable = hand.filter((c) => tableRanks.has(durakCardRank(c)));
+    if (playable.length > 0 && Math.random() < 0.5) {
+      return { type: "attack", card: playable[Math.floor(Math.random() * playable.length)] };
+    }
+    return { type: "done" };
+  }
+  if (state.turn === "defend" && botUserId === state.defenderId) {
+    const pair = state.table.find((p) => !p.defend);
+    if (!pair) return null;
+    const beatable = hand.filter((c) => durakCanBeat(pair.attack, c, state.trump));
+    if (beatable.length === 0) return { type: "take" };
+    return { type: "defend", attackCard: pair.attack, defendCard: beatable[Math.floor(Math.random() * beatable.length)] };
+  }
+  return null;
+}
+
+function botWildCardsMove(
+  state: WildCardsState,
+  botUserId: string
+): { type: "play" | "draw"; card?: string; chosenColor?: string } {
+  const hand = state.hands[botUserId];
+  const topCard = state.discard[state.discard.length - 1];
+  const topValue = topCard.split("-")[1];
+  let playable = hand.filter((c) => wildcardIsPlayable(c, state.color, topValue));
+  if (state.drawPending > 0) {
+    playable = playable.filter((c) => { const v = c.split("-")[1]; return v === "Draw2" || v === "WildDraw4"; });
+  }
+  if (playable.length === 0) return { type: "draw" };
+  const card = playable[Math.floor(Math.random() * playable.length)];
+  const colors = ["red", "blue", "green", "yellow"];
+  const chosenColor = card.startsWith("wild") ? colors[Math.floor(Math.random() * colors.length)] : undefined;
+  return { type: "play", card, chosenColor };
+}
+
+function botPokerMove(state: PokerBGState, botUserId: string): { type: "fold" | "call" | "raise" } {
+  const toCall = Math.max(0, state.callAmount - (state.bets[botUserId] ?? 0));
+  const r = Math.random();
+  if (toCall > 0 && r < 0.15) return { type: "fold" };
+  if (r < 0.85) return { type: "call" };
+  return { type: "raise" };
+}
+
+function botBridgeMove(
+  state: BridgeState,
+  botUserId: string
+): { type: "bid" | "pass" | "play"; level?: number; suit?: string; card?: string } | null {
+  if (state.phase === "bidding") {
+    if (Math.random() < 0.7) return { type: "pass" };
+    const level = (state.bid?.level ?? 0) + 1;
+    if (level > 7) return { type: "pass" };
+    const suits = ["♠", "♥", "♦", "♣", "NT"];
+    const suit = suits[Math.floor(Math.random() * suits.length)];
+    return { type: "bid", level, suit };
+  }
+  const hand = state.hands[botUserId];
+  let legal = hand;
+  if (state.currentTrick.length > 0) {
+    const leadSuit = state.currentTrick[0].card.slice(-1);
+    const followable = hand.filter((c) => c.slice(-1) === leadSuit);
+    if (followable.length > 0) legal = followable;
+  }
+  if (legal.length === 0) return null;
+  return { type: "play", card: legal[Math.floor(Math.random() * legal.length)] };
+}
+
+function botMonopolyMove(state: MonopolyState, botUserId: string): { type: "roll" | "buy" | "end_turn" } {
+  if (state.phase === "roll") return { type: "roll" };
+  const p = state.players[botUserId];
+  const prop = state.properties[p.pos];
+  if (prop && !prop.ownerId && p.money >= prop.price && Math.random() < 0.7) {
+    return { type: "buy" };
+  }
+  return { type: "end_turn" };
+}
+
+/** Computes a simple, non-strategic legal move for whichever bot's turn it currently is. */
+function computeBotMove(room: Room, botUserId: string): unknown {
+  switch (room.game) {
+    case "chess": return botChessMove(room.gameState as ChessState);
+    case "checkers": return botCheckersMove(room.gameState as CheckersState);
+    case "battleship": return botBattleshipMove(room.gameState as BattleshipState, botUserId);
+    case "durak": return botDurakMove(room.gameState as DurakState, botUserId);
+    case "wildcards": return botWildCardsMove(room.gameState as WildCardsState, botUserId);
+    case "poker": return botPokerMove(room.gameState as PokerBGState, botUserId);
+    case "bridge": return botBridgeMove(room.gameState as BridgeState, botUserId);
+    case "monopoly": return botMonopolyMove(room.gameState as MonopolyState, botUserId);
+    default: return null;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════
 // Main attach function
 // ═════════════════════════════════════════════════════════════════════════════════════
 
@@ -1354,8 +1571,71 @@ export function attachBoardGames(io: Server): void {
   /** Emit room-update to every player in the room with their own redacted view. */
   function broadcastRoom(room: Room): void {
     for (const p of room.players) {
+      if (!p.socketId) continue; // bots have no socket
       ns.to(p.socketId).emit("bg:room-update", roomView(room, p.userId));
     }
+  }
+
+  /** Resolve the winner, persist history, notify clients, and remove the room. */
+  async function finishGame(room: Room, winnerId: string | null): Promise<void> {
+    const winnerPlayer = winnerId ? room.players.find((p) => p.userId === winnerId) : null;
+    let prize = 0;
+    try { prize = await resolveWinner(room, winnerId); } catch { /* ignore */ }
+    ns.to(room.id).emit("bg:game-over", { winner: winnerPlayer?.username ?? null, prize });
+    try {
+      await prisma.boardGameRoom.create({
+        data: {
+          id: room.id,
+          game: room.game,
+          status: "finished",
+          betChips: room.betChips,
+          maxPlayers: room.maxPlayers,
+          players: JSON.stringify(room.players.map((p) => p.userId)),
+          winnerId: winnerId ?? undefined,
+          state: JSON.stringify(room.gameState),
+        },
+      });
+    } catch { /* ignore db errors */ }
+    rooms.delete(room.id);
+  }
+
+  const BOT_MOVE_DELAY_MS = 700;
+
+  /** Drives bot turns one at a time (with a pacing delay) until a human's turn or game-over. */
+  async function runBotTurns(room: Room, depth = 0): Promise<void> {
+    if (depth > 300) return; // safety cap against any move-generation bug looping forever
+    if (room.status !== "playing") return;
+    const turnUserId = getCurrentTurnUserId(room);
+    if (!turnUserId) return;
+    const player = room.players.find((p) => p.userId === turnUserId);
+    if (!player?.isBot) return;
+
+    await new Promise((resolve) => setTimeout(resolve, BOT_MOVE_DELAY_MS));
+    if (!rooms.has(room.id) || room.status !== "playing") return;
+
+    let move: unknown;
+    try {
+      move = computeBotMove(room, turnUserId);
+    } catch {
+      return;
+    }
+    if (move === null || move === undefined) return;
+
+    try {
+      applyMove(room, move, turnUserId);
+    } catch {
+      return;
+    }
+
+    broadcastRoom(room);
+
+    const winnerId = getWinnerId(room);
+    if (winnerId !== undefined) {
+      await finishGame(room, winnerId);
+      return;
+    }
+
+    await runBotTurns(room, depth + 1);
   }
 
   /** Handle a player leaving/disconnecting. Forfeits mid-game. */
@@ -1365,25 +1645,7 @@ export function attachBoardGames(io: Server): void {
 
     if (room.status === "playing") {
       const winner = room.players.find((p) => p.userId !== userId);
-      const winnerId = winner?.userId ?? null;
-      let prize = 0;
-      try { prize = await resolveWinner(room, winnerId); } catch { /* ignore */ }
-      ns.to(room.id).emit("bg:game-over", { winner: winner?.username ?? null, prize });
-      try {
-        await prisma.boardGameRoom.create({
-          data: {
-            id: room.id,
-            game: room.game,
-            status: "finished",
-            betChips: room.betChips,
-            maxPlayers: room.maxPlayers,
-            players: JSON.stringify(room.players.map((p) => p.userId)),
-            winnerId: winnerId ?? undefined,
-            state: JSON.stringify(room.gameState),
-          },
-        });
-      } catch { /* ignore db errors */ }
-      rooms.delete(room.id);
+      await finishGame(room, winner?.userId ?? null);
     } else if (room.status === "waiting") {
       room.players.splice(pidx, 1);
       if (room.players.length === 0) {
@@ -1454,6 +1716,29 @@ export function attachBoardGames(io: Server): void {
       broadcastRoom(room);
     });
 
+    // ── bg:add-bot ────────────────────────────────────────────────────────────────
+    socket.on("bg:add-bot", () => {
+      if (!socket.data.userId) return socket.emit("bg:error", { message: "Login required" });
+      if (!currentRoomId) return socket.emit("bg:error", { message: "Not in a room" });
+      const room = rooms.get(currentRoomId);
+      if (!room) return socket.emit("bg:error", { message: "Room not found" });
+      if (room.status !== "waiting") return socket.emit("bg:error", { message: "Game already started" });
+      if (room.players[0]?.userId !== socket.data.userId) {
+        return socket.emit("bg:error", { message: "Only the room creator can add bots" });
+      }
+      if (room.players.length >= room.maxPlayers) return socket.emit("bg:error", { message: "Room is full" });
+
+      const botNumber = room.players.filter((p) => p.isBot).length + 1;
+      room.players.push({
+        userId: `bot-${crypto.randomUUID()}`,
+        username: `Bot ${botNumber}`,
+        socketId: "",
+        ready: true,
+        isBot: true,
+      });
+      broadcastRoom(room);
+    });
+
     // ── bg:leave ──────────────────────────────────────────────────────────────────
     socket.on("bg:leave", async () => {
       if (!currentRoomId) return;
@@ -1486,6 +1771,7 @@ export function attachBoardGames(io: Server): void {
       const failed: string[] = [];
 
       for (const p of room.players) {
+        if (p.isBot) continue; // bots never wager real chips
         try {
           await applyLedgerEntry(prisma, p.userId, "bg_bet", -deductCents, room.id);
           room.escrowedUserIds.add(p.userId);
@@ -1505,7 +1791,15 @@ export function attachBoardGames(io: Server): void {
       }
 
       startGame(room);
+      if (room.game === "battleship") {
+        for (const p of room.players) {
+          if (p.isBot) {
+            try { applyMove(room, { ships: generateBattleshipShips() }, p.userId); } catch { /* ignore */ }
+          }
+        }
+      }
       broadcastRoom(room);
+      await runBotTurns(room);
     });
 
     // ── bg:move ───────────────────────────────────────────────────────────────────
@@ -1526,25 +1820,9 @@ export function attachBoardGames(io: Server): void {
 
       const winnerId = getWinnerId(room);
       if (winnerId !== undefined) {
-        const winnerPlayer = winnerId ? room.players.find((p) => p.userId === winnerId) : null;
-        let prize = 0;
-        try { prize = await resolveWinner(room, winnerId); } catch { /* ignore */ }
-        ns.to(room.id).emit("bg:game-over", { winner: winnerPlayer?.username ?? null, prize });
-        try {
-          await prisma.boardGameRoom.create({
-            data: {
-              id: room.id,
-              game: room.game,
-              status: "finished",
-              betChips: room.betChips,
-              maxPlayers: room.maxPlayers,
-              players: JSON.stringify(room.players.map((p) => p.userId)),
-              winnerId: winnerId ?? undefined,
-              state: JSON.stringify(room.gameState),
-            },
-          });
-        } catch { /* ignore db errors */ }
-        rooms.delete(room.id);
+        await finishGame(room, winnerId);
+      } else {
+        await runBotTurns(room);
       }
     });
 

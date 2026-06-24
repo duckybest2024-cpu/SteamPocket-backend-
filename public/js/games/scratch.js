@@ -30,7 +30,9 @@ const ScratchGame = (() => {
 
     container.innerHTML = buildShell();
     addStyles();
+    HowToPlay.addButton(container, "scratch");
     loadTickets(container);
+    GameThemes.init(container, "scratch");
 
     return () => { /* cleanup */ };
   }
@@ -38,6 +40,9 @@ const ScratchGame = (() => {
   /* ── HTML shell ─────────────────────────────────── */
   function buildShell() {
     return `
+<div class="sc-skin-bar" style="padding:12px 16px 0;">
+  ${GameThemes.renderPicker("scratch", GameThemes.getSaved("scratch"))}
+</div>
 <div class="sc-wrap">
   <!-- LEFT: ticket browser -->
   <div class="sc-browser">

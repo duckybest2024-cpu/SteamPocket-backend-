@@ -379,6 +379,8 @@ const SlotsGame = (() => {
         <div class="game-panel"><div class="game-layout">
 
           <aside class="bet-panel">
+            ${GameThemes.renderPicker("slots", GameThemes.getSaved("slots"))}
+
             <button class="slots-back-btn" id="slots-back">← All Slots</button>
 
             <div class="bp-tabs">
@@ -638,9 +640,13 @@ const SlotsGame = (() => {
       // Initial build
       buildGrid();
       refreshTotal();
+
+      GameThemes.init(container, "slots");
     }
 
     renderLobby();
+
+    HowToPlay.addButton(container, "slots");
   }
 
   return { render };

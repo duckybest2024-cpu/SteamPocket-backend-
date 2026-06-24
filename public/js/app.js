@@ -11,22 +11,32 @@ const App = (() => {
       ],
     },
     {
-      section: "Casino",
+      section: "Originals",
       items: [
         { key: "crash",       icon: "🚀", label: "Crash",        mod: () => CrashGame },
         { key: "dice",        icon: "🎲", label: "Dice",          mod: () => DiceGame },
         { key: "limbo",       icon: "📈", label: "Limbo",         mod: () => LimboGame },
         { key: "mines",       icon: "💣", label: "Mines",         mod: () => MinesGame },
         { key: "plinko",      icon: "🔵", label: "Plinko",        mod: () => PlinkoGame },
+        { key: "wheel",       icon: "🎡", label: "Wheel",         mod: () => WheelGame },
+        { key: "keno",        icon: "🎯", label: "Keno",          mod: () => KenoGame },
+        { key: "hilo",        icon: "↕️",  label: "Hi-Lo",         mod: () => HiloGame },
+        { key: "tower",       icon: "🗼", label: "Tower",         mod: () => TowerGame },
+      ],
+    },
+    {
+      section: "Table Games",
+      items: [
         { key: "roulette",    icon: "🎡", label: "Roulette",      mod: () => RouletteGame },
         { key: "blackjack",   icon: "🃏", label: "Blackjack",     mod: () => BlackjackGame },
-        { key: "slots",       icon: "🎰", label: "Slots",         mod: () => SlotsGame },
-        { key: "keno",        icon: "🎯", label: "Keno",          mod: () => KenoGame },
-        { key: "wheel",       icon: "🎡", label: "Wheel",         mod: () => WheelGame },
         { key: "baccarat",    icon: "🎴", label: "Baccarat",      mod: () => BaccaratGame },
-        { key: "hilo",        icon: "↕️",  label: "Hi-Lo",         mod: () => HiloGame },
         { key: "videopoker",  icon: "🃏", label: "Video Poker",   mod: () => VideoPokerGame },
-        { key: "tower",       icon: "🗼", label: "Tower",         mod: () => TowerGame },
+      ],
+    },
+    {
+      section: "Slots",
+      items: [
+        { key: "slots",       icon: "🎰", label: "Slots",         mod: () => SlotsGame },
       ],
     },
     {
@@ -66,7 +76,7 @@ const App = (() => {
       items: [
         { key: "chat",     icon: "💬", label: "Chat",          mod: () => ChatGame },
         { key: "scratch",  icon: "🎟️", label: "Scratch Cards", mod: () => ScratchGame },
-        { key: "download", icon: "🖥️", label: "PC App",        mod: () => DownloadGame },
+        { key: "download", icon: "📲", label: "Get the App",   mod: () => DownloadGame },
       ],
     },
     {
@@ -258,38 +268,60 @@ const App = (() => {
     showScreen("pending");
   }
 
-  function showVerifyEmailUI(email, verificationLink) {
+  function showVerifyCodeUI(email) {
     const errorEl = document.getElementById("auth-error");
     errorEl.innerHTML = `
       <div style="text-align:left;line-height:1.7;">
-        <strong>📧 One more step — verify your email</strong><br/>
-        ${verificationLink
-          ? `<a href="${verificationLink}" style="display:inline-block;margin:10px 0;background:var(--accent);color:#071c10;padding:9px 20px;border-radius:8px;text-decoration:none;font-weight:700;">✅ Click here to verify</a><br/>`
-          : `A link was sent to <strong>${email}</strong>.<br/>`}
-        After verifying, come back and log in.
-        <br/><br/>
-        <button id="resend-btn" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:0.85rem;">Get a new link</button>
+        <strong>📧 Verify your email</strong><br/>
+        Enter the 6-digit code we sent to ${email ? `<strong>${email}</strong>` : "your email"}.
+        <div style="display:flex;gap:8px;margin:10px 0;">
+          <input id="verify-code-input" type="text" inputmode="numeric" maxlength="6" placeholder="123456"
+            style="flex:1;min-width:0;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;letter-spacing:3px;text-align:center;" />
+          <button id="verify-code-submit" style="background:var(--accent);color:#071c10;border:none;padding:9px 18px;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap;">Verify</button>
+        </div>
+        <button id="resend-btn" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:0.85rem;">Resend code</button>
         <div id="resend-result" style="margin-top:8px;font-size:0.82rem;"></div>
       </div>`;
     errorEl.classList.remove("hidden");
     errorEl.style.color = "var(--text)";
+
+    const codeInput = document.getElementById("verify-code-input");
+    const submitBtn = document.getElementById("verify-code-submit");
+
+    async function submitCode() {
+      const code = codeInput.value.trim();
+      if (!code) return;
+      submitBtn.disabled = true; submitBtn.textContent = "Verifying…";
+      try {
+        const data = await Api.post("/auth/verify-email-code", { code });
+        UI.toast("✅ Email verified!", "win");
+        if (data.user && data.user.isApproved === false) {
+          showPendingApproval(data.user);
+        } else {
+          await enterApp();
+        }
+      } catch (err) {
+        submitBtn.disabled = false; submitBtn.textContent = "Verify";
+        UI.toast(err.message || "Invalid code.", "loss");
+      }
+    }
+
+    submitBtn.addEventListener("click", submitCode);
+    codeInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); submitCode(); }
+    });
 
     document.getElementById("resend-btn").addEventListener("click", async () => {
       const btn = document.getElementById("resend-btn");
       const resultEl = document.getElementById("resend-result");
       btn.disabled = true; btn.textContent = "Sending…";
       try {
-        const data = await Api.post("/auth/resend-verification", { email });
-        btn.textContent = "Sent!";
-        if (data.verificationLink) {
-          resultEl.innerHTML = `<a href="${data.verificationLink}" style="color:var(--accent);font-weight:700;">Click here to verify →</a>`;
-        } else {
-          resultEl.textContent = "Link sent! Check your email.";
-        }
+        await Api.post("/auth/resend-verification", {});
+        resultEl.textContent = "New code sent! Check your email.";
       } catch (err) {
-        btn.textContent = "Get a new link";
-        btn.disabled = false;
-        UI.toast(err.message || "Failed to resend.", "loss");
+        resultEl.textContent = err.message || "Failed to resend.";
+      } finally {
+        setTimeout(() => { btn.disabled = false; btn.textContent = "Resend code"; }, 1500);
       }
     });
   }
@@ -324,14 +356,15 @@ const App = (() => {
       try {
         const data = await Api.login({ identifier: fd.get("identifier"), password: fd.get("password") });
         Api.setToken(data.token);
-        if (data.pendingApproval || (data.user && data.user.isApproved === false)) {
+        if (data.needsEmailVerification || (data.user && data.user.emailVerified === false)) {
+          showVerifyCodeUI(data.user && data.user.email);
+        } else if (data.pendingApproval || (data.user && data.user.isApproved === false)) {
           showPendingApproval(data.user || {});
         } else {
           await enterApp();
         }
       } catch (err) {
-        if (err.emailNotVerified) showVerifyEmailUI(err.email, null);
-        else showError(err.message);
+        showError(err.message);
       }
     });
 
@@ -349,7 +382,9 @@ const App = (() => {
         });
         if (data.token) {
           Api.setToken(data.token);
-          if (data.user && data.user.isApproved === false) {
+          if (data.user && data.user.emailVerified === false) {
+            showVerifyCodeUI(data.user.email);
+          } else if (data.user && data.user.isApproved === false) {
             showPendingApproval(data.user);
           } else {
             UI.toast("Welcome to GrilledCoin! Visit Chip Shop to buy chips.", "win");
@@ -369,17 +404,6 @@ const App = (() => {
     wireSearch();
 
     const params = new URLSearchParams(window.location.search);
-    if (params.get("emailVerified") === "ok") {
-      history.replaceState({}, "", "/");
-      UI.toast("✅ Email verified! Welcome.", "win");
-    } else if (params.get("emailVerified") === "expired") {
-      history.replaceState({}, "", "/");
-      UI.toast("⚠️ Verification link expired. Request a new one.", "info");
-    } else if (params.get("emailVerified") === "error") {
-      history.replaceState({}, "", "/");
-      UI.toast("❌ Invalid verification link.", "loss");
-    }
-
     if (params.get("checkout") === "success") {
       history.replaceState({}, "", "/");
       await refreshAccount();
@@ -445,6 +469,7 @@ const App = (() => {
       s.async = true;
       s.crossOrigin = "anonymous";
       s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(cfg.adsense_publisher_id)}`;
+      s.onload = () => renderAdSlots(cfg);
       document.head.appendChild(s);
     }
 
@@ -464,6 +489,27 @@ const App = (() => {
       };
       document.head.appendChild(s);
     }
+  }
+
+  // Fills any configured ad slot containers with a real <ins class="adsbygoogle">
+  // unit and requests an ad for it. Slot IDs are admin-configurable (Admin
+  // Panel → Controls → Google Integrations) — a slot with no ID stays empty.
+  function renderAdSlots(cfg) {
+    const slots = { "ad-slot-sidebar": cfg.adsense_slot_sidebar };
+    Object.entries(slots).forEach(([elId, slotId]) => {
+      if (!slotId) return;
+      const host = document.getElementById(elId);
+      if (!host || host.querySelector("ins.adsbygoogle")) return;
+      const ins = document.createElement("ins");
+      ins.className = "adsbygoogle";
+      ins.style.display = "block";
+      ins.dataset.adClient = cfg.adsense_publisher_id;
+      ins.dataset.adSlot = slotId;
+      ins.dataset.adFormat = "auto";
+      ins.dataset.fullWidthResponsive = "true";
+      host.appendChild(ins);
+      try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch { /* blocked by adblock, etc. */ }
+    });
   }
 
   async function handleGoogleSignIn(response) {
@@ -491,6 +537,11 @@ const App = (() => {
     if (Api.getToken()) {
       try {
         const { user } = await Api.me();
+        if (user.emailVerified === false) {
+          showScreen("auth");
+          showVerifyCodeUI(user.email);
+          return;
+        }
         if (user.isApproved === false) {
           showPendingApproval(user);
           return;

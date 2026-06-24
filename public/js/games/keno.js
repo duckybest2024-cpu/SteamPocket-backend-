@@ -19,6 +19,8 @@ const KenoGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <div class="bet-panel">
+          ${GameThemes.renderPicker("keno", GameThemes.getSaved("keno"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="keno-tab-manual">Manual</button>
             <button class="bp-tab" id="keno-tab-auto">Auto</button>
@@ -56,6 +58,7 @@ const KenoGame = (() => {
 
       </div></div>
     `;
+    HowToPlay.addButton(container, "keno");
 
     const els = {
       grid: container.querySelector("#keno-grid"),
@@ -178,6 +181,7 @@ const KenoGame = (() => {
     });
 
     updateUI();
+    GameThemes.init(container, "keno");
   }
 
   return { render };

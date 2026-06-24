@@ -8,6 +8,8 @@ const MinesGame = (() => {
       <div class="game-layout">
 
           <div class="bet-panel">
+            ${GameThemes.renderPicker("mines", GameThemes.getSaved("mines"))}
+
             <div class="bp-tabs">
               <button class="bp-tab active" id="mines-tab-manual">Manual</button>
               <button class="bp-tab" id="mines-tab-auto">Auto</button>
@@ -49,6 +51,7 @@ const MinesGame = (() => {
 
         </div>
     `;
+    HowToPlay.addButton(container, "mines");
 
     const els = {
       grid: container.querySelector("#mines-grid"),
@@ -251,6 +254,7 @@ const MinesGame = (() => {
     }
 
     resumeIfActive();
+    GameThemes.init(container, "mines");
   }
 
   return { render };

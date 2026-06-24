@@ -1134,6 +1134,11 @@ const AdminGame = (() => {
                 <input id="adm-adsense-id" type="text" placeholder="ca-pub-XXXXXXXXXXXXXXXX"
                   value="${cfg["adsense_publisher_id"] || ""}" style="${S.formInput}" />
               </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">AdSense Ad Slot ID (sidebar unit)</label>
+                <input id="adm-adsense-slot" type="text" placeholder="1234567890"
+                  value="${cfg["adsense_slot_sidebar"] || ""}" style="${S.formInput}" />
+              </div>
               <div>
                 <button id="adm-google-save" style="${S.submitBtn}">Save Google Settings</button>
               </div>
@@ -1216,6 +1221,7 @@ const AdminGame = (() => {
           const googleClientId = pane.querySelector("#adm-google-client-id").value.trim();
           const gaId = pane.querySelector("#adm-ga-id").value.trim();
           const adsenseId = pane.querySelector("#adm-adsense-id").value.trim();
+          const adsenseSlot = pane.querySelector("#adm-adsense-slot").value.trim();
           const btn = pane.querySelector("#adm-google-save");
           btn.disabled = true; btn.textContent = "Saving…";
           try {
@@ -1223,6 +1229,7 @@ const AdminGame = (() => {
               google_client_id: googleClientId,
               ga_measurement_id: gaId,
               adsense_publisher_id: adsenseId,
+              adsense_slot_sidebar: adsenseSlot,
             });
             UI.toast("Google settings saved.", "win");
           } catch (err) {

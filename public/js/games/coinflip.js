@@ -12,6 +12,8 @@ const CoinflipGame = (() => {
     container.innerHTML = `
       <div class="game-layout">
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("coinflip", GameThemes.getSaved("coinflip"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active">Manual</button>
             <button class="bp-tab">Auto</button>
@@ -116,6 +118,7 @@ const CoinflipGame = (() => {
           </div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "coinflip");
 
     const els = {
       status:         container.querySelector("#cf-status"),
@@ -325,6 +328,8 @@ const CoinflipGame = (() => {
         }
       }
     });
+
+    GameThemes.init(container, "coinflip");
 
     return () => {
       if (socket) { socket.disconnect(); socket = null; }

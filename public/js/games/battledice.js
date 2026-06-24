@@ -8,6 +8,8 @@ const BattleDiceGame = (() => {
     container.innerHTML = `
       <div class="game-layout">
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("battledice", GameThemes.getSaved("battledice"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active">Manual</button>
             <button class="bp-tab">Auto</button>
@@ -37,6 +39,7 @@ const BattleDiceGame = (() => {
           <div id="bd-result" class="result-banner" style="margin-top:auto"></div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "battledice");
 
     const amountEl = container.querySelector("#bd-amount");
     const joinBtn = container.querySelector("#bd-join");
@@ -119,6 +122,8 @@ const BattleDiceGame = (() => {
       joinBtn.disabled = true;
       socket.emit("join_room", { roomId: currentRoom, amount });
     });
+
+    GameThemes.init(container, "battledice");
 
     return () => { if (socket) socket.disconnect(); };
   }

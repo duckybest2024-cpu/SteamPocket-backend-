@@ -150,6 +150,12 @@ const BoardGamesGame = (() => {
         openCreateRoomModal(gameId);
       });
     });
+
+    _container.querySelectorAll(".bg-rules-btn").forEach((btn) => {
+      btn.addEventListener("click", () => HowToPlay.showModal(`bg_${btn.dataset.gameId}`));
+    });
+
+    attachLobbyListeners();
   }
 
   function renderGameCard(game) {
@@ -159,7 +165,10 @@ const BoardGamesGame = (() => {
         <div class="bg-game-card__name">${game.name}</div>
         <div class="bg-game-card__players">${game.minP === game.maxP ? game.minP : game.minP + "–" + game.maxP} players</div>
         <div class="bg-game-card__desc">${game.desc}</div>
-        <button class="bg-create-btn" data-game-id="${game.id}">Create Room</button>
+        <div class="bg-game-card__actions">
+          <button class="bg-create-btn" data-game-id="${game.id}">Create Room</button>
+          <button class="bg-rules-btn secondary-btn" data-game-id="${game.id}">❓ Rules</button>
+        </div>
       </div>
     `;
   }
@@ -280,6 +289,10 @@ const BoardGamesGame = (() => {
     socket.emit("bg:ready");
   }
 
+  function addBot() {
+    socket.emit("bg:add-bot");
+  }
+
   function leaveRoom() {
     if (currentRoom) {
       socket.emit("bg:leave");
@@ -299,19 +312,23 @@ const BoardGamesGame = (() => {
     const meta = BOARD_GAMES.find((g) => g.id === roomState.gameId) || {};
     const me = roomState.players.find((p) => p.userId === myUserId);
     const iAmReady = me && me.ready;
+    const iAmCreator = roomState.players[0] && roomState.players[0].userId === myUserId;
+    const roomFull = roomState.players.length >= roomState.maxPlayers;
 
     _container.innerHTML = `
       <div class="bg-waiting">
         <div class="bg-waiting__header">
           <button class="bg-waiting__back">← Back to Lobby</button>
           <h2 class="bg-waiting__title">${meta.icon || "🎲"} ${meta.name || roomState.gameId} — Waiting Room</h2>
+          <button class="bg-waiting__rules secondary-btn">❓ How to Play</button>
           <div class="bg-waiting__meta">Bet: <strong>${roomState.bet} chips/player</strong> &nbsp;|&nbsp; Room: <code>${roomState.id}</code></div>
+          ${GameThemes.renderPicker(`bg_${roomState.gameId}`, GameThemes.getSaved(`bg_${roomState.gameId}`))}
         </div>
 
         <div class="bg-waiting__players">
           ${roomState.players.map((p) => `
             <div class="bg-waiting__player ${p.ready ? "is-ready" : ""}">
-              <span class="bg-waiting__player-name">${escHtml(p.username || p.userId)}</span>
+              <span class="bg-waiting__player-name">${p.isBot ? "🤖 " : ""}${escHtml(p.username || p.userId)}</span>
               <span class="bg-waiting__player-status">${p.ready ? "✅ Ready" : "⏳ Waiting"}</span>
             </div>
           `).join("")}
@@ -324,6 +341,7 @@ const BoardGamesGame = (() => {
         </div>
 
         <div class="bg-waiting__actions">
+          ${iAmCreator && !roomFull ? `<button class="bg-waiting__addbot-btn secondary-btn">🤖 Add Bot</button>` : ""}
           ${!iAmReady
             ? `<button class="bg-waiting__ready-btn">✅ Ready</button>`
             : `<button class="bg-waiting__ready-btn is-ready" disabled>✅ Ready!</button>`
@@ -335,6 +353,9 @@ const BoardGamesGame = (() => {
     `;
 
     _container.querySelector(".bg-waiting__back").addEventListener("click", leaveRoom);
+    _container.querySelector(".bg-waiting__rules").addEventListener("click", () => HowToPlay.showModal(`bg_${roomState.gameId}`));
+    const addBotBtn = _container.querySelector(".bg-waiting__addbot-btn");
+    if (addBotBtn) addBotBtn.addEventListener("click", addBot);
     const readyBtn = _container.querySelector(".bg-waiting__ready-btn");
     if (readyBtn && !iAmReady) {
       readyBtn.addEventListener("click", () => {
@@ -342,6 +363,8 @@ const BoardGamesGame = (() => {
         setReady();
       });
     }
+
+    GameThemes.init(_container, `bg_${roomState.gameId}`);
   }
 
   // ─── Game renderer dispatch ────────────────────────────────────────────────
@@ -354,6 +377,7 @@ const BoardGamesGame = (() => {
     if (typeof renderer === "function") {
       _container.innerHTML = "";
       renderer(_container, socket, roomState, myUserId);
+      GameThemes.apply(_container, GameThemes.getSaved(`bg_${roomState.gameId}`));
     } else {
       // Fallback: show a placeholder if the specific game module isn't loaded yet
       _container.innerHTML = `
@@ -617,8 +641,13 @@ const BoardGamesGame = (() => {
         flex: 1;
         line-height: 1.4;
       }
-      .bg-create-btn {
+      .bg-game-card__actions {
+        display: flex;
+        gap: .4rem;
+        width: 100%;
         margin-top: .5rem;
+      }
+      .bg-create-btn {
         padding: .45rem 1rem;
         border: none;
         border-radius: 8px;
@@ -628,9 +657,14 @@ const BoardGamesGame = (() => {
         font-weight: 600;
         cursor: pointer;
         transition: opacity .15s;
-        width: 100%;
+        flex: 1;
       }
       .bg-create-btn:hover { opacity: .85; }
+      .bg-rules-btn {
+        padding: .45rem .7rem;
+        font-size: .8rem;
+        white-space: nowrap;
+      }
 
       /* ── Rooms list ─────────────────────────────────────────── */
       .bg-rooms-list {
@@ -765,6 +799,7 @@ const BoardGamesGame = (() => {
       }
       .bg-waiting__header {
         margin-bottom: 1.5rem;
+        position: relative;
       }
       .bg-waiting__back {
         background: none;
@@ -775,6 +810,13 @@ const BoardGamesGame = (() => {
         padding: 0;
         margin-bottom: .75rem;
         display: inline-block;
+      }
+      .bg-waiting__rules {
+        position: absolute;
+        top: 0;
+        right: 0;
+        font-size: .8rem;
+        padding: .4rem .7rem;
       }
       .bg-waiting__back:hover { text-decoration: underline; }
       .bg-waiting__title {
@@ -822,6 +864,7 @@ const BoardGamesGame = (() => {
       .bg-waiting__actions {
         display: flex;
         justify-content: center;
+        gap: .75rem;
         margin-bottom: 1rem;
       }
       .bg-waiting__ready-btn {

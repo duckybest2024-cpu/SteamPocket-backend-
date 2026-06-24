@@ -7,6 +7,8 @@ const BaccaratGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <div class="bet-panel">
+          ${GameThemes.renderPicker("baccarat", GameThemes.getSaved("baccarat"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="bacc-tab-manual">Manual</button>
             <button class="bp-tab" id="bacc-tab-auto">Auto</button>
@@ -44,6 +46,8 @@ const BaccaratGame = (() => {
 
       </div></div>
     `;
+
+    HowToPlay.addButton(container, "baccarat");
 
     const els = {
       table: container.querySelector("#bacc-table"),
@@ -138,6 +142,8 @@ const BaccaratGame = (() => {
         els.deal.disabled = false;
       }
     });
+
+    GameThemes.init(container, "baccarat");
   }
 
   return { render };
