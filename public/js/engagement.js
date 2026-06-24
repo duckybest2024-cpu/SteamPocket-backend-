@@ -4,6 +4,8 @@ const Engagement = (() => {
   // ─── Audio Context (lazy) ─────────────────────────────────────────────────
   let _audioCtx = null;
   let soundEnabled = localStorage.getItem("casino_sound_enabled") !== "false";
+  let soundVolume = parseFloat(localStorage.getItem("casino_sound_volume"));
+  if (isNaN(soundVolume)) soundVolume = 0.7;
 
   function _getAudioCtx() {
     if (!_audioCtx) {
@@ -14,7 +16,7 @@ const Engagement = (() => {
 
   // ─── 2. Sound Effects ─────────────────────────────────────────────────────
   function sound(type) {
-    if (!soundEnabled) return;
+    if (!soundEnabled || soundVolume <= 0) return;
     const ctx = _getAudioCtx();
     if (!ctx) return;
 
@@ -22,6 +24,7 @@ const Engagement = (() => {
     if (ctx.state === "suspended") ctx.resume();
 
     const now = ctx.currentTime;
+    const vol = soundVolume;
 
     function playTone(freq, start, duration, type = "sine", gain = 0.3, rampDown = true) {
       try {
@@ -31,7 +34,7 @@ const Engagement = (() => {
         gainNode.connect(ctx.destination);
         osc.type = type;
         osc.frequency.setValueAtTime(freq, now + start);
-        gainNode.gain.setValueAtTime(gain, now + start);
+        gainNode.gain.setValueAtTime(gain * vol, now + start);
         if (rampDown) gainNode.gain.exponentialRampToValueAtTime(0.001, now + start + duration);
         osc.start(now + start);
         osc.stop(now + start + duration + 0.05);
@@ -47,7 +50,7 @@ const Engagement = (() => {
         const source = ctx.createBufferSource();
         source.buffer = buffer;
         const gainNode = ctx.createGain();
-        gainNode.gain.setValueAtTime(gain, now + start);
+        gainNode.gain.setValueAtTime(gain * vol, now + start);
         gainNode.gain.exponentialRampToValueAtTime(0.001, now + start + duration);
         source.connect(gainNode);
         gainNode.connect(ctx.destination);
@@ -85,7 +88,7 @@ const Engagement = (() => {
           osc.type = "sawtooth";
           osc.frequency.setValueAtTime(400, now);
           osc.frequency.exponentialRampToValueAtTime(200, now + 0.3);
-          gainNode.gain.setValueAtTime(0.2, now);
+          gainNode.gain.setValueAtTime(0.2 * vol, now);
           gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
           osc.start(now);
           osc.stop(now + 0.35);
@@ -111,6 +114,15 @@ const Engagement = (() => {
   function setSoundEnabled(val) {
     soundEnabled = !!val;
     localStorage.setItem("casino_sound_enabled", soundEnabled ? "true" : "false");
+  }
+
+  function isSoundEnabled() { return soundEnabled; }
+
+  function getSoundVolume() { return soundVolume; }
+
+  function setSoundVolume(val) {
+    soundVolume = Math.max(0, Math.min(1, val));
+    localStorage.setItem("casino_sound_volume", String(soundVolume));
   }
 
   // ─── 1. Confetti ──────────────────────────────────────────────────────────
@@ -579,17 +591,49 @@ const Engagement = (() => {
     }, 3800);
   }
 
+  // ─── 9. Browser Notifications (big wins, while tab is unfocused) ──────────
+  function isBrowserNotifEnabled() {
+    return localStorage.getItem("casino_notif_browser") === "true";
+  }
+
+  function setBrowserNotifEnabled(val) {
+    localStorage.setItem("casino_notif_browser", val ? "true" : "false");
+  }
+
+  async function requestNotifPermission() {
+    if (!("Notification" in window)) return "unsupported";
+    if (Notification.permission === "granted" || Notification.permission === "denied") {
+      return Notification.permission;
+    }
+    try { return await Notification.requestPermission(); } catch (e) { return "denied"; }
+  }
+
+  function notifyBigWin(amountText) {
+    if (!isBrowserNotifEnabled()) return;
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    if (!document.hidden) return; // only nudge when the player isn't looking
+    try {
+      new Notification("GrilledCoin — Big Win! 🎉", { body: amountText, icon: "/images/pwa/icon-192.png" });
+    } catch (e) {}
+  }
+
   // ─── Public API ───────────────────────────────────────────────────────────
   return {
     confetti,
     sound,
-    soundEnabled,
+    isSoundEnabled,
     setSoundEnabled,
+    getSoundVolume,
+    setSoundVolume,
     checkDailyBonus,
     feed,
     streak,
     jackpotTicker,
     levelUp,
     nearMiss,
+    isBrowserNotifEnabled,
+    setBrowserNotifEnabled,
+    requestNotifPermission,
+    notifyBigWin,
   };
 })();

@@ -43,6 +43,14 @@ const SettingsGame = (() => {
       const rank = (accountState.username || "").toLowerCase() === "ditol21" ? "owner" : (accountState.rank || "bronze");
       const displayName = accountState.nickname || accountState.username;
 
+      const hasEngagement = typeof Engagement !== "undefined";
+      const soundEnabled = hasEngagement ? Engagement.isSoundEnabled() : true;
+      const soundVolume = hasEngagement ? Engagement.getSoundVolume() : 0.7;
+      const browserNotifEnabled = hasEngagement ? Engagement.isBrowserNotifEnabled() : false;
+      const toastEnabled = typeof UI !== "undefined" ? UI.isToastEnabled() : true;
+      const langs = (typeof HowToPlay !== "undefined" && HowToPlay.LANGS) || { en: "🇬🇧 EN" };
+      const currentLang = typeof HowToPlay !== "undefined" ? HowToPlay.getLang() : "en";
+
       container.innerHTML = `
         <div style="${S.page}">
           <div style="${S.section}">
@@ -102,6 +110,53 @@ const SettingsGame = (() => {
               <button type="button" id="s-pw-btn" style="${S.btn}">Change Password</button>
             </div>
           </div>
+
+          <div style="${S.section}">
+            <h3 style="${S.sectionTitle}">🔊 Sound</h3>
+            <div style="${S.form}">
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                <input id="s-sound-enabled" type="checkbox" style="width:18px;height:18px;" ${soundEnabled ? "checked" : ""} />
+                <span style="color:var(--text);font-size:0.92rem;">Enable sound effects</span>
+              </label>
+              <div>
+                <label style="${S.label}">Volume</label>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <input id="s-sound-volume" type="range" min="0" max="100" step="1"
+                    value="${Math.round(soundVolume * 100)}" style="flex:1;" />
+                  <span id="s-sound-volume-val" style="color:var(--text-dim);font-size:0.85rem;min-width:34px;text-align:right;">${Math.round(soundVolume * 100)}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="${S.section}">
+            <h3 style="${S.sectionTitle}">🌐 Language</h3>
+            <div style="${S.form}">
+              <div>
+                <label style="${S.label}">Tutorials &amp; How to Play language</label>
+                <select id="s-language" style="${S.input}">
+                  ${Object.entries(langs).map(([code, label]) =>
+                    `<option value="${code}" ${code === currentLang ? "selected" : ""}>${label}</option>`).join("")}
+                </select>
+                <p style="${S.note}">Applies to the "How to Play" guides for every game.</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="${S.section}">
+            <h3 style="${S.sectionTitle}">🔔 Notifications</h3>
+            <div style="${S.form}">
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                <input id="s-notif-toast" type="checkbox" style="width:18px;height:18px;" ${toastEnabled ? "checked" : ""} />
+                <span style="color:var(--text);font-size:0.92rem;">In-app toast notifications</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                <input id="s-notif-browser" type="checkbox" style="width:18px;height:18px;" ${browserNotifEnabled ? "checked" : ""} />
+                <span style="color:var(--text);font-size:0.92rem;">Browser notifications for big wins (when tab isn't focused)</span>
+              </label>
+              <p id="s-notif-permission-note" style="${S.note}"></p>
+            </div>
+          </div>
         </div>
       `;
 
@@ -145,6 +200,56 @@ const SettingsGame = (() => {
           container.querySelector("#s-cur-pw").value = "";
           container.querySelector("#s-new-pw").value = "";
         }
+      });
+
+      container.querySelector("#s-sound-enabled").addEventListener("change", (e) => {
+        if (hasEngagement) Engagement.setSoundEnabled(e.target.checked);
+      });
+
+      const volumeSlider = container.querySelector("#s-sound-volume");
+      const volumeVal = container.querySelector("#s-sound-volume-val");
+      volumeSlider.addEventListener("input", (e) => {
+        const pct = Number(e.target.value);
+        volumeVal.textContent = `${pct}%`;
+        if (hasEngagement) Engagement.setSoundVolume(pct / 100);
+      });
+
+      container.querySelector("#s-language").addEventListener("change", (e) => {
+        if (typeof HowToPlay !== "undefined") HowToPlay.setLang(e.target.value);
+        UI.toast("Language preference saved.", "win");
+      });
+
+      container.querySelector("#s-notif-toast").addEventListener("change", (e) => {
+        if (typeof UI !== "undefined") UI.setToastEnabled(e.target.checked);
+        if (e.target.checked) UI.toast("Toast notifications enabled.", "info");
+      });
+
+      const browserNotifNote = container.querySelector("#s-notif-permission-note");
+      function renderPermissionNote() {
+        if (!("Notification" in window)) {
+          browserNotifNote.textContent = "Your browser doesn't support notifications.";
+        } else if (Notification.permission === "denied") {
+          browserNotifNote.textContent = "Notifications are blocked in your browser settings.";
+        } else {
+          browserNotifNote.textContent = "";
+        }
+      }
+      renderPermissionNote();
+
+      container.querySelector("#s-notif-browser").addEventListener("change", async (e) => {
+        if (!hasEngagement) return;
+        if (e.target.checked) {
+          const permission = await Engagement.requestNotifPermission();
+          if (permission !== "granted") {
+            e.target.checked = false;
+            Engagement.setBrowserNotifEnabled(false);
+            renderPermissionNote();
+            UI.toast("Allow notifications in your browser to enable this.", "loss");
+            return;
+          }
+        }
+        Engagement.setBrowserNotifEnabled(e.target.checked);
+        renderPermissionNote();
       });
     }
 

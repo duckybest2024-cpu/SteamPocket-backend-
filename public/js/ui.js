@@ -13,7 +13,16 @@ const UI = (() => {
     return `${sign}${formatted} 🪙`;
   }
 
+  function isToastEnabled() {
+    return localStorage.getItem("casino_notif_toast") !== "false";
+  }
+
+  function setToastEnabled(val) {
+    localStorage.setItem("casino_notif_toast", val ? "true" : "false");
+  }
+
   function toast(message, kind = "info") {
+    if (!isToastEnabled()) return;
     const stack = document.getElementById("toast-stack");
     const el = document.createElement("div");
     el.className = `toast ${kind}`;
@@ -79,6 +88,7 @@ const UI = (() => {
         if (payout > amount * 3) {
           Engagement.confetti(payout > 100000 ? "jackpot" : "big");
           Engagement.sound("bigwin");
+          Engagement.notifyBigWin(`You won ${money(payout)}!`);
         } else {
           Engagement.sound("win");
         }
@@ -128,5 +138,5 @@ const UI = (() => {
       · client seed <code>${fairness.clientSeed}</code>${nonceBit}</div>`;
   }
 
-  return { money, toast, setBalance, setLevel, applyAccountUpdate, renderCard, cardLabel, symbolGlyph, el, fairnessLine };
+  return { money, toast, isToastEnabled, setToastEnabled, setBalance, setLevel, applyAccountUpdate, renderCard, cardLabel, symbolGlyph, el, fairnessLine };
 })();

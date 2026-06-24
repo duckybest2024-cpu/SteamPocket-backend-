@@ -289,6 +289,10 @@ const BoardGamesGame = (() => {
     socket.emit("bg:ready");
   }
 
+  function addBot() {
+    socket.emit("bg:add-bot");
+  }
+
   function leaveRoom() {
     if (currentRoom) {
       socket.emit("bg:leave");
@@ -308,6 +312,8 @@ const BoardGamesGame = (() => {
     const meta = BOARD_GAMES.find((g) => g.id === roomState.gameId) || {};
     const me = roomState.players.find((p) => p.userId === myUserId);
     const iAmReady = me && me.ready;
+    const iAmCreator = roomState.players[0] && roomState.players[0].userId === myUserId;
+    const roomFull = roomState.players.length >= roomState.maxPlayers;
 
     _container.innerHTML = `
       <div class="bg-waiting">
@@ -321,7 +327,7 @@ const BoardGamesGame = (() => {
         <div class="bg-waiting__players">
           ${roomState.players.map((p) => `
             <div class="bg-waiting__player ${p.ready ? "is-ready" : ""}">
-              <span class="bg-waiting__player-name">${escHtml(p.username || p.userId)}</span>
+              <span class="bg-waiting__player-name">${p.isBot ? "🤖 " : ""}${escHtml(p.username || p.userId)}</span>
               <span class="bg-waiting__player-status">${p.ready ? "✅ Ready" : "⏳ Waiting"}</span>
             </div>
           `).join("")}
@@ -334,6 +340,7 @@ const BoardGamesGame = (() => {
         </div>
 
         <div class="bg-waiting__actions">
+          ${iAmCreator && !roomFull ? `<button class="bg-waiting__addbot-btn secondary-btn">🤖 Add Bot</button>` : ""}
           ${!iAmReady
             ? `<button class="bg-waiting__ready-btn">✅ Ready</button>`
             : `<button class="bg-waiting__ready-btn is-ready" disabled>✅ Ready!</button>`
@@ -346,6 +353,8 @@ const BoardGamesGame = (() => {
 
     _container.querySelector(".bg-waiting__back").addEventListener("click", leaveRoom);
     _container.querySelector(".bg-waiting__rules").addEventListener("click", () => HowToPlay.showModal(`bg_${roomState.gameId}`));
+    const addBotBtn = _container.querySelector(".bg-waiting__addbot-btn");
+    if (addBotBtn) addBotBtn.addEventListener("click", addBot);
     const readyBtn = _container.querySelector(".bg-waiting__ready-btn");
     if (readyBtn && !iAmReady) {
       readyBtn.addEventListener("click", () => {
@@ -851,6 +860,7 @@ const BoardGamesGame = (() => {
       .bg-waiting__actions {
         display: flex;
         justify-content: center;
+        gap: .75rem;
         margin-bottom: 1rem;
       }
       .bg-waiting__ready-btn {

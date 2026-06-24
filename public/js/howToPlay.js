@@ -185,6 +185,12 @@ const HowToPlay = (() => {
 
   function getLang() { return currentLang; }
 
+  function setLang(lang) {
+    if (!LANGS[lang]) return;
+    currentLang = lang;
+    localStorage.setItem("casino_lang", currentLang);
+  }
+
   function getGuide(gameKey) {
     const full = GUIDES[gameKey];
     if (full) {
@@ -247,5 +253,5 @@ const HowToPlay = (() => {
     panel.appendChild(btn);
   }
 
-  return { showModal, addButton, getLang };
+  return { showModal, addButton, getLang, setLang, LANGS };
 })();
