@@ -76,7 +76,7 @@ const App = (() => {
       items: [
         { key: "chat",     icon: "💬", label: "Chat",          mod: () => ChatGame },
         { key: "scratch",  icon: "🎟️", label: "Scratch Cards", mod: () => ScratchGame },
-        { key: "download", icon: "🖥️", label: "PC App",        mod: () => DownloadGame },
+        { key: "download", icon: "📲", label: "Get the App",   mod: () => DownloadGame },
       ],
     },
     {
