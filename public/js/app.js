@@ -467,7 +467,18 @@ const App = (() => {
       s.async = true;
       s.crossOrigin = "anonymous";
       s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(cfg.adsense_publisher_id)}`;
-      s.onload = () => renderAdSlots(cfg);
+      s.onload = () => {
+        renderAdSlots(cfg);
+        // Auto ads: lets Google place extra ads on its own (anchor banner
+        // pinned to the screen edge, full-screen interstitials between page
+        // navigations) on top of the manual slots above.
+        try {
+          (window.adsbygoogle = window.adsbygoogle || []).push({
+            google_ad_client: cfg.adsense_publisher_id,
+            enable_page_level_ads: true,
+          });
+        } catch { /* blocked by adblock, etc. */ }
+      };
       document.head.appendChild(s);
     }
 
@@ -494,6 +505,8 @@ const App = (() => {
   // Panel → Controls → Google Integrations) — a slot with no ID stays empty.
   function renderAdSlots(cfg) {
     const slots = {
+      "ad-slot-auth": cfg.adsense_slot_auth,
+      "ad-slot-top": cfg.adsense_slot_top,
       "ad-slot-sidebar": cfg.adsense_slot_sidebar,
       "ad-slot-footer": cfg.adsense_slot_footer,
       "ad-slot-lobby": cfg.adsense_slot_lobby,
