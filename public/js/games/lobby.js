@@ -211,6 +211,8 @@ const LobbyGame = (() => {
           `).join("")}
         </div>
 
+        <div id="ad-slot-lobby" class="ad-slot"></div>
+
       </div>`;
 
     container.querySelectorAll("[data-nav]").forEach(el => {

@@ -1139,6 +1139,16 @@ const AdminGame = (() => {
                 <input id="adm-adsense-slot" type="text" placeholder="1234567890"
                   value="${cfg["adsense_slot_sidebar"] || ""}" style="${S.formInput}" />
               </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">AdSense Ad Slot ID (footer banner — shows on every page)</label>
+                <input id="adm-adsense-slot-footer" type="text" placeholder="1234567890"
+                  value="${cfg["adsense_slot_footer"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">AdSense Ad Slot ID (lobby page)</label>
+                <input id="adm-adsense-slot-lobby" type="text" placeholder="1234567890"
+                  value="${cfg["adsense_slot_lobby"] || ""}" style="${S.formInput}" />
+              </div>
               <div>
                 <button id="adm-google-save" style="${S.submitBtn}">Save Google Settings</button>
               </div>
@@ -1264,6 +1274,8 @@ const AdminGame = (() => {
           const gaId = pane.querySelector("#adm-ga-id").value.trim();
           const adsenseId = pane.querySelector("#adm-adsense-id").value.trim();
           const adsenseSlot = pane.querySelector("#adm-adsense-slot").value.trim();
+          const adsenseSlotFooter = pane.querySelector("#adm-adsense-slot-footer").value.trim();
+          const adsenseSlotLobby = pane.querySelector("#adm-adsense-slot-lobby").value.trim();
           const btn = pane.querySelector("#adm-google-save");
           btn.disabled = true; btn.textContent = "Saving…";
           try {
@@ -1272,6 +1284,8 @@ const AdminGame = (() => {
               ga_measurement_id: gaId,
               adsense_publisher_id: adsenseId,
               adsense_slot_sidebar: adsenseSlot,
+              adsense_slot_footer: adsenseSlotFooter,
+              adsense_slot_lobby: adsenseSlotLobby,
             });
             UI.toast("Google settings saved.", "win");
           } catch (err) {

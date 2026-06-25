@@ -202,6 +202,8 @@ const App = (() => {
       console.error("Mount error:", err);
       container.innerHTML = `<div class="game-panel"><p style="color:var(--loss)">Failed to load ${label}</p></div>`;
     }
+
+    if (_adsCfg) renderAdSlots(_adsCfg);
   }
 
   // ── Account sync ───────────────────────────────────────────
@@ -442,9 +444,12 @@ const App = (() => {
   // ── Google integrations (Analytics, AdSense, Sign-In) ──────
   // IDs are admin-configurable (Admin Panel → Controls → Google Integrations)
   // and served back publicly via GET /config — none of them are secrets.
+  let _adsCfg = null;
+
   async function loadGoogleIntegrations() {
     let cfg = {};
     try { cfg = await fetch("/config").then((r) => r.json()); } catch { return; }
+    _adsCfg = cfg;
 
     if (cfg.ga_measurement_id) {
       const s = document.createElement("script");
@@ -488,7 +493,11 @@ const App = (() => {
   // unit and requests an ad for it. Slot IDs are admin-configurable (Admin
   // Panel → Controls → Google Integrations) — a slot with no ID stays empty.
   function renderAdSlots(cfg) {
-    const slots = { "ad-slot-sidebar": cfg.adsense_slot_sidebar };
+    const slots = {
+      "ad-slot-sidebar": cfg.adsense_slot_sidebar,
+      "ad-slot-footer": cfg.adsense_slot_footer,
+      "ad-slot-lobby": cfg.adsense_slot_lobby,
+    };
     Object.entries(slots).forEach(([elId, slotId]) => {
       if (!slotId) return;
       const host = document.getElementById(elId);
