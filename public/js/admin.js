@@ -917,7 +917,7 @@ const AdminGame = (() => {
           pane.innerHTML = `
             <div style="${S.sectionCard}">
               <h3 style="${S.sectionTitle}">🎫 Create Promo Code</h3>
-              <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">Players can redeem codes in the Chip Shop.</p>
+              <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">Create codes for giveaways and events.</p>
               <div style="${S.form}">
                 <div style="display:flex;gap:12px;flex-wrap:wrap;">
                   <div style="${S.formGroup};flex:1;min-width:140px;">

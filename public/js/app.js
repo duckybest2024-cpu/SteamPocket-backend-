@@ -1,7 +1,6 @@
 /* GrilledCoin — App shell with Stake-inspired sidebar layout */
 const App = (() => {
   const state = { id: null, username: null, nickname: null, rank: "free", balance: 0, bank: 0, fairness: null, isAdmin: false, isApproved: false, patreonUsername: null, patreonTier: null };
-  let _lowBalanceToastShown = false;
 
   const NAV = [
     {
@@ -90,7 +89,6 @@ const App = (() => {
     {
       section: "Account",
       items: [
-        { key: "chipshop",    icon: "🏦", label: "Chip Shop",         mod: () => ChipShopGame },
         { key: "stats",       icon: "📊", label: "My Stats",          mod: () => StatsGame },
         { key: "leaderboard", icon: "🏆", label: "Leaderboard",       mod: () => LeaderboardGame },
         { key: "friends",     icon: "👥", label: "Friends",           mod: () => FriendsGame },
@@ -246,11 +244,6 @@ const App = (() => {
         : (state.isApproved ? "✅ Active" : "🔒 No Subscription");
     }
 
-    if (state.balance <= 1000 && !_lowBalanceToastShown) {
-      _lowBalanceToastShown = true;
-      setTimeout(() => UI.toast("⚡ Low balance — visit 🏦 Chip Shop to buy more chips!", "info"), 800);
-    }
-
     return user;
   }
 
@@ -387,7 +380,7 @@ const App = (() => {
           } else if (data.user && data.user.isApproved === false) {
             showPendingApproval(data.user);
           } else {
-            UI.toast("Welcome to GrilledCoin! Visit Chip Shop to buy chips.", "win");
+            UI.toast("Welcome to GrilledCoin! Here's 1,000 free chips to get started.", "win");
             await enterApp();
           }
         }
@@ -408,11 +401,11 @@ const App = (() => {
       history.replaceState({}, "", "/");
       await refreshAccount();
       UI.toast("💳 Payment received! Chips added.", "win");
-      mount("chipshop");
+      mount("lobby");
     } else if (params.get("checkout") === "cancel") {
       history.replaceState({}, "", "/");
       UI.toast("Payment cancelled.", "info");
-      mount("chipshop");
+      mount("lobby");
     } else {
       mount("lobby");
     }

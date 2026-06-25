@@ -17,8 +17,7 @@
   "shortcuts": [
     { "name": "Dice", "url": "/#dice", "description": "Play Dice" },
     { "name": "Crash", "url": "/#crash", "description": "Play Crash" },
-    { "name": "Mines", "url": "/#mines", "description": "Play Mines" },
-    { "name": "Chip Shop", "url": "/#chipshop", "description": "Buy chips" }
+    { "name": "Mines", "url": "/#mines", "description": "Play Mines" }
   ],
   "screenshots": []
 }

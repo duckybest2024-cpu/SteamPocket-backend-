@@ -337,42 +337,6 @@ button { font-family: inherit; cursor: pointer; border: none; outline: none; }
 .admin-pagination button:disabled { opacity:0.4; cursor:not-allowed; }
 
 /* ═══════════════════════════════════════════════════════════════
-   CHIP SHOP
-   ═══════════════════════════════════════════════════════════════ */
-
-.chip-balances { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:24px; }
-@media (max-width:500px) { .chip-balances { grid-template-columns:1fr; } }
-.chip-bal-card { background:var(--bg-elev); border:1px solid var(--border); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:6px; text-align:center; }
-.chip-bal-card.playing { border-color:var(--gold); background:rgba(240,194,68,0.05); }
-.chip-bal-card.bank    { border-color:var(--accent-2); background:rgba(77,159,236,0.05); }
-.cbc-label { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-mute); }
-.cbc-amount { font-size:1.8rem; font-weight:900; color:var(--gold); }
-.chip-bal-card.bank .cbc-amount { color:var(--accent-2); }
-.cbc-hint { font-size:0.75rem; color:var(--text-dim); }
-.chip-section { background:var(--bg-elev); border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:14px; }
-.chip-section-hint { margin:0 0 14px; font-size:0.83rem; color:var(--text-dim); }
-.chip-empty-hint { color:var(--text-dim); font-size:0.83rem; font-style:italic; margin:0; }
-.cashout-section { border-color:rgba(229,70,61,0.35); }
-.cashout-preview { background:var(--bg-card); border-radius:8px; padding:12px 14px; margin-bottom:4px; }
-.cashout-row { display:flex; justify-content:space-between; padding:5px 0; font-size:0.9rem; border-bottom:1px solid var(--border); }
-.cashout-row:last-child { border-bottom:none; }
-.cashout-row.total { font-weight:700; }
-.co-green { color:var(--win); }
-.buy-packages { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; margin-bottom:14px; }
-.chip-pkg { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:14px 10px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px; transition:border-color 0.2s, transform 0.15s; }
-.chip-pkg:hover:not(.disabled) { border-color:var(--gold); transform:translateY(-2px); }
-.chip-pkg.disabled { opacity:0.4; cursor:not-allowed; }
-.pkg-emoji { font-size:1.6rem; }
-.pkg-label { font-weight:700; font-size:0.82rem; }
-.pkg-desc { font-size:0.75rem; color:var(--gold); }
-.stripe-section { border-color:rgba(99,91,255,0.4); }
-.stripe-header { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
-.stripe-badge { background:linear-gradient(135deg,#635bff,#8b84ff); color:white; font-size:0.65rem; font-weight:800; padding:3px 8px; border-radius:999px; letter-spacing:0.07em; text-transform:uppercase; }
-.stripe-buy-btn { width:100%; margin-top:4px; padding:10px 0; border-radius:8px; border:none; background:linear-gradient(135deg,#635bff,#8b84ff); color:white; font-weight:700; font-size:0.88rem; cursor:pointer; transition:filter 0.15s; }
-.stripe-buy-btn:hover:not(:disabled) { filter:brightness(1.12); }
-.stripe-buy-btn:disabled { opacity:0.6; cursor:not-allowed; }
-
-/* ═══════════════════════════════════════════════════════════════
    NFT DRAWING CANVAS
    ═══════════════════════════════════════════════════════════════ */
 
@@ -831,7 +795,7 @@ button { font-family: inherit; cursor: pointer; border: none; outline: none; }
   color: transparent !important;
 }
 
-/* Chip icons — used in chip shop and balance display */
+/* Chip icons — used in balance display */
 .chip-icon-red    { background: url('/images/chip-red.svg')   center/contain no-repeat; }
 .chip-icon-blue   { background: url('/images/chip-blue.svg')  center/contain no-repeat; }
 .chip-icon-black  { background: url('/images/chip-black.svg') center/contain no-repeat; }
