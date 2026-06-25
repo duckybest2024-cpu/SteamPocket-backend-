@@ -151,6 +151,34 @@ const AdminGame = (() => {
           Zero Balance
         </button>
 
+        <h3 style="margin:0 0 10px;font-size:0.9rem;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;">💵 Real-Money Payout</h3>
+        <div style="background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:18px;">
+          <div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:10px;">
+            ${user.payoutMethod === "paypal"
+              ? `PayPal: <strong style="color:var(--text);">${user.payoutPaypalEmail || "—"}</strong>`
+              : user.payoutMethod === "card"
+              ? `Card on file: <strong style="color:var(--text);">${user.stripeCardBrand || "card"} •••• ${user.stripeCardLast4 || "????"}</strong>`
+              : user.payoutMethod === "note"
+              ? `Payout note: <strong style="color:var(--text);">${(user.payoutNote || "—").replace(/</g,"&lt;")}</strong>`
+              : `<span style="color:var(--loss);">No payout method on file.</span>`}
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+            <div>
+              <label style="font-size:0.72rem;color:var(--text-dim);display:block;margin-bottom:3px;">Amount (USD)</label>
+              <input id="adm-payout-amount" type="number" min="0.01" step="0.01" placeholder="50.00"
+                style="width:110px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);" />
+            </div>
+            <div style="flex:1;min-width:160px;">
+              <label style="font-size:0.72rem;color:var(--text-dim);display:block;margin-bottom:3px;">Note (optional)</label>
+              <input id="adm-payout-note" type="text" placeholder="e.g. Weekly jackpot winner"
+                style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box;" />
+            </div>
+            <button id="adm-payout-auto-btn" data-id="${user.id}" style="${S.greenBtn}">Send via PayPal</button>
+            <button id="adm-payout-manual-btn" data-id="${user.id}" style="${S.smallBtn}">Log Manual Payout</button>
+          </div>
+          <div id="adm-payout-history" style="margin-top:12px;font-size:0.8rem;color:var(--text-dim);"></div>
+        </div>
+
         <h3 style="margin:0 0 10px;font-size:0.9rem;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;">Last 20 Bets</h3>
         <div style="${S.tableWrap};margin-bottom:18px;">
           <table style="${S.table}">
@@ -222,6 +250,58 @@ const AdminGame = (() => {
           }
         });
       }
+
+      const historyEl = overlay.querySelector("#adm-payout-history");
+      function loadPayoutHistory() {
+        Api.get(`/admin/users/${userId}/payouts`).then(({ records, paypalConfigured }) => {
+          const autoBtn = overlay.querySelector("#adm-payout-auto-btn");
+          if (autoBtn) {
+            const eligible = user.payoutMethod === "paypal" && user.payoutPaypalEmail && paypalConfigured;
+            autoBtn.disabled = !eligible;
+            autoBtn.title = paypalConfigured
+              ? (eligible ? "" : "User hasn't set PayPal as their payout method")
+              : "PayPal isn't configured in Admin → Config yet";
+          }
+          if (!historyEl) return;
+          historyEl.innerHTML = records.length
+            ? `<strong style="color:var(--text);">Payout history:</strong><br/>` + records.map(r => `
+                <div style="padding:4px 0;border-bottom:1px solid var(--border);">
+                  ${money(r.amountCents)} via ${r.method} to ${r.destination}
+                  — <span style="color:${r.status === "sent" ? "var(--win)" : "var(--loss)"};">${r.status}</span>
+                  by ${r.adminUsername} (${fmtDate(r.createdAt)})${r.note ? ` — "${r.note}"` : ""}
+                </div>`).join("")
+            : "No payouts logged yet.";
+        }).catch(() => { if (historyEl) historyEl.textContent = ""; });
+      }
+      loadPayoutHistory();
+
+      async function sendPayout(mode) {
+        const amountInput = overlay.querySelector("#adm-payout-amount");
+        const noteInput = overlay.querySelector("#adm-payout-note");
+        const amount = Number(amountInput.value);
+        if (!amount || amount <= 0) { UI.toast("Enter a payout amount.", "loss"); return; }
+        if (mode === "manual" && !confirm(`Log a manual payout of $${amount.toFixed(2)} to ${user.username}? This doesn't move any money — it's just a record that you paid them outside the app.`)) return;
+        const btn = overlay.querySelector(mode === "auto" ? "#adm-payout-auto-btn" : "#adm-payout-manual-btn");
+        if (btn) { btn.disabled = true; btn.dataset.prevText = btn.textContent; btn.textContent = "Sending…"; }
+        try {
+          await Api.post(`/admin/users/${userId}/payout`, {
+            amountCents: Math.round(amount * 100),
+            note: noteInput.value.trim() || undefined,
+            mode,
+          });
+          UI.toast(`Payout of $${amount.toFixed(2)} ${mode === "auto" ? "sent via PayPal" : "logged"}!`, "win");
+          amountInput.value = ""; noteInput.value = "";
+          loadPayoutHistory();
+        } catch (err) {
+          UI.toast(err.message || "Payout failed.", "loss");
+        } finally {
+          if (btn) { btn.disabled = mode === "auto" ? !(user.payoutMethod === "paypal" && user.payoutPaypalEmail) : false; btn.textContent = btn.dataset.prevText; }
+        }
+      }
+      const autoBtn = overlay.querySelector("#adm-payout-auto-btn");
+      if (autoBtn) autoBtn.addEventListener("click", () => sendPayout("auto"));
+      const manualBtn = overlay.querySelector("#adm-payout-manual-btn");
+      if (manualBtn) manualBtn.addEventListener("click", () => sendPayout("manual"));
     }).catch(err => {
       const body = overlay.querySelector("#adm-modal-body");
       if (body) body.innerHTML = `<div style="color:var(--loss);">${err.message}</div>`;
@@ -1206,6 +1286,38 @@ const AdminGame = (() => {
               <div id="adm-smtp-result" style="display:none;margin-top:10px;font-size:0.85rem;"></div>
             </div>
           </div>
+
+          <!-- PayPal Payouts -->
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">💵 PayPal Payouts</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              Required for the "Send via PayPal" automated payout button on a user's profile to work.
+              Get these from a PayPal Business account under Apps & Credentials. Use Sandbox while testing,
+              then switch to Live to send real money.
+            </p>
+            <div style="${S.form};max-width:420px;">
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Client ID</label>
+                <input id="adm-paypal-client-id" type="text" placeholder="AeA1QIZX..."
+                  value="${cfg["paypal_client_id"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Client Secret</label>
+                <input id="adm-paypal-client-secret" type="password" placeholder="••••••••"
+                  value="${cfg["paypal_client_secret"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Mode</label>
+                <select id="adm-paypal-mode" style="${S.formInput}">
+                  <option value="sandbox" ${cfg["paypal_mode"] !== "live" ? "selected" : ""}>Sandbox (testing)</option>
+                  <option value="live" ${cfg["paypal_mode"] === "live" ? "selected" : ""}>Live (real money)</option>
+                </select>
+              </div>
+              <div>
+                <button id="adm-paypal-save" style="${S.submitBtn}">Save PayPal Settings</button>
+              </div>
+            </div>
+          </div>
         `;
 
         UI.wireAllPasswordToggles(pane);
@@ -1328,6 +1440,24 @@ const AdminGame = (() => {
             UI.toast(err.message || "Failed.", "loss");
           } finally {
             btn.disabled = false; btn.textContent = "Save Email Settings";
+          }
+        });
+
+        // Save PayPal settings
+        pane.querySelector("#adm-paypal-save").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-paypal-save");
+          btn.disabled = true; btn.textContent = "Saving…";
+          try {
+            await Api.post("/admin/config", {
+              paypal_client_id: pane.querySelector("#adm-paypal-client-id").value.trim(),
+              paypal_client_secret: pane.querySelector("#adm-paypal-client-secret").value,
+              paypal_mode: pane.querySelector("#adm-paypal-mode").value,
+            });
+            UI.toast("PayPal settings saved.", "win");
+          } catch (err) {
+            UI.toast(err.message || "Failed.", "loss");
+          } finally {
+            btn.disabled = false; btn.textContent = "Save PayPal Settings";
           }
         });
 

@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, AuthedRequest } from "../middleware/auth";
 import { isOwner } from "../lib/owner";
 import { sendTestEmail } from "../lib/mailer";
+import { sendPaypalPayout, isPaypalConfigured } from "../lib/paypal";
 
 export const adminRouter = Router();
 
@@ -371,6 +372,107 @@ adminRouter.get("/users/:id/detail", async (req, res) => {
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json({ user, bets, txs, nfts });
   } catch (err) { res.status(500).json({ error: "Failed" }); }
+});
+
+// ── Real-money payouts (jackpot/event winnings) ─────────────────────────────
+
+adminRouter.get("/users/:id/payouts", async (req, res) => {
+  try {
+    const records = await prisma.payoutRecord.findMany({
+      where: { userId: req.params.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+    res.json({ records, paypalConfigured: await isPaypalConfigured() });
+  } catch (err) {
+    console.error("GET payouts error:", err);
+    res.status(500).json({ error: "Failed to load payout history" });
+  }
+});
+
+const sendPayoutSchema = z.object({
+  amountCents: z.number().int().positive(),
+  note: z.string().max(300).optional(),
+  // "auto" sends via the PayPal Payouts API to the user's saved PayPal email.
+  // "manual" just logs that the admin paid them some other way (Venmo, cheque,
+  // in person, etc) — no money actually moves through this app for that path.
+  mode: z.enum(["auto", "manual"]),
+});
+
+adminRouter.post("/users/:id/payout", async (req: AuthedRequest, res) => {
+  const parsed = sendPayoutSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  const { amountCents, note, mode } = parsed.data;
+
+  try {
+    const [admin, user] = await Promise.all([
+      prisma.user.findUnique({ where: { id: req.userId } }),
+      prisma.user.findUnique({ where: { id: req.params.id } }),
+    ]);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const amountUsd = amountCents / 100;
+
+    if (mode === "auto") {
+      if (user.payoutMethod !== "paypal" || !user.payoutPaypalEmail) {
+        return res.status(400).json({ error: "This user hasn't set up PayPal as their payout method" });
+      }
+      const senderBatchId = `gc_${user.id}_${req.params.id}_${Date.now()}`;
+      try {
+        const batchId = await sendPaypalPayout(user.payoutPaypalEmail, amountUsd, note || "Prize payout", senderBatchId);
+        const record = await prisma.payoutRecord.create({
+          data: {
+            userId: user.id,
+            amountCents,
+            method: "paypal",
+            destination: user.payoutPaypalEmail,
+            status: "sent",
+            reference: batchId,
+            note: note || null,
+            adminUsername: admin?.username || "unknown",
+          },
+        });
+        return res.json({ record });
+      } catch (err: any) {
+        const record = await prisma.payoutRecord.create({
+          data: {
+            userId: user.id,
+            amountCents,
+            method: "paypal",
+            destination: user.payoutPaypalEmail,
+            status: "failed",
+            note: note || null,
+            adminUsername: admin?.username || "unknown",
+          },
+        });
+        return res.status(502).json({ error: err?.message || "PayPal payout failed", record });
+      }
+    }
+
+    // Manual: just record that the admin paid them outside the app.
+    const destination =
+      user.payoutMethod === "paypal"
+        ? user.payoutPaypalEmail || "—"
+        : user.payoutMethod === "card"
+        ? `${user.stripeCardBrand || "card"} •••• ${user.stripeCardLast4 || "????"}`
+        : user.payoutNote || "—";
+
+    const record = await prisma.payoutRecord.create({
+      data: {
+        userId: user.id,
+        amountCents,
+        method: "manual",
+        destination,
+        status: "sent",
+        note: note || null,
+        adminUsername: admin?.username || "unknown",
+      },
+    });
+    res.json({ record });
+  } catch (err) {
+    console.error("POST payout error:", err);
+    res.status(500).json({ error: "Failed to record payout" });
+  }
 });
 
 // ── Feature 5: zero balance ─────────────────────────────────────────────────
