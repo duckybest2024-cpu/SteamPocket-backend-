@@ -228,7 +228,7 @@ walletRouter.get("/leaderboard", async (req, res) => {
   });
 });
 
-// Promo code redemption (used in chip shop + feature 14)
+// Promo code redemption
 walletRouter.post("/promo/redeem", requireAuth, async (req: AuthedRequest, res) => {
   const { code } = req.body as { code?: string };
   if (!code) return res.status(400).json({ error: "Code required" });

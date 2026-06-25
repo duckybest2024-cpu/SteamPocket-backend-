@@ -1,7 +1,6 @@
 /* GrilledCoin — App shell with Stake-inspired sidebar layout */
 const App = (() => {
   const state = { id: null, username: null, nickname: null, rank: "free", balance: 0, bank: 0, fairness: null, isAdmin: false, isApproved: false, patreonUsername: null, patreonTier: null };
-  let _lowBalanceToastShown = false;
 
   const NAV = [
     {
@@ -90,7 +89,6 @@ const App = (() => {
     {
       section: "Account",
       items: [
-        { key: "chipshop",    icon: "🏦", label: "Chip Shop",         mod: () => ChipShopGame },
         { key: "stats",       icon: "📊", label: "My Stats",          mod: () => StatsGame },
         { key: "leaderboard", icon: "🏆", label: "Leaderboard",       mod: () => LeaderboardGame },
         { key: "friends",     icon: "👥", label: "Friends",           mod: () => FriendsGame },
@@ -204,6 +202,8 @@ const App = (() => {
       console.error("Mount error:", err);
       container.innerHTML = `<div class="game-panel"><p style="color:var(--loss)">Failed to load ${label}</p></div>`;
     }
+
+    if (_adsCfg) renderAdSlots(_adsCfg);
   }
 
   // ── Account sync ───────────────────────────────────────────
@@ -244,11 +244,6 @@ const App = (() => {
       tierEl.textContent = state.patreonTier
         ? (TIER_LABELS[state.patreonTier] || state.patreonTier)
         : (state.isApproved ? "✅ Active" : "🔒 No Subscription");
-    }
-
-    if (state.balance <= 1000 && !_lowBalanceToastShown) {
-      _lowBalanceToastShown = true;
-      setTimeout(() => UI.toast("⚡ Low balance — visit 🏦 Chip Shop to buy more chips!", "info"), 800);
     }
 
     return user;
@@ -387,7 +382,7 @@ const App = (() => {
           } else if (data.user && data.user.isApproved === false) {
             showPendingApproval(data.user);
           } else {
-            UI.toast("Welcome to GrilledCoin! Visit Chip Shop to buy chips.", "win");
+            UI.toast("Welcome to GrilledCoin! Here's 1,000 free chips to get started.", "win");
             await enterApp();
           }
         }
@@ -408,11 +403,11 @@ const App = (() => {
       history.replaceState({}, "", "/");
       await refreshAccount();
       UI.toast("💳 Payment received! Chips added.", "win");
-      mount("chipshop");
+      mount("lobby");
     } else if (params.get("checkout") === "cancel") {
       history.replaceState({}, "", "/");
       UI.toast("Payment cancelled.", "info");
-      mount("chipshop");
+      mount("lobby");
     } else {
       mount("lobby");
     }
@@ -449,9 +444,12 @@ const App = (() => {
   // ── Google integrations (Analytics, AdSense, Sign-In) ──────
   // IDs are admin-configurable (Admin Panel → Controls → Google Integrations)
   // and served back publicly via GET /config — none of them are secrets.
+  let _adsCfg = null;
+
   async function loadGoogleIntegrations() {
     let cfg = {};
     try { cfg = await fetch("/config").then((r) => r.json()); } catch { return; }
+    _adsCfg = cfg;
 
     if (cfg.ga_measurement_id) {
       const s = document.createElement("script");
@@ -495,7 +493,11 @@ const App = (() => {
   // unit and requests an ad for it. Slot IDs are admin-configurable (Admin
   // Panel → Controls → Google Integrations) — a slot with no ID stays empty.
   function renderAdSlots(cfg) {
-    const slots = { "ad-slot-sidebar": cfg.adsense_slot_sidebar };
+    const slots = {
+      "ad-slot-sidebar": cfg.adsense_slot_sidebar,
+      "ad-slot-footer": cfg.adsense_slot_footer,
+      "ad-slot-lobby": cfg.adsense_slot_lobby,
+    };
     Object.entries(slots).forEach(([elId, slotId]) => {
       if (!slotId) return;
       const host = document.getElementById(elId);

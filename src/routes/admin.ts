@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireAuth, AuthedRequest } from "../middleware/auth";
 import { isOwner } from "../lib/owner";
+import { sendTestEmail } from "../lib/mailer";
 
 export const adminRouter = Router();
 
@@ -528,6 +529,17 @@ adminRouter.post("/config", async (req, res) => {
     });
   }
   res.json({ ok: true });
+});
+
+adminRouter.post("/test-email", async (req: AuthedRequest, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    await sendTestEmail(user.email, user.username);
+    res.json({ ok: true, to: user.email });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to send test email" });
+  }
 });
 
 // ── Feature 17: bulk chip giveaway ──────────────────────────────────────────

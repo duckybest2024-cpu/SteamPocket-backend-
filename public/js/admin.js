@@ -917,7 +917,7 @@ const AdminGame = (() => {
           pane.innerHTML = `
             <div style="${S.sectionCard}">
               <h3 style="${S.sectionTitle}">🎫 Create Promo Code</h3>
-              <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">Players can redeem codes in the Chip Shop.</p>
+              <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">Create codes for giveaways and events.</p>
               <div style="${S.form}">
                 <div style="display:flex;gap:12px;flex-wrap:wrap;">
                   <div style="${S.formGroup};flex:1;min-width:140px;">
@@ -1139,9 +1139,61 @@ const AdminGame = (() => {
                 <input id="adm-adsense-slot" type="text" placeholder="1234567890"
                   value="${cfg["adsense_slot_sidebar"] || ""}" style="${S.formInput}" />
               </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">AdSense Ad Slot ID (footer banner — shows on every page)</label>
+                <input id="adm-adsense-slot-footer" type="text" placeholder="1234567890"
+                  value="${cfg["adsense_slot_footer"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">AdSense Ad Slot ID (lobby page)</label>
+                <input id="adm-adsense-slot-lobby" type="text" placeholder="1234567890"
+                  value="${cfg["adsense_slot_lobby"] || ""}" style="${S.formInput}" />
+              </div>
               <div>
                 <button id="adm-google-save" style="${S.submitBtn}">Save Google Settings</button>
               </div>
+            </div>
+          </div>
+
+          <!-- Email Settings (SMTP) -->
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">📧 Email Settings (SMTP)</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              Required for verification code emails to actually be delivered. Without these,
+              codes only get printed to the server logs. Most providers (Gmail, SendGrid,
+              Mailgun, etc.) give you a host, port, username, and password/API key to fill in here.
+            </p>
+            <div style="${S.form};max-width:420px;">
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">SMTP Host</label>
+                <input id="adm-smtp-host" type="text" placeholder="smtp.gmail.com"
+                  value="${cfg["smtp_host"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">SMTP Port</label>
+                <input id="adm-smtp-port" type="number" placeholder="587"
+                  value="${cfg["smtp_port"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">SMTP Username</label>
+                <input id="adm-smtp-user" type="text" placeholder="you@example.com"
+                  value="${cfg["smtp_user"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">SMTP Password / API Key</label>
+                <input id="adm-smtp-pass" type="password" placeholder="••••••••"
+                  value="${cfg["smtp_pass"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">From Address</label>
+                <input id="adm-smtp-from" type="text" placeholder="GrilledCoin <noreply@grilledcoin.app>"
+                  value="${cfg["smtp_from"] || ""}" style="${S.formInput}" />
+              </div>
+              <div>
+                <button id="adm-smtp-save" style="${S.submitBtn}">Save Email Settings</button>
+                <button id="adm-smtp-test" style="${S.submitBtn};margin-left:8px;background:var(--bg-elev);">Send Test Email</button>
+              </div>
+              <div id="adm-smtp-result" style="display:none;margin-top:10px;font-size:0.85rem;"></div>
             </div>
           </div>
         `;
@@ -1222,6 +1274,8 @@ const AdminGame = (() => {
           const gaId = pane.querySelector("#adm-ga-id").value.trim();
           const adsenseId = pane.querySelector("#adm-adsense-id").value.trim();
           const adsenseSlot = pane.querySelector("#adm-adsense-slot").value.trim();
+          const adsenseSlotFooter = pane.querySelector("#adm-adsense-slot-footer").value.trim();
+          const adsenseSlotLobby = pane.querySelector("#adm-adsense-slot-lobby").value.trim();
           const btn = pane.querySelector("#adm-google-save");
           btn.disabled = true; btn.textContent = "Saving…";
           try {
@@ -1230,12 +1284,52 @@ const AdminGame = (() => {
               ga_measurement_id: gaId,
               adsense_publisher_id: adsenseId,
               adsense_slot_sidebar: adsenseSlot,
+              adsense_slot_footer: adsenseSlotFooter,
+              adsense_slot_lobby: adsenseSlotLobby,
             });
             UI.toast("Google settings saved.", "win");
           } catch (err) {
             UI.toast(err.message || "Failed.", "loss");
           } finally {
             btn.disabled = false; btn.textContent = "Save Google Settings";
+          }
+        });
+
+        // Save Email (SMTP) settings
+        pane.querySelector("#adm-smtp-save").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-smtp-save");
+          btn.disabled = true; btn.textContent = "Saving…";
+          try {
+            await Api.post("/admin/config", {
+              smtp_host: pane.querySelector("#adm-smtp-host").value.trim(),
+              smtp_port: pane.querySelector("#adm-smtp-port").value.trim(),
+              smtp_user: pane.querySelector("#adm-smtp-user").value.trim(),
+              smtp_pass: pane.querySelector("#adm-smtp-pass").value,
+              smtp_from: pane.querySelector("#adm-smtp-from").value.trim(),
+            });
+            UI.toast("Email settings saved.", "win");
+          } catch (err) {
+            UI.toast(err.message || "Failed.", "loss");
+          } finally {
+            btn.disabled = false; btn.textContent = "Save Email Settings";
+          }
+        });
+
+        // Send a test email using the currently saved SMTP settings
+        pane.querySelector("#adm-smtp-test").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-smtp-test");
+          const resultEl = pane.querySelector("#adm-smtp-result");
+          btn.disabled = true; btn.textContent = "Sending…";
+          resultEl.style.display = "none";
+          try {
+            const r = await Api.post("/admin/test-email", {});
+            resultEl.style.display = "block";
+            resultEl.innerHTML = `<span style="color:var(--win);">✅ Test email sent to ${r.to}. Check your inbox (and spam folder).</span>`;
+          } catch (err) {
+            resultEl.style.display = "block";
+            resultEl.innerHTML = `<span style="color:var(--loss);">❌ ${err.message}</span>`;
+          } finally {
+            btn.disabled = false; btn.textContent = "Send Test Email";
           }
         });
 

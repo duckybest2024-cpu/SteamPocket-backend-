@@ -21,9 +21,14 @@ const UI = (() => {
     localStorage.setItem("casino_notif_toast", val ? "true" : "false");
   }
 
+  const MAX_TOASTS = 4;
+
   function toast(message, kind = "info") {
     if (!isToastEnabled()) return;
     const stack = document.getElementById("toast-stack");
+    while (stack.children.length >= MAX_TOASTS) {
+      stack.firstElementChild.remove();
+    }
     const el = document.createElement("div");
     el.className = `toast ${kind}`;
     el.textContent = message;

@@ -184,13 +184,6 @@ const LobbyGame = (() => {
               <div class="lpc-desc">Unbox exclusive NFTs with special powers. Starter cases from 50 🪙</div>
             </div>
           </div>
-          <div class="lobby-promo-card" data-nav="chipshop">
-            <div class="lpc-icon">🏦</div>
-            <div>
-              <div class="lpc-title">Chip Bank</div>
-              <div class="lpc-desc">Cash chips out to your bank, move them back to the table, or redeem a promo code.</div>
-            </div>
-          </div>
           <div class="lobby-promo-card" data-nav="download">
             <div class="lpc-icon">🖥️</div>
             <div>
@@ -217,6 +210,8 @@ const LobbyGame = (() => {
             </div>
           `).join("")}
         </div>
+
+        <div id="ad-slot-lobby" class="ad-slot"></div>
 
       </div>`;
 
