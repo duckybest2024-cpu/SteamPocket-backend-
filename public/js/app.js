@@ -263,12 +263,15 @@ const App = (() => {
     showScreen("pending");
   }
 
-  function showVerifyCodeUI(email) {
+  function showVerifyCodeUI(email, devCode) {
     const errorEl = document.getElementById("auth-error");
     errorEl.innerHTML = `
       <div style="text-align:left;line-height:1.7;">
         <strong>📧 Verify your email</strong><br/>
         Enter the 6-digit code we sent to ${email ? `<strong>${email}</strong>` : "your email"}.
+        ${devCode ? `<div style="margin:8px 0;padding:8px 10px;background:var(--bg-elev);border:1px dashed var(--accent-2);border-radius:8px;font-size:0.82rem;">
+          ⚠️ Email isn't set up yet — here's your code directly: <strong style="letter-spacing:2px;">${devCode}</strong>
+        </div>` : ""}
         <div style="display:flex;gap:8px;margin:10px 0;">
           <input id="verify-code-input" type="text" inputmode="numeric" maxlength="6" placeholder="123456"
             style="flex:1;min-width:0;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;letter-spacing:3px;text-align:center;" />
@@ -311,8 +314,10 @@ const App = (() => {
       const resultEl = document.getElementById("resend-result");
       btn.disabled = true; btn.textContent = "Sending…";
       try {
-        await Api.post("/auth/resend-verification", {});
-        resultEl.textContent = "New code sent! Check your email.";
+        const data = await Api.post("/auth/resend-verification", {});
+        resultEl.innerHTML = data.devCode
+          ? `Email isn't set up yet — here's your code directly: <strong style="letter-spacing:2px;">${data.devCode}</strong>`
+          : "New code sent! Check your email.";
       } catch (err) {
         resultEl.textContent = err.message || "Failed to resend.";
       } finally {
@@ -352,7 +357,7 @@ const App = (() => {
         const data = await Api.login({ identifier: fd.get("identifier"), password: fd.get("password") });
         Api.setToken(data.token);
         if (data.needsEmailVerification || (data.user && data.user.emailVerified === false)) {
-          showVerifyCodeUI(data.user && data.user.email);
+          showVerifyCodeUI(data.user && data.user.email, data.devCode);
         } else if (data.pendingApproval || (data.user && data.user.isApproved === false)) {
           showPendingApproval(data.user || {});
         } else {
@@ -378,7 +383,7 @@ const App = (() => {
         if (data.token) {
           Api.setToken(data.token);
           if (data.user && data.user.emailVerified === false) {
-            showVerifyCodeUI(data.user.email);
+            showVerifyCodeUI(data.user.email, data.devCode);
           } else if (data.user && data.user.isApproved === false) {
             showPendingApproval(data.user);
           } else {

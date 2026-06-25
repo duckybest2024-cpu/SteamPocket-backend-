@@ -56,12 +56,15 @@ authRouter.post("/register", async (req, res) => {
       },
     });
 
-    sendVerificationCode(email, username, emailToken).catch(console.error);
+    const emailed = await sendVerificationCode(email, username, emailToken).catch(() => false);
 
     res.status(201).json({
       token: signToken(user.id),
       user: publicUser(user),
-      message: "Account created! Check your email for a 6-digit verification code.",
+      message: emailed
+        ? "Account created! Check your email for a 6-digit verification code."
+        : "Account created! Email isn't configured yet, so here's your code directly.",
+      ...(emailed ? {} : { devCode: emailToken }),
     });
   } catch (err: any) {
     if (err?.code === "P2002") {
@@ -119,9 +122,14 @@ authRouter.post("/resend-verification", requireAuth, async (req: AuthedRequest, 
     const emailTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
 
     await prisma.user.update({ where: { id: user.id }, data: { emailToken, emailTokenExpiry } });
-    await sendVerificationCode(user.email, user.username, emailToken).catch(console.error);
+    const emailed = await sendVerificationCode(user.email, user.username, emailToken).catch(() => false);
 
-    res.json({ message: "A new code has been sent to your email." });
+    res.json({
+      message: emailed
+        ? "A new code has been sent to your email."
+        : "Email isn't configured yet, so here's your code directly.",
+      ...(emailed ? {} : { devCode: emailToken }),
+    });
   } catch (err) {
     console.error("Resend verification error:", err);
     res.status(500).json({ error: "Failed to resend — please try again" });
@@ -154,7 +162,18 @@ authRouter.post("/login", async (req, res) => {
     const pub = publicUser(user);
 
     if (!user.emailVerified) {
-      return res.json({ token, user: pub, needsEmailVerification: true });
+      // Issue a fresh code on login too — the original one may be long expired
+      // by the time the user comes back to verify.
+      const emailToken = generateCode();
+      const emailTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
+      await prisma.user.update({ where: { id: user.id }, data: { emailToken, emailTokenExpiry } });
+      const emailed = await sendVerificationCode(user.email, user.username, emailToken).catch(() => false);
+      return res.json({
+        token,
+        user: pub,
+        needsEmailVerification: true,
+        ...(emailed ? {} : { devCode: emailToken }),
+      });
     }
 
     // Owner is always approved regardless of DB value
