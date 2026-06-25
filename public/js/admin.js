@@ -1737,12 +1737,57 @@ const AdminGame = (() => {
       // Will be loaded on demand via loadConfig
     }
 
+    // Numeric fields saved together via the "Save Config" button below.
+    const ECONOMY_NUMBER_FIELDS = [
+      { key: "minCashoutChips",       label: "Minimum Cashout (chips)",            def: 50,  min: 0 },
+      { key: "withdrawalFeePercent",  label: "Withdrawal Fee (%)",                 def: 0,   min: 0, max: 100, step: "0.01" },
+      { key: "maxDailyCashoutChips",  label: "Max Cashout per 24h (chips, 0 = unlimited)", def: 0, min: 0 },
+      { key: "minBuyChips",           label: "Minimum Chip Purchase (chips)",      def: 1,   min: 1 },
+      { key: "dailyBonusChips",       label: "Daily Bonus Amount (chips)",         def: 50,  min: 0 },
+      { key: "rakebackPercent",       label: "Rakeback (%)",                       def: 5,   min: 0, max: 100, step: "0.01" },
+      { key: "rakebackCooldownHours", label: "Rakeback Cooldown (hours)",          def: 24,  min: 1 },
+      { key: "leaderboardWindowDays", label: "Leaderboard Window (days)",          def: 7,   min: 1 },
+      { key: "emailCodeExpiryMinutes", label: "Email Code Expiry (minutes)",       def: 15,  min: 1 },
+    ];
+
+    // Toggle fields saved immediately on click, mirroring the Game Controls toggles.
+    const ECONOMY_TOGGLE_FIELDS = [
+      { key: "dailyBonusEnabled",    label: "Daily Login Bonus" },
+      { key: "rakebackEnabled",      label: "Rakeback Claims" },
+      { key: "leaderboardEnabled",   label: "Leaderboard" },
+      { key: "registrationEnabled",  label: "New Registrations" },
+      { key: "promoRedeemEnabled",   label: "Promo Code Redemption" },
+      { key: "stripeCheckoutEnabled", label: "Chip Purchases (Stripe)" },
+    ];
+
     async function loadConfig() {
       const pane = container.querySelector("#adm-pane-config");
       if (!pane) return;
       pane.innerHTML = `<div style="color:var(--text-dim);padding:40px 20px;text-align:center;">⏳ Loading…</div>`;
       try {
         const cfg = await Api.get("/admin/config");
+
+        const numberFieldsHtml = ECONOMY_NUMBER_FIELDS.map(f => `
+          <div style="${S.formGroup}">
+            <label style="${S.formLabel}" for="adm-eco-${f.key}">${f.label}</label>
+            <input id="adm-eco-${f.key}" type="number" min="${f.min ?? 0}" ${f.max !== undefined ? `max="${f.max}"` : ""} ${f.step ? `step="${f.step}"` : ""}
+              value="${cfg[f.key] !== undefined ? cfg[f.key] : f.def}" style="${S.formInput}" />
+          </div>
+        `).join("");
+
+        const toggleFieldsHtml = ECONOMY_TOGGLE_FIELDS.map(f => {
+          const disabled = cfg[f.key] === "false";
+          return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+              <span style="font-weight:600;">${f.label}</span>
+              <button class="adm-eco-toggle" data-key="${f.key}" data-disabled="${disabled}"
+                style="${disabled ? S.toggleOff : S.toggleOn}">
+                ${disabled ? "🚫 Disabled" : "✅ Enabled"}
+              </button>
+            </div>
+          `;
+        }).join("");
+
         pane.innerHTML = `
           <div style="${S.sectionCard}">
             <h3 style="${S.sectionTitle}">⚙️ Site Config</h3>
@@ -1767,7 +1812,24 @@ const AdminGame = (() => {
               <div id="adm-cfg-result" style="display:none;${S.resultBox}"></div>
             </div>
           </div>
+
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🧩 Economy &amp; Feature Controls</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              Limits and bonus amounts used across cashouts, daily bonus, rakeback, and the leaderboard. Saved fields take effect immediately — no redeploy needed.
+            </p>
+            <div style="${S.form}">
+              ${numberFieldsHtml}
+              <div>
+                <button id="adm-eco-save" style="${S.submitBtn}">Save Economy Settings</button>
+              </div>
+              <div id="adm-eco-result" style="display:none;${S.resultBox}"></div>
+            </div>
+            <hr class="bp-divider" style="margin:16px 0;" />
+            ${toggleFieldsHtml}
+          </div>
         `;
+
         pane.querySelector("#adm-cfg-save").addEventListener("click", async () => {
           const btn = pane.querySelector("#adm-cfg-save");
           const r = pane.querySelector("#adm-cfg-result");
@@ -1785,6 +1847,41 @@ const AdminGame = (() => {
           } finally {
             btn.disabled = false; btn.textContent = "Save Config";
           }
+        });
+
+        pane.querySelector("#adm-eco-save").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-eco-save");
+          const r = pane.querySelector("#adm-eco-result");
+          const updates = {};
+          for (const f of ECONOMY_NUMBER_FIELDS) {
+            updates[f.key] = Number(pane.querySelector(`#adm-eco-${f.key}`).value);
+          }
+          btn.disabled = true; btn.textContent = "Saving…";
+          try {
+            await Api.post("/admin/config", updates);
+            r.style.display = "block"; r.style.color = "var(--win)"; r.textContent = "✅ Economy settings saved.";
+            UI.toast("Economy settings saved.", "info");
+          } catch (err) {
+            r.style.display = "block"; r.style.color = "var(--loss)"; r.textContent = err.message;
+          } finally {
+            btn.disabled = false; btn.textContent = "Save Economy Settings";
+          }
+        });
+
+        pane.querySelectorAll(".adm-eco-toggle").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const key = btn.dataset.key;
+            const isDisabled = btn.dataset.disabled === "true";
+            btn.disabled = true;
+            try {
+              await Api.post("/admin/config", { [key]: isDisabled ? "true" : "false" });
+              UI.toast(`${key} ${isDisabled ? "enabled" : "disabled"}.`, "info");
+              loadConfig();
+            } catch (err) {
+              UI.toast(err.message || "Failed.", "loss");
+              btn.disabled = false;
+            }
+          });
         });
       } catch (err) {
         pane.innerHTML = `<div style="color:var(--loss);padding:20px;">${err.message}</div>`;

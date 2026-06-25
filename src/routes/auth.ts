@@ -25,6 +25,9 @@ const credentialsSchema = z.object({
 });
 
 authRouter.post("/register", async (req, res) => {
+  const registrationEnabled = ((await getSiteConfig("registrationEnabled")) ?? "true") !== "false";
+  if (!registrationEnabled) return res.status(503).json({ error: "New registrations are temporarily closed." });
+
   const parsed = credentialsSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
@@ -37,7 +40,8 @@ authRouter.post("/register", async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const seedPair = createSeedPair();
     const emailToken = generateCode();
-    const emailTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
+    const emailCodeExpiryMinutes = Number((await getSiteConfig("emailCodeExpiryMinutes")) ?? 15);
+    const emailTokenExpiry = new Date(Date.now() + emailCodeExpiryMinutes * 60 * 1000);
 
     const user = await prisma.user.create({
       data: {
@@ -119,7 +123,8 @@ authRouter.post("/resend-verification", requireAuth, async (req: AuthedRequest, 
     if (user.emailVerified) return res.json({ message: "Email already verified." });
 
     const emailToken = generateCode();
-    const emailTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
+    const emailCodeExpiryMinutes = Number((await getSiteConfig("emailCodeExpiryMinutes")) ?? 15);
+    const emailTokenExpiry = new Date(Date.now() + emailCodeExpiryMinutes * 60 * 1000);
 
     await prisma.user.update({ where: { id: user.id }, data: { emailToken, emailTokenExpiry } });
     const emailed = await sendVerificationCode(user.email, user.username, emailToken).catch(() => false);
@@ -165,7 +170,8 @@ authRouter.post("/login", async (req, res) => {
       // Issue a fresh code on login too — the original one may be long expired
       // by the time the user comes back to verify.
       const emailToken = generateCode();
-      const emailTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
+      const emailCodeExpiryMinutes = Number((await getSiteConfig("emailCodeExpiryMinutes")) ?? 15);
+      const emailTokenExpiry = new Date(Date.now() + emailCodeExpiryMinutes * 60 * 1000);
       await prisma.user.update({ where: { id: user.id }, data: { emailToken, emailTokenExpiry } });
       const emailed = await sendVerificationCode(user.email, user.username, emailToken).catch(() => false);
       return res.json({
@@ -230,6 +236,9 @@ authRouter.post("/google", async (req, res) => {
     let user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
+      const registrationEnabled = ((await getSiteConfig("registrationEnabled")) ?? "true") !== "false";
+      if (!registrationEnabled) return res.status(503).json({ error: "New registrations are temporarily closed." });
+
       const username = await usernameFromEmail(email);
       const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
       const seedPair = createSeedPair();
