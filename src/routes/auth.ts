@@ -31,10 +31,13 @@ authRouter.post("/register", async (req, res) => {
   const parsed = credentialsSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
-  const { username, email, password, patreonUsername } = parsed.data;
+  const { username, password, patreonUsername } = parsed.data;
+  const email = parsed.data.email.toLowerCase();
 
   try {
-    const existing = await prisma.user.findFirst({ where: { OR: [{ username }, { email }] } });
+    const existing = await prisma.user.findFirst({
+      where: { OR: [{ username: { equals: username, mode: "insensitive" } }, { email }] },
+    });
     if (existing) return res.status(409).json({ error: "Username or email already taken" });
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -155,7 +158,14 @@ authRouter.post("/login", async (req, res) => {
 
   const { identifier, password } = parsed.data;
   try {
-    const user = await prisma.user.findFirst({ where: { OR: [{ username: identifier }, { email: identifier }] } });
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: { equals: identifier, mode: "insensitive" } },
+          { email: { equals: identifier, mode: "insensitive" } },
+        ],
+      },
+    });
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
     const valid = await bcrypt.compare(password, user.passwordHash);
