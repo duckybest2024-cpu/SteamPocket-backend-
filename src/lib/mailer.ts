@@ -34,20 +34,23 @@ async function getTransporter() {
 
 /**
  * Send a 6-digit email verification code.
- * If SMTP is not configured, the code is printed to stdout so it can be found in dev/Railway logs.
+ * If SMTP is not configured, the code is printed to stdout (dev/Railway logs) and
+ * the caller is told so it can surface the code directly in the app as a fallback —
+ * otherwise the user would be locked out with no way to ever receive it.
+ * Returns true if the code was actually emailed, false if it only hit the logs.
  */
 export async function sendVerificationCode(
   to: string,
   username: string,
   code: string
-): Promise<void> {
+): Promise<boolean> {
   const { transporter, from } = await getTransporter();
 
   if (!transporter) {
     console.log(`\n[EMAIL VERIFICATION — no SMTP configured]`);
     console.log(`  To:   ${username} <${to}>`);
     console.log(`  Code: ${code}\n`);
-    return;
+    return false;
   }
 
   await transporter.sendMail({
@@ -76,6 +79,7 @@ export async function sendVerificationCode(
         <p style="color:#888;font-size:0.85em">This code expires in 15 minutes.</p>
       </div>`,
   });
+  return true;
 }
 
 /**
