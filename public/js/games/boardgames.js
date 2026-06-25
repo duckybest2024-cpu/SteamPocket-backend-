@@ -293,6 +293,10 @@ const BoardGamesGame = (() => {
     socket.emit("bg:add-bot");
   }
 
+  function removeBot(botUserId) {
+    socket.emit("bg:remove-bot", { botUserId });
+  }
+
   function leaveRoom() {
     if (currentRoom) {
       socket.emit("bg:leave");
@@ -329,7 +333,10 @@ const BoardGamesGame = (() => {
           ${roomState.players.map((p) => `
             <div class="bg-waiting__player ${p.ready ? "is-ready" : ""}">
               <span class="bg-waiting__player-name">${p.isBot ? "🤖 " : ""}${escHtml(p.username || p.userId)}</span>
-              <span class="bg-waiting__player-status">${p.ready ? "✅ Ready" : "⏳ Waiting"}</span>
+              <span class="bg-waiting__player-status">
+                ${p.ready ? "✅ Ready" : "⏳ Waiting"}
+                ${p.isBot && iAmCreator ? `<button class="bg-waiting__removebot-btn" data-bot-id="${p.userId}" title="Remove bot">✕</button>` : ""}
+              </span>
             </div>
           `).join("")}
           ${Array.from({ length: roomState.maxPlayers - roomState.players.length }).map(() => `
@@ -356,6 +363,13 @@ const BoardGamesGame = (() => {
     _container.querySelector(".bg-waiting__rules").addEventListener("click", () => HowToPlay.showModal(`bg_${roomState.gameId}`));
     const addBotBtn = _container.querySelector(".bg-waiting__addbot-btn");
     if (addBotBtn) addBotBtn.addEventListener("click", addBot);
+    _container.querySelectorAll(".bg-waiting__removebot-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        btn.disabled = true;
+        removeBot(btn.dataset.botId);
+      });
+    });
     const readyBtn = _container.querySelector(".bg-waiting__ready-btn");
     if (readyBtn && !iAmReady) {
       readyBtn.addEventListener("click", () => {
@@ -857,10 +871,27 @@ const BoardGamesGame = (() => {
         opacity: .4;
       }
       .bg-waiting__player-name { font-weight: 600; }
-      .bg-waiting__player-status { font-size: .85rem; color: var(--text-dim); }
+      .bg-waiting__player-status { font-size: .85rem; color: var(--text-dim); display: flex; align-items: center; gap: .5rem; }
       .bg-waiting__player.is-ready .bg-waiting__player-status {
         color: var(--win, #22c55e);
       }
+      .bg-waiting__removebot-btn {
+        width: 20px;
+        height: 20px;
+        line-height: 1;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text-dim);
+        cursor: pointer;
+        font-size: .75rem;
+        padding: 0;
+      }
+      .bg-waiting__removebot-btn:hover:not(:disabled) {
+        color: var(--loss, #ef4444);
+        border-color: var(--loss, #ef4444);
+      }
+      .bg-waiting__removebot-btn:disabled { opacity: .4; cursor: not-allowed; }
       .bg-waiting__actions {
         display: flex;
         justify-content: center;
