@@ -136,6 +136,35 @@ const UI = (() => {
     return node;
   }
 
+  /** Adds a 👁 / 🙈 toggle button next to a password input so users can see what they're typing. */
+  function wirePasswordToggle(input) {
+    if (!input || input.dataset.pwToggled) return;
+    input.dataset.pwToggled = "true";
+
+    const wrap = document.createElement("div");
+    wrap.className = "pw-toggle-wrap";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "pw-toggle-btn";
+    btn.textContent = "👁";
+    btn.setAttribute("aria-label", "Show password");
+    btn.addEventListener("click", () => {
+      const showing = input.type === "text";
+      input.type = showing ? "password" : "text";
+      btn.textContent = showing ? "👁" : "🙈";
+      btn.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+    });
+    wrap.appendChild(btn);
+  }
+
+  /** Wires every password input found inside `root` (defaults to the whole document). */
+  function wireAllPasswordToggles(root) {
+    (root || document).querySelectorAll('input[type="password"]').forEach(wirePasswordToggle);
+  }
+
   function fairnessLine(fairness) {
     if (!fairness) return "";
     const nonceBit = fairness.nonce !== undefined ? ` · nonce <code>${fairness.nonce}</code>` : "";
@@ -143,5 +172,5 @@ const UI = (() => {
       · client seed <code>${fairness.clientSeed}</code>${nonceBit}</div>`;
   }
 
-  return { money, toast, isToastEnabled, setToastEnabled, setBalance, setLevel, applyAccountUpdate, renderCard, cardLabel, symbolGlyph, el, fairnessLine };
+  return { money, toast, isToastEnabled, setToastEnabled, setBalance, setLevel, applyAccountUpdate, renderCard, cardLabel, symbolGlyph, el, fairnessLine, wirePasswordToggle, wireAllPasswordToggles };
 })();

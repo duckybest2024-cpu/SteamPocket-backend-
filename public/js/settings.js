@@ -177,6 +177,8 @@ const SettingsGame = (() => {
         }
       }
 
+      UI.wireAllPasswordToggles(container);
+
       container.querySelector("#s-nickname-btn").addEventListener("click", async () => {
         const val = container.querySelector("#s-nickname").value.trim();
         const ok = await save({ nickname: val || null }, val ? "Nickname saved!" : "Nickname removed.");

@@ -751,6 +751,30 @@ button { font-family: inherit; cursor: pointer; border: none; outline: none; }
   .live-feed-panel { display: none; }
 }
 
+/* ── Password show/hide toggle ───────────────────────────────── */
+.pw-toggle-wrap {
+  position: relative;
+  display: flex;
+}
+.pw-toggle-wrap input {
+  flex: 1;
+  padding-right: 38px;
+}
+.pw-toggle-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--text-dim);
+  padding: 4px 6px;
+  line-height: 1;
+}
+.pw-toggle-btn:hover { color: var(--text); }
+
 .confetti-particle {
   position: fixed; pointer-events: none; z-index: 9999;
   border-radius: 2px;

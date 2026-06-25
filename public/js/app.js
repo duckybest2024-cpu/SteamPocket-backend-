@@ -327,6 +327,9 @@ const App = (() => {
   }
 
   function wireAuthForms() {
+    UI.wireAllPasswordToggles(document.getElementById("login-form"));
+    UI.wireAllPasswordToggles(document.getElementById("register-form"));
+
     // Tab switching
     document.querySelectorAll(".auth-tab").forEach((tab) => {
       tab.addEventListener("click", () => {

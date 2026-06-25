@@ -1599,6 +1599,57 @@ export function attachBoardGames(io: Server): void {
     rooms.delete(room.id);
   }
 
+  /**
+   * Checks whether every player in the room is ready and, if so, escrows bets
+   * and starts the game. Called both when a human readies up and when a bot
+   * is added — adding a bot can flip "every player ready" to true without
+   * anyone touching the ready button again, so both call sites must re-check.
+   */
+  async function tryStartGame(room: Room): Promise<void> {
+    if (room.status !== "waiting") return;
+    if (!room.players.every((p) => p.ready)) return;
+    if (room.players.length < 2) return;
+    if (room.game === "bridge" && room.players.length !== 4) {
+      for (const p of room.players) p.ready = false;
+      ns.to(room.id).emit("bg:error", { message: "Bridge requires exactly 4 players" });
+      return;
+    }
+
+    const deductCents = room.betChips * 5000;
+    const failed: string[] = [];
+
+    for (const p of room.players) {
+      if (p.isBot) continue; // bots never wager real chips
+      try {
+        await applyLedgerEntry(prisma, p.userId, "bg_bet", -deductCents, room.id);
+        room.escrowedUserIds.add(p.userId);
+      } catch {
+        failed.push(p.username);
+      }
+    }
+
+    if (failed.length > 0) {
+      for (const uid of room.escrowedUserIds) {
+        try { await applyLedgerEntry(prisma, uid, "bg_refund", deductCents, room.id); } catch { /* ignore */ }
+      }
+      room.escrowedUserIds.clear();
+      for (const p of room.players) p.ready = false;
+      ns.to(room.id).emit("bg:error", { message: `Insufficient chips: ${failed.join(", ")}` });
+      return;
+    }
+
+    startGame(room);
+    if (room.game === "battleship") {
+      for (const p of room.players) {
+        if (p.isBot) {
+          try { applyMove(room, { ships: generateBattleshipShips() }, p.userId); } catch { /* ignore */ }
+        }
+      }
+    }
+    broadcastRoom(room);
+    await runBotTurns(room);
+  }
+
   const BOT_MOVE_DELAY_MS = 700;
 
   /** Drives bot turns one at a time (with a pacing delay) until a human's turn or game-over. */
@@ -1717,7 +1768,7 @@ export function attachBoardGames(io: Server): void {
     });
 
     // ── bg:add-bot ────────────────────────────────────────────────────────────────
-    socket.on("bg:add-bot", () => {
+    socket.on("bg:add-bot", async () => {
       if (!socket.data.userId) return socket.emit("bg:error", { message: "Login required" });
       if (!currentRoomId) return socket.emit("bg:error", { message: "Not in a room" });
       const room = rooms.get(currentRoomId);
@@ -1736,6 +1787,26 @@ export function attachBoardGames(io: Server): void {
         ready: true,
         isBot: true,
       });
+      broadcastRoom(room);
+      // Adding a bot can make every remaining player ready (e.g. the creator
+      // already readied up before adding a bot) — re-check so the game isn't
+      // left stuck in the waiting room forever.
+      await tryStartGame(room);
+    });
+
+    // ── bg:remove-bot ─────────────────────────────────────────────────────────────
+    socket.on("bg:remove-bot", ({ botUserId }: { botUserId: string }) => {
+      if (!socket.data.userId) return socket.emit("bg:error", { message: "Login required" });
+      if (!currentRoomId) return socket.emit("bg:error", { message: "Not in a room" });
+      const room = rooms.get(currentRoomId);
+      if (!room) return socket.emit("bg:error", { message: "Room not found" });
+      if (room.status !== "waiting") return socket.emit("bg:error", { message: "Game already started" });
+      if (room.players[0]?.userId !== socket.data.userId) {
+        return socket.emit("bg:error", { message: "Only the room creator can remove bots" });
+      }
+      const idx = room.players.findIndex((p) => p.userId === botUserId && p.isBot);
+      if (idx === -1) return socket.emit("bg:error", { message: "Bot not found" });
+      room.players.splice(idx, 1);
       broadcastRoom(room);
     });
 
@@ -1760,46 +1831,7 @@ export function attachBoardGames(io: Server): void {
       player.ready = true;
       broadcastRoom(room);
 
-      if (!room.players.every((p) => p.ready)) return;
-      if (room.players.length < 2) return;
-      if (room.game === "bridge" && room.players.length !== 4) {
-        for (const p of room.players) p.ready = false;
-        return socket.emit("bg:error", { message: "Bridge requires exactly 4 players" });
-      }
-
-      const deductCents = room.betChips * 5000;
-      const failed: string[] = [];
-
-      for (const p of room.players) {
-        if (p.isBot) continue; // bots never wager real chips
-        try {
-          await applyLedgerEntry(prisma, p.userId, "bg_bet", -deductCents, room.id);
-          room.escrowedUserIds.add(p.userId);
-        } catch {
-          failed.push(p.username);
-        }
-      }
-
-      if (failed.length > 0) {
-        for (const uid of room.escrowedUserIds) {
-          try { await applyLedgerEntry(prisma, uid, "bg_refund", deductCents, room.id); } catch { /* ignore */ }
-        }
-        room.escrowedUserIds.clear();
-        for (const p of room.players) p.ready = false;
-        ns.to(room.id).emit("bg:error", { message: `Insufficient chips: ${failed.join(", ")}` });
-        return;
-      }
-
-      startGame(room);
-      if (room.game === "battleship") {
-        for (const p of room.players) {
-          if (p.isBot) {
-            try { applyMove(room, { ships: generateBattleshipShips() }, p.userId); } catch { /* ignore */ }
-          }
-        }
-      }
-      broadcastRoom(room);
-      await runBotTurns(room);
+      await tryStartGame(room);
     });
 
     // ── bg:move ───────────────────────────────────────────────────────────────────

@@ -1208,6 +1208,8 @@ const AdminGame = (() => {
           </div>
         `;
 
+        UI.wireAllPasswordToggles(pane);
+
         // Maintenance toggle
         pane.querySelector("#adm-maintenance-toggle").addEventListener("click", async (e) => {
           const btn = e.currentTarget;
