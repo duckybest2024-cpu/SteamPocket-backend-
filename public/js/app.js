@@ -270,7 +270,7 @@ const App = (() => {
         <strong>📧 Verify your email</strong><br/>
         Enter the 6-digit code we sent to ${email ? `<strong>${email}</strong>` : "your email"}.
         ${devCode ? `<div style="margin:8px 0;padding:8px 10px;background:var(--bg-elev);border:1px dashed var(--accent-2);border-radius:8px;font-size:0.82rem;">
-          ⚠️ Email isn't set up yet — here's your code directly: <strong style="letter-spacing:2px;">${devCode}</strong>
+          📩 Didn't get the email? Here's your code: <strong style="letter-spacing:2px;">${devCode}</strong>
         </div>` : ""}
         <div style="display:flex;gap:8px;margin:10px 0;">
           <input id="verify-code-input" type="text" inputmode="numeric" maxlength="6" placeholder="123456"
@@ -316,7 +316,7 @@ const App = (() => {
       try {
         const data = await Api.post("/auth/resend-verification", {});
         resultEl.innerHTML = data.devCode
-          ? `Email isn't set up yet — here's your code directly: <strong style="letter-spacing:2px;">${data.devCode}</strong>`
+          ? `New code sent! In case the email doesn't arrive, here it is: <strong style="letter-spacing:2px;">${data.devCode}</strong>`
           : "New code sent! Check your email.";
       } catch (err) {
         resultEl.textContent = err.message || "Failed to resend.";
