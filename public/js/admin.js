@@ -1135,6 +1135,16 @@ const AdminGame = (() => {
                   value="${cfg["adsense_publisher_id"] || ""}" style="${S.formInput}" />
               </div>
               <div style="${S.formGroup}">
+                <label style="${S.formLabel}">AdSense Ad Slot ID (login/sign-up screen — first thing visitors see)</label>
+                <input id="adm-adsense-slot-auth" type="text" placeholder="1234567890"
+                  value="${cfg["adsense_slot_auth"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">AdSense Ad Slot ID (top banner — shows on every page)</label>
+                <input id="adm-adsense-slot-top" type="text" placeholder="1234567890"
+                  value="${cfg["adsense_slot_top"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
                 <label style="${S.formLabel}">AdSense Ad Slot ID (sidebar unit)</label>
                 <input id="adm-adsense-slot" type="text" placeholder="1234567890"
                   value="${cfg["adsense_slot_sidebar"] || ""}" style="${S.formInput}" />
@@ -1276,6 +1286,8 @@ const AdminGame = (() => {
           const adsenseSlot = pane.querySelector("#adm-adsense-slot").value.trim();
           const adsenseSlotFooter = pane.querySelector("#adm-adsense-slot-footer").value.trim();
           const adsenseSlotLobby = pane.querySelector("#adm-adsense-slot-lobby").value.trim();
+          const adsenseSlotAuth = pane.querySelector("#adm-adsense-slot-auth").value.trim();
+          const adsenseSlotTop = pane.querySelector("#adm-adsense-slot-top").value.trim();
           const btn = pane.querySelector("#adm-google-save");
           btn.disabled = true; btn.textContent = "Saving…";
           try {
@@ -1286,6 +1298,8 @@ const AdminGame = (() => {
               adsense_slot_sidebar: adsenseSlot,
               adsense_slot_footer: adsenseSlotFooter,
               adsense_slot_lobby: adsenseSlotLobby,
+              adsense_slot_auth: adsenseSlotAuth,
+              adsense_slot_top: adsenseSlotTop,
             });
             UI.toast("Google settings saved.", "win");
           } catch (err) {
