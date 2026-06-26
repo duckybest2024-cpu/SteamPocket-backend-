@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { prisma } from "../lib/prisma";
 import { config } from "../lib/config";
 import { applyLedgerEntry } from "../lib/wallet";
+import { makeBot, botStakeCents, randInt, isBotId } from "./botFiller";
 
 interface AuthedSocket extends Socket { data: { userId?: string; username?: string; isApproved?: boolean } }
 
@@ -86,7 +87,35 @@ export class HorseRaceEngine {
     this.bets.clear();
     this.positions = HORSES.map(() => 0);
     this.io.of("/horserace").emit("phase", { phase: "betting", endsAt: this.phaseEndsAt, positions: this.positions, history: this.history });
+    this.spawnBots();
     setTimeout(() => this.startRace(), BETTING_MS);
+  }
+
+  /**
+   * Trickle a few synthetic bettors into each betting window so the bet board
+   * never looks empty. Bots are cosmetic: their stakes are never deducted and
+   * their winnings are never paid (skipped in endRace).
+   */
+  private spawnBots() {
+    const count = randInt(2, 6);
+    const startPhaseEnd = this.phaseEndsAt;
+    const names = new Set([...this.bets.values()].map((b) => b.username));
+    for (let i = 0; i < count; i++) {
+      const delay = randInt(300, BETTING_MS - 1500);
+      setTimeout(() => {
+        if (this.phase !== "betting" || this.phaseEndsAt !== startPhaseEnd) return;
+        const bot = makeBot(names);
+        // Weight bot picks toward the favourites (lower odds) so it looks real.
+        const weights = HORSES.map((h) => 1 / h.odds);
+        const total = weights.reduce((a, b) => a + b, 0);
+        let roll = Math.random() * total;
+        let horseId = 0;
+        for (let h = 0; h < weights.length; h++) { roll -= weights[h]; if (roll <= 0) { horseId = h; break; } }
+        const amount = botStakeCents(1, 300);
+        this.bets.set(bot.id, { userId: bot.id, username: bot.username, horseId, amount });
+        this.io.of("/horserace").emit("bets_update", Array.from(this.bets.values()));
+      }, delay);
+    }
   }
 
   private startRace() {
@@ -133,6 +162,7 @@ export class HorseRaceEngine {
     this.io.of("/horserace").emit("phase", { phase: "results", winnerHorse: winnerId, endsAt: Date.now() + REST_MS, positions: this.positions });
 
     for (const bet of this.bets.values()) {
+      if (isBotId(bet.userId)) continue; // bots win/lose cosmetically only
       if (bet.horseId === winnerId) {
         const payout = Math.floor(bet.amount * horse.odds);
         try {

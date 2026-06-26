@@ -5,9 +5,11 @@ import crypto from "crypto";
 import { prisma } from "../lib/prisma";
 import { config } from "../lib/config";
 import { applyLedgerEntry, InsufficientFundsError } from "../lib/wallet";
+import { makeBot, botStakeCents, randInt, isBotId, botDelay } from "./botFiller";
 
 const PAYOUT_MULTIPLIER = 1.98; // 2% total house edge (1% per side)
 const MAX_OPEN_CHALLENGES = 50;
+const TARGET_BOT_CHALLENGES = 3; // open bot challenges to keep in the lobby
 
 interface CoinflipChallenge {
   id: string;
@@ -17,6 +19,7 @@ interface CoinflipChallenge {
   serverSeed: string;
   serverSeedHash: string;
   createdAt: number;
+  isBot?: boolean; // creator is a synthetic filler player
 }
 
 interface RecentResult {
@@ -41,6 +44,18 @@ export class CoinflipEngine {
   constructor(io: Server) {
     this.io = io;
     this.attach();
+    this.ensureBotChallenges();
+    // Keep the lobby stocked, and occasionally rotate a stale bot challenge so
+    // the listed amounts keep changing like a real lobby would.
+    setInterval(() => {
+      const botChallenges = [...this.challenges.values()].filter((c) => c.isBot);
+      if (botChallenges.length > 0 && Math.random() < 0.5) {
+        const stale = botChallenges[randInt(0, botChallenges.length - 1)];
+        this.challenges.delete(stale.id);
+        this.broadcast("challenge_cancelled", { id: stale.id });
+      }
+      this.ensureBotChallenges();
+    }, 45_000);
   }
 
   private attach() {
@@ -148,6 +163,9 @@ export class CoinflipEngine {
       serverSeedHash,
       createdAt: challenge.createdAt,
     });
+
+    // If no real player grabs it, a bot will — so a lone player isn't stuck waiting.
+    this.scheduleBotTakeover(id);
   }
 
   private async handleCancelChallenge(
@@ -205,59 +223,79 @@ export class CoinflipEngine {
     }
 
     const joinerName = socket.data.username ?? "player";
+    const result = await this.settleChallenge(challenge, { userId, username: joinerName, isBot: false });
+    reply({ ok: true, ...result });
+    // A bot challenge that just got taken should be replaced so the lobby stays full.
+    if (challenge.isBot) this.ensureBotChallenges();
+  }
+
+  /**
+   * Resolve a claimed challenge against a joiner (human or bot) and broadcast
+   * the outcome. The caller is responsible for having already deducted the
+   * joiner's stake (humans only — bots never pay). The winner is paid only if
+   * it is a real user; bot winners are kept by the house. Bet-history rows are
+   * written only for the human participant(s).
+   */
+  private async settleChallenge(
+    challenge: CoinflipChallenge,
+    joiner: { userId: string; username: string; isBot: boolean }
+  ) {
+    const id = challenge.id;
 
     // Determine winner: SHA256(serverSeed + joinerId), first nibble < 8 → creator wins
-    const resultHash = crypto.createHash("sha256").update(challenge.serverSeed + userId).digest("hex");
+    const resultHash = crypto.createHash("sha256").update(challenge.serverSeed + joiner.userId).digest("hex");
     const creatorWins = parseInt(resultHash[0], 16) < 8;
 
-    const winnerId = creatorWins ? challenge.creatorId : userId;
-    const winnerName = creatorWins ? challenge.creatorName : joinerName;
-    const loserName = creatorWins ? joinerName : challenge.creatorName;
+    const winnerId = creatorWins ? challenge.creatorId : joiner.userId;
+    const winnerName = creatorWins ? challenge.creatorName : joiner.username;
+    const loserName = creatorWins ? joiner.username : challenge.creatorName;
     const payout = Math.floor(challenge.amount * PAYOUT_MULTIPLIER);
 
-    await applyLedgerEntry(prisma, winnerId, "coinflip_payout", payout, id).catch((err) => {
-      console.error("Coinflip payout failed:", err);
-    });
+    if (!isBotId(winnerId)) {
+      await applyLedgerEntry(prisma, winnerId, "coinflip_payout", payout, id).catch((err) => {
+        console.error("Coinflip payout failed:", err);
+      });
+    }
 
-    await Promise.all([
-      prisma.bet
-        .create({
-          data: {
-            userId: challenge.creatorId,
-            game: "coinflip",
-            amount: challenge.amount,
-            payout: creatorWins ? payout : 0,
-            multiplier: creatorWins ? PAYOUT_MULTIPLIER : 0,
-            result: creatorWins ? "win" : "loss",
-            state: JSON.stringify({ challengeId: id, resultHash, opponent: joinerName }),
-            clientSeed: userId,
-            serverSeed: challenge.serverSeed,
-            nonce: 0,
-          },
-        })
-        .catch(() => {}),
-      prisma.bet
-        .create({
-          data: {
-            userId,
-            game: "coinflip",
-            amount: challenge.amount,
-            payout: !creatorWins ? payout : 0,
-            multiplier: !creatorWins ? PAYOUT_MULTIPLIER : 0,
-            result: !creatorWins ? "win" : "loss",
-            state: JSON.stringify({ challengeId: id, resultHash, opponent: challenge.creatorName }),
-            clientSeed: userId,
-            serverSeed: challenge.serverSeed,
-            nonce: 0,
-          },
-        })
-        .catch(() => {}),
-    ]);
+    const writes: Promise<unknown>[] = [];
+    if (!challenge.isBot) {
+      writes.push(prisma.bet.create({
+        data: {
+          userId: challenge.creatorId,
+          game: "coinflip",
+          amount: challenge.amount,
+          payout: creatorWins ? payout : 0,
+          multiplier: creatorWins ? PAYOUT_MULTIPLIER : 0,
+          result: creatorWins ? "win" : "loss",
+          state: JSON.stringify({ challengeId: id, resultHash, opponent: joiner.username }),
+          clientSeed: joiner.userId,
+          serverSeed: challenge.serverSeed,
+          nonce: 0,
+        },
+      }).catch(() => {}));
+    }
+    if (!joiner.isBot) {
+      writes.push(prisma.bet.create({
+        data: {
+          userId: joiner.userId,
+          game: "coinflip",
+          amount: challenge.amount,
+          payout: !creatorWins ? payout : 0,
+          multiplier: !creatorWins ? PAYOUT_MULTIPLIER : 0,
+          result: !creatorWins ? "win" : "loss",
+          state: JSON.stringify({ challengeId: id, resultHash, opponent: challenge.creatorName }),
+          clientSeed: joiner.userId,
+          serverSeed: challenge.serverSeed,
+          nonce: 0,
+        },
+      }).catch(() => {}));
+    }
+    await Promise.all(writes);
 
     const result = {
       id,
       creatorName: challenge.creatorName,
-      joinerName,
+      joinerName: joiner.username,
       winnerName,
       loserName,
       amount: challenge.amount,
@@ -271,7 +309,7 @@ export class CoinflipEngine {
     this.recentResults.unshift({
       id,
       creatorName: challenge.creatorName,
-      joinerName,
+      joinerName: joiner.username,
       winnerName,
       amount: challenge.amount,
       serverSeedHash: challenge.serverSeedHash,
@@ -279,7 +317,50 @@ export class CoinflipEngine {
     });
     this.recentResults = this.recentResults.slice(0, 20);
 
-    reply({ ok: true, ...result });
     this.broadcast("challenge_result", result);
+    return result;
+  }
+
+  // ─── Synthetic filler players ───────────────────────────────────────────────
+
+  /** A human just posted a challenge — have a bot take it if no real player does. */
+  private scheduleBotTakeover(challengeId: string) {
+    void (async () => {
+      await botDelay(5_000, 16_000);
+      const challenge = this.challenges.get(challengeId);
+      if (!challenge || challenge.isBot) return; // already taken, cancelled, or a bot's own
+      this.challenges.delete(challengeId);
+      const bot = makeBot();
+      await this.settleChallenge(challenge, { userId: bot.id, username: bot.username, isBot: true });
+    })();
+  }
+
+  /** Keep a handful of open bot challenges in the lobby for humans to join. */
+  private ensureBotChallenges() {
+    const openBots = [...this.challenges.values()].filter((c) => c.isBot).length;
+    for (let i = openBots; i < TARGET_BOT_CHALLENGES; i++) {
+      const bot = makeBot();
+      const id = crypto.randomBytes(8).toString("hex");
+      const serverSeed = crypto.randomBytes(32).toString("hex");
+      const serverSeedHash = crypto.createHash("sha256").update(serverSeed).digest("hex");
+      const challenge: CoinflipChallenge = {
+        id,
+        creatorId: bot.id,
+        creatorName: bot.username,
+        amount: botStakeCents(1, 250),
+        serverSeed,
+        serverSeedHash,
+        createdAt: Date.now(),
+        isBot: true,
+      };
+      this.challenges.set(id, challenge);
+      this.broadcast("challenge_created", {
+        id,
+        creatorName: challenge.creatorName,
+        amount: challenge.amount,
+        serverSeedHash,
+        createdAt: challenge.createdAt,
+      });
+    }
   }
 }
