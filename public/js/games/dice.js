@@ -246,15 +246,9 @@ const DiceGame = (() => {
       els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100;
     });
 
-    // Manual/Auto tabs (visual only)
-    container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
-      container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
-      this.classList.add("active");
-    }));
-
-    els.betBtn.addEventListener("click", async () => {
+    async function play() {
       const dollars = Number(els.amount.value);
-      if (!dollars || dollars <= 0) return UI.toast("Enter a bet amount first.", "loss");
+      if (!dollars || dollars <= 0) { UI.toast("Enter a bet amount first.", "loss"); throw new Error("bad amount"); }
       const amount = Math.round(dollars * 100);
 
       els.betBtn.disabled = true;
@@ -298,10 +292,13 @@ const DiceGame = (() => {
         UI.toast(isWin ? `Won ${UI.money(res.result.payout)} on Dice!` : `Lost ${UI.money(amount)} on Dice.`, isWin ? "win" : "loss");
       } catch (err) {
         UI.toast(err.message, "loss");
+        throw err; // let Auto stop the batch on error
       } finally {
         els.betBtn.disabled = false;
       }
-    });
+    }
+
+    GameAuto.setup(container, { playBtn: els.betBtn, play });
 
     refreshOdds();
     GameThemes.init(container, "dice");

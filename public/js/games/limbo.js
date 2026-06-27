@@ -81,17 +81,11 @@ const LimboGame = (() => {
       els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100;
     });
 
-    // Manual/Auto tabs (visual only)
-    container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
-      container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
-      this.classList.add("active");
-    }));
-
-    els.play.addEventListener("click", async () => {
+    async function play() {
       const dollars = Number(els.amount.value);
       const targetMultiplier = Number(els.target.value);
-      if (!dollars || dollars <= 0) return UI.toast("Enter a bet amount.", "loss");
-      if (!targetMultiplier || targetMultiplier < 1.01) return UI.toast("Target must be at least 1.01x.", "loss");
+      if (!dollars || dollars <= 0) { UI.toast("Enter a bet amount.", "loss"); throw new Error("bad amount"); }
+      if (!targetMultiplier || targetMultiplier < 1.01) { UI.toast("Target must be at least 1.01x.", "loss"); throw new Error("bad target"); }
 
       const amount = Math.round(dollars * 100);
       els.play.disabled = true;
@@ -129,10 +123,13 @@ const LimboGame = (() => {
         UI.toast(isWin ? `Won ${UI.money(res.result.payout)} on Limbo!` : `Lost ${UI.money(amount)} on Limbo.`, isWin ? "win" : "loss");
       } catch (err) {
         UI.toast(err.message, "loss");
+        throw err;
       } finally {
         els.play.disabled = false;
       }
-    });
+    }
+
+    GameAuto.setup(container, { playBtn: els.play, play });
 
     function animateCountUp(node, target, isWin) {
       const duration = 700;
