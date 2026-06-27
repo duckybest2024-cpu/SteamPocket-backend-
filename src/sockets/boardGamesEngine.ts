@@ -36,6 +36,7 @@ interface Room {
   status: "waiting" | "playing" | "finished";
   gameState: GameState;
   escrowedUserIds: Set<string>;
+  hostName: string; // creator's username — used to label the lobby ("X's lobby")
 }
 
 // ─── In-memory store ────────────────────────────────────────────────────────────────
@@ -60,6 +61,7 @@ function roomView(room: Room, clientUserId?: string): object {
     game: room.game,
     betChips: room.betChips,
     maxPlayers: room.maxPlayers,
+    hostName: room.hostName,
     players: room.players.map((p) => ({ userId: p.userId, username: p.username, ready: p.ready, isBot: p.isBot ?? false })),
     status: room.status,
     gameState: redactState(room, clientUserId),
@@ -1722,6 +1724,7 @@ export function attachBoardGames(io: Server): void {
           game: r.game,
           betChips: r.betChips,
           maxPlayers: r.maxPlayers,
+          hostName: r.hostName,
           playerCount: r.players.length,
           status: r.status,
         }));
@@ -1748,6 +1751,7 @@ export function attachBoardGames(io: Server): void {
         status: "waiting",
         gameState: null,
         escrowedUserIds: new Set(),
+        hostName: socket.data.username!,
       };
       rooms.set(roomId, room);
       socket.join(roomId);
@@ -1820,6 +1824,19 @@ export function attachBoardGames(io: Server): void {
       if (room) await handleLeave(room, socket.data.userId!);
       socket.leave(currentRoomId);
       currentRoomId = "";
+    });
+
+    // ── bg:resign ───────────────────────────────────────────────────────────────────
+    // Concede a game in progress — the (first) opponent is awarded the win/pot.
+    socket.on("bg:resign", async () => {
+      if (!socket.data.userId) return socket.emit("bg:error", { message: "Login required" });
+      if (!currentRoomId) return socket.emit("bg:error", { message: "Not in a room" });
+      const room = rooms.get(currentRoomId);
+      if (!room || room.status !== "playing") return socket.emit("bg:error", { message: "No game in progress" });
+      if (!room.players.some((p) => p.userId === socket.data.userId)) return;
+      const opponent = room.players.find((p) => p.userId !== socket.data.userId);
+      ns.to(room.id).emit("bg:resigned", { who: socket.data.username });
+      await finishGame(room, opponent?.userId ?? null);
     });
 
     // ── bg:ready ──────────────────────────────────────────────────────────────────
