@@ -9,8 +9,18 @@ import { playKeno, validateKeno } from "../../games/keno";
 import { spinWheel, validateWheel, WheelRisk } from "../../games/wheel";
 import { playBaccarat, validateBaccarat, BaccaratBet } from "../../games/baccarat";
 import { InsufficientFundsError } from "../../lib/wallet";
+import { prisma } from "../../lib/prisma";
+import { config } from "../../lib/config";
+import { isOwner } from "../../lib/owner";
 
 export const instantGamesRouter = Router();
+
+/** Owner-only "lucky mode": is THIS request from the owner while lucky mode is on? */
+async function ownerLucky(userId: string | undefined): Promise<boolean> {
+  if (!config.ownerLucky || !userId) return false;
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+  return isOwner(u?.username);
+}
 
 /** Shared error translation so every instant-game route reports the same shape for the same failures. */
 function handleBetError(err: unknown, res: import("express").Response) {
@@ -38,8 +48,14 @@ instantGamesRouter.post("/dice", requireAuth, requireApproved, async (req: Authe
   if (validation) return res.status(400).json({ error: validation });
 
   try {
+    const lucky = await ownerLucky(req.userId);
     const placed = await placeBet(req.userId!, "dice", amount, (seeds) => {
-      const outcome = playDice(seeds.serverSeed, seeds.clientSeed, seeds.nonce, { target, direction });
+      let outcome = playDice(seeds.serverSeed, seeds.clientSeed, seeds.nonce, { target, direction });
+      if (lucky && !outcome.win) {
+        // Force a winning roll (owner-only).
+        const roll = direction === "under" ? Math.max(0.01, target - 0.01) : Math.min(99.99, target + 0.01);
+        outcome = { ...outcome, win: true, roll };
+      }
       return {
         payout: outcome.win ? Math.floor(amount * outcome.multiplier) : 0,
         multiplier: outcome.multiplier,
@@ -70,8 +86,13 @@ instantGamesRouter.post("/limbo", requireAuth, requireApproved, async (req: Auth
   if (validation) return res.status(400).json({ error: validation });
 
   try {
+    const lucky = await ownerLucky(req.userId);
     const placed = await placeBet(req.userId!, "limbo", amount, (seeds) => {
-      const outcome = playLimbo(seeds.serverSeed, seeds.clientSeed, seeds.nonce, { targetMultiplier });
+      let outcome = playLimbo(seeds.serverSeed, seeds.clientSeed, seeds.nonce, { targetMultiplier });
+      if (lucky && !outcome.win) {
+        // Force the round to clear the target (owner-only).
+        outcome = { ...outcome, win: true, crashAt: Number(targetMultiplier.toFixed(2)), multiplier: Number(targetMultiplier.toFixed(4)) };
+      }
       return {
         payout: outcome.win ? Math.floor(amount * outcome.multiplier) : 0,
         multiplier: outcome.multiplier,

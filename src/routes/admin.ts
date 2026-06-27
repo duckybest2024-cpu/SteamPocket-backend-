@@ -5,7 +5,7 @@ import { requireAuth, AuthedRequest } from "../middleware/auth";
 import { isOwner } from "../lib/owner";
 import { sendTestEmail } from "../lib/mailer";
 import { sendPaypalPayout, isPaypalConfigured } from "../lib/paypal";
-import { setHouseEdgePercent, getHouseEdgePercent } from "../lib/gameOdds";
+import { setHouseEdgePercent, getHouseEdgePercent, setOwnerLucky } from "../lib/gameOdds";
 import { NFT_CATALOG } from "../lib/nftCatalog";
 
 export const adminRouter = Router();
@@ -663,6 +663,10 @@ adminRouter.post("/config", async (req, res) => {
       create: { key: "house_edge", value: canonical },
       update: { value: canonical },
     });
+  }
+  // Owner-only lucky mode toggle (applies live).
+  if (Object.prototype.hasOwnProperty.call(updates, "owner_lucky")) {
+    setOwnerLucky(String(updates.owner_lucky) === "true");
   }
   res.json({ ok: true });
 });

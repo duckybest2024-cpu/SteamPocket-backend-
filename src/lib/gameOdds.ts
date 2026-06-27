@@ -40,4 +40,11 @@ export async function loadHouseEdge(): Promise<void> {
     const percent = Number(stored);
     if (Number.isFinite(percent)) config.houseEdge = clampEdge(percent / 100);
   }
+  const lucky = await getSiteConfig("owner_lucky");
+  config.ownerLucky = lucky === "true";
+}
+
+/** Owner-only "lucky mode" — when on, the OWNER's own bets always win. */
+export function setOwnerLucky(on: boolean): void {
+  config.ownerLucky = on;
 }

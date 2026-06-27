@@ -1338,6 +1338,19 @@ const AdminGame = (() => {
                 <button id="adm-odds-save" style="${S.submitBtn}">Save Game Odds</button>
               </div>
             </div>
+            <hr class="bp-divider" style="margin:16px 0;" />
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+              <div>
+                <div style="font-weight:700;">🍀 Owner Lucky Mode</div>
+                <div style="color:var(--text-dim);font-size:0.8rem;max-width:340px;">
+                  When ON, <strong>your own</strong> Dice &amp; Limbo bets always win. Owner-only — affects no other players.
+                </div>
+              </div>
+              <button id="adm-owner-lucky" data-on="${cfg["owner_lucky"] === "true"}"
+                style="${cfg["owner_lucky"] === "true" ? S.toggleOn : S.toggleOff}">
+                ${cfg["owner_lucky"] === "true" ? "✅ ON" : "🚫 OFF"}
+              </button>
+            </div>
           </div>
         `;
 
@@ -1479,6 +1492,24 @@ const AdminGame = (() => {
             UI.toast(err.message || "Failed.", "loss");
           } finally {
             btn.disabled = false; btn.textContent = "Save PayPal Settings";
+          }
+        });
+
+        // Owner Lucky Mode toggle
+        pane.querySelector("#adm-owner-lucky").addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          const newOn = btn.dataset.on !== "true";
+          btn.disabled = true;
+          try {
+            await Api.post("/admin/config", { owner_lucky: String(newOn) });
+            btn.dataset.on = String(newOn);
+            btn.setAttribute("style", newOn ? S.toggleOn : S.toggleOff);
+            btn.textContent = newOn ? "✅ ON" : "🚫 OFF";
+            UI.toast(`Owner Lucky Mode ${newOn ? "ON — your Dice & Limbo bets always win" : "OFF"}.`, newOn ? "win" : "info");
+          } catch (err) {
+            UI.toast(err.message || "Failed.", "loss");
+          } finally {
+            btn.disabled = false;
           }
         });
 

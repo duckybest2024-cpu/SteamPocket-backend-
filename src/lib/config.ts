@@ -6,4 +6,5 @@ export const config = {
   jwtExpiresIn: "7d" as const,
   startingBalance: 1000 * 100, // every new player starts with 1000 free chips
   houseEdge: 0.01, // 1% — applied uniformly across every game's RTP target (99%)
+  ownerLucky: false, // owner-only "lucky mode": the owner's own bets always win
 };
