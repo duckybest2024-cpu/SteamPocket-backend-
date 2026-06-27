@@ -1973,10 +1973,10 @@ const AdminGame = (() => {
                 <input id="adm-cfg-maxbet" type="number" min="0" value="${cfg.maxBet}" style="${S.formInput}" />
               </div>
               <div style="${S.formGroup}">
-                <label style="${S.formLabel}" for="adm-cfg-edge">House Edge % Override (leave blank to use default)</label>
-                <input id="adm-cfg-edge" type="number" min="0" max="100" step="0.01"
-                  value="${cfg.houseEdgeOverride !== null ? cfg.houseEdgeOverride : ""}"
-                  placeholder="e.g. 2.5" style="${S.formInput}" />
+                <label style="${S.formLabel}" for="adm-cfg-edge">House Edge % — win rate for Dice, Crash, Limbo, Mines, Hi-Lo (blank = default 1%; higher = players win less)</label>
+                <input id="adm-cfg-edge" type="number" min="-50" max="95" step="0.1"
+                  value="${cfg.house_edge != null && cfg.house_edge !== '' && cfg.house_edge !== 'null' ? cfg.house_edge : ''}"
+                  placeholder="e.g. 5" style="${S.formInput}" />
               </div>
               <div>
                 <button id="adm-cfg-save" style="${S.submitBtn}">Save Config</button>
@@ -2008,11 +2008,11 @@ const AdminGame = (() => {
           const minBet = Number(pane.querySelector("#adm-cfg-minbet").value);
           const maxBet = Number(pane.querySelector("#adm-cfg-maxbet").value);
           const edgeRaw = pane.querySelector("#adm-cfg-edge").value.trim();
-          const houseEdgeOverride = edgeRaw === "" ? null : Number(edgeRaw);
           btn.disabled = true; btn.textContent = "Saving…";
           try {
-            await Api.post("/admin/config", { minBet, maxBet, houseEdgeOverride });
-            r.style.display = "block"; r.style.color = "var(--win)"; r.textContent = "✅ Config saved.";
+            // house_edge "" → backend resets to the 1% default; a number applies live.
+            await Api.post("/admin/config", { minBet, maxBet, house_edge: edgeRaw });
+            r.style.display = "block"; r.style.color = "var(--win)"; r.textContent = edgeRaw === "" ? "✅ Saved — house edge reset to 1%." : `✅ Saved — house edge is now ${edgeRaw}%.`;
             UI.toast("Config saved.", "info");
           } catch (err) {
             r.style.display = "block"; r.style.color = "var(--loss)"; r.textContent = err.message;
