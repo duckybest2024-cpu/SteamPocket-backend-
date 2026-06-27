@@ -1461,7 +1461,9 @@ ins.adsbygoogle[data-ad-status="unfilled"] { display: none !important; }
   color: var(--text-dim);
   line-height: 1;
 }
-.crash-multiplier.betting  { color: var(--text-dim); }
+/* During betting the element shows a message ("Place your bets"), not a
+   number — shrink it so it reads as a label instead of a giant broken figure. */
+.crash-multiplier.betting  { color: var(--text-dim); font-size: 1.7rem; text-align: center; }
 .crash-multiplier.running  { color: var(--win); text-shadow: 0 0 24px rgba(0,231,1,0.5); }
 .crash-multiplier.crashed  { color: var(--loss); text-shadow: 0 0 24px rgba(239,68,68,0.5); }
 .crash-multiplier.cashed   { color: var(--gold); }
