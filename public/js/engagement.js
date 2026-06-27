@@ -128,11 +128,19 @@ const Engagement = (() => {
   // ─── 1. Confetti ──────────────────────────────────────────────────────────
   const CONFETTI_COLORS = ["#f0c244", "#00e701", "#ffffff", "#9b59b6", "#e5463d", "#4d9fec"];
 
+  let _lastConfetti = 0;
   function confetti(intensity) {
-    const counts = { small: 60, big: 120, jackpot: 200 };
-    const durations = { small: 1.5, big: 2.2, jackpot: 3.0 };
-    const count = counts[intensity] || 60;
-    const duration = durations[intensity] || 1.5;
+    // Rate-limit: during fast auto-betting, firing confetti on every win used
+    // to bury the whole screen. Skip if we fired very recently (jackpots always
+    // go through).
+    const now = Date.now();
+    if (intensity !== "jackpot" && now - _lastConfetti < 1800) return;
+    _lastConfetti = now;
+
+    const counts = { small: 18, big: 36, jackpot: 80 };
+    const durations = { small: 1.4, big: 1.8, jackpot: 2.6 };
+    const count = counts[intensity] || 18;
+    const duration = durations[intensity] || 1.4;
 
     // For jackpot: also play a coin sound burst
     if (intensity === "jackpot") {

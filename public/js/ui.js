@@ -21,7 +21,7 @@ const UI = (() => {
     localStorage.setItem("casino_notif_toast", val ? "true" : "false");
   }
 
-  const MAX_TOASTS = 4;
+  const MAX_TOASTS = 2;
 
   function toast(message, kind = "info") {
     if (!isToastEnabled()) return;
@@ -37,7 +37,7 @@ const UI = (() => {
       el.style.opacity = "0";
       el.style.transition = "opacity 0.3s";
       setTimeout(() => el.remove(), 300);
-    }, 3800);
+    }, 2600);
   }
 
   function setBalance(cents) {
