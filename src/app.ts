@@ -49,7 +49,18 @@ export function createApp() {
   });
 
   // The playable web UI — a static single-page app that talks to the API below.
-  app.use(express.static(path.join(__dirname, "..", "public")));
+  // HTML/JS/CSS are served with no-cache so every deploy reaches players
+  // immediately (otherwise browsers keep serving the old cached app.js/admin.js
+  // and new features/fixes appear "missing"). Images/fonts stay cached.
+  app.use(express.static(path.join(__dirname, "..", "public"), {
+    setHeaders: (res, filePath) => {
+      if (/\.(html|js|css)$/i.test(filePath)) {
+        res.setHeader("Cache-Control", "no-cache, must-revalidate");
+      } else {
+        res.setHeader("Cache-Control", "public, max-age=86400");
+      }
+    },
+  }));
 
   app.use("/auth", authRouter);
   app.use("/settings", settingsRouter);

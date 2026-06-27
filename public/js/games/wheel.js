@@ -40,6 +40,11 @@ const WheelGame = (() => {
             </div>
           </div>
 
+          <div class="bp-field" id="wheel-auto-controls" style="display:none;">
+            <div class="bp-label">Number of Bets (0 = until stopped)</div>
+            <input type="number" id="wheel-auto-count" value="10" min="0" step="1" />
+          </div>
+
           <hr class="bp-divider" />
 
           <button id="wheel-spin" class="play-btn">Spin</button>
@@ -74,10 +79,18 @@ const WheelGame = (() => {
     els.half.addEventListener("click", () => { els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 50) / 100); });
     els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100; });
 
-    // Manual/Auto tabs (visual only)
+    // Manual / Auto tabs — Auto reveals the bet-count box and turns the
+    // Spin button into a Start/Stop auto-runner.
+    let autoMode = false;
+    const autoControls = container.querySelector("#wheel-auto-controls");
+    const autoCount = container.querySelector("#wheel-auto-count");
     container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
+      if (autoRunning) return; // don't switch modes mid-run
       container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
       this.classList.add("active");
+      autoMode = this.id === "wheel-tab-auto";
+      autoControls.style.display = autoMode ? "" : "none";
+      els.spin.textContent = autoMode ? "Start Auto" : "Spin";
     }));
 
     function segmentsForRisk(r) {
@@ -144,13 +157,12 @@ const WheelGame = (() => {
       });
     });
 
-    els.spin.addEventListener("click", async () => {
-      if (busy) return;
+    // One spin, start to finish. Resolves when the result is shown (or rejects).
+    function doSpin() {
+      return new Promise(async (resolve, reject) => {
       const amount = Math.round((Number(els.amount.value) || 0) * 100);
-      if (amount <= 0) return UI.toast("Enter a bet.", "loss");
+      if (amount <= 0) { UI.toast("Enter a bet.", "loss"); return reject(new Error("bad amount")); }
 
-      busy = true;
-      els.spin.disabled = true;
       els.result.className = "result-banner";
 
       try {
@@ -210,14 +222,48 @@ const WheelGame = (() => {
           els.fairness.innerHTML = UI.fairnessLine({ serverSeedHash: accountState.fairness?.activeServerSeedHash, clientSeed: accountState.fairness?.clientSeed });
           UI.applyAccountUpdate(accountState, res);
           UI.toast(isWin ? `Won ${UI.money(res.result.payout)} on Wheel!` : "No win this spin.", isWin ? "win" : "info");
-          busy = false;
-          els.spin.disabled = false;
+          resolve({ isWin });
         }
       } catch (err) {
         UI.toast(err.message, "loss");
-        busy = false;
-        els.spin.disabled = false;
+        reject(err);
       }
+      });
+    }
+
+    // Single spin (Manual) vs. an automated batch (Auto).
+    let autoRunning = false;
+
+    async function runAuto() {
+      if (autoRunning) { autoRunning = false; return; } // toggle = stop
+      const target = Math.max(0, Math.floor(Number(autoCount.value) || 0)); // 0 = endless
+      autoRunning = true;
+      els.spin.textContent = "Stop";
+      els.spin.classList.add("danger");
+      // Lock the mode tabs while running
+      container.querySelectorAll(".bp-tab").forEach(t => t.style.pointerEvents = "none");
+      let done = 0;
+      try {
+        while (autoRunning && (target === 0 || done < target)) {
+          await doSpin();
+          done++;
+          if (autoRunning && (target === 0 || done < target)) await new Promise(r => setTimeout(r, 500));
+        }
+      } catch { /* stop on error (e.g. insufficient balance) */ }
+      autoRunning = false;
+      els.spin.textContent = "Start Auto";
+      els.spin.classList.remove("danger");
+      container.querySelectorAll(".bp-tab").forEach(t => t.style.pointerEvents = "");
+    }
+
+    els.spin.addEventListener("click", async () => {
+      if (autoMode) return runAuto();
+      if (busy) return;
+      busy = true;
+      els.spin.disabled = true;
+      try { await doSpin(); } catch { /* toast already shown */ }
+      busy = false;
+      els.spin.disabled = false;
     });
 
     GameThemes.init(container, "wheel");
