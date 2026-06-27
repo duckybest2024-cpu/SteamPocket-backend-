@@ -49,6 +49,10 @@ const rooms = new Map<string, Room>();
 const forfeitTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const FORFEIT_GRACE_MS = 120_000; // 2 minutes to rejoin before forfeiting
 
+// Per-room move clock: a human who stalls past this loses the game.
+const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const TURN_LIMIT_MS = 90_000; // 90 seconds to make a move
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────────
 
 function shuffle<T>(arr: T[]): T[] {
@@ -172,6 +176,7 @@ interface ChessState {
   check: boolean;
   enPassant: [number, number] | null;
   castling: { wK: boolean; wQ: boolean; bK: boolean; bQ: boolean };
+  lastMove?: { from: [number, number]; to: [number, number] } | null;
 }
 
 function initChess(players: RoomPlayer[]): ChessState {
@@ -360,6 +365,7 @@ function applyChessMove(
     check: inCheck,
     enPassant: newEnPassant,
     castling: newCastling,
+    lastMove: { from: move.from, to: move.to },
   };
   const oppLegal = chessLegalMoves(newState, opp);
   if (oppLegal.length === 0) newState.status = inCheck ? "checkmate" : "stalemate";
@@ -1604,6 +1610,7 @@ export function attachBoardGames(io: Server): void {
         },
       });
     } catch { /* ignore db errors */ }
+    clearTurnTimer(room.id);
     rooms.delete(room.id);
   }
 
@@ -1659,6 +1666,7 @@ export function attachBoardGames(io: Server): void {
     }
     broadcastRoom(room);
     await runBotTurns(room);
+    armTurnTimer(room);
   }
 
   const BOT_MOVE_DELAY_MS = 700;
@@ -1698,6 +1706,34 @@ export function attachBoardGames(io: Server): void {
     }
 
     await runBotTurns(room, depth + 1);
+  }
+
+  function clearTurnTimer(roomId: string): void {
+    const t = turnTimers.get(roomId);
+    if (t) { clearTimeout(t); turnTimers.delete(roomId); }
+  }
+
+  /**
+   * (Re)start the move clock for whoever is on turn. If it's a human and they
+   * don't move within TURN_LIMIT_MS, they forfeit. Bots are skipped (they move
+   * on their own). Call this whenever the turn lands back on a human.
+   */
+  function armTurnTimer(room: Room): void {
+    clearTurnTimer(room.id);
+    if (room.status !== "playing") return;
+    const turnUserId = getCurrentTurnUserId(room);
+    if (!turnUserId) return;
+    const player = room.players.find((p) => p.userId === turnUserId);
+    if (!player || player.isBot) return; // bots can't time out
+    turnTimers.set(room.id, setTimeout(() => {
+      turnTimers.delete(room.id);
+      const r = rooms.get(room.id);
+      if (!r || r.status !== "playing") return;
+      if (getCurrentTurnUserId(r) !== turnUserId) return; // they already moved
+      ns.to(r.id).emit("bg:timeout", { who: player.username });
+      const winner = r.players.find((p) => p.userId !== turnUserId);
+      void finishGame(r, winner?.userId ?? null);
+    }, TURN_LIMIT_MS));
   }
 
   /** Forfeit a player after the grace period if they haven't rejoined. */
@@ -1761,7 +1797,7 @@ export function attachBoardGames(io: Server): void {
       currentRoomId = room.id;
       socket.emit("bg:rejoin", { room: roomView(room, socket.data.userId) });
       ns.to(room.id).emit("bg:opponent-rejoined", { who: socket.data.username });
-      void runBotTurns(room); // nudge in case it was the bot's turn while away
+      void runBotTurns(room).then(() => armTurnTimer(room)); // nudge bot, then re-arm clock
     });
 
     // ── bg:rooms ───────────────────────────────────────────────────────────────────
@@ -1924,6 +1960,7 @@ export function attachBoardGames(io: Server): void {
         await finishGame(room, winnerId);
       } else {
         await runBotTurns(room);
+        armTurnTimer(room);
       }
     });
 
