@@ -6,6 +6,7 @@ import { isOwner } from "../lib/owner";
 import { sendTestEmail } from "../lib/mailer";
 import { sendPaypalPayout, isPaypalConfigured } from "../lib/paypal";
 import { setHouseEdgePercent, getHouseEdgePercent } from "../lib/gameOdds";
+import { NFT_CATALOG } from "../lib/nftCatalog";
 
 export const adminRouter = Router();
 
@@ -728,6 +729,44 @@ adminRouter.delete("/nft/:id", async (req, res) => {
     await prisma.nft.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
   } catch { res.status(404).json({ error: "Not found" }); }
+});
+
+// ── NFT store supply / restock ──────────────────────────────────────────────
+// Every catalog NFT with how many have been minted vs its supply cap, so the
+// admin can see what's sold out and restock it.
+adminRouter.get("/nft-store", async (_req, res) => {
+  try {
+    const records = await prisma.nftSupply.findMany();
+    const mintedMap = new Map<string, number>(records.map((r: { templateId: string; minted: number }) => [r.templateId, r.minted]));
+    const items = NFT_CATALOG.map((t) => {
+      const minted = mintedMap.get(t.id) ?? 0;
+      const remaining = t.supply === -1 ? -1 : Math.max(0, t.supply - minted);
+      return {
+        id: t.id, name: t.name, emoji: t.emoji, rarity: t.rarity,
+        priceChips: t.priceChips, supply: t.supply, minted, remaining,
+        soldOut: t.supply !== -1 && remaining === 0,
+      };
+    });
+    res.json({ items });
+  } catch { res.status(500).json({ error: "Failed to load store" }); }
+});
+
+// Restock a limited NFT: set how many are considered "minted" (default 0 =
+// fully back in stock). Unlimited NFTs never need restocking.
+adminRouter.post("/nft-store/:templateId/restock", async (req, res) => {
+  const template = NFT_CATALOG.find((t) => t.id === req.params.templateId);
+  if (!template) return res.status(404).json({ error: "NFT not found in catalog" });
+  if (template.supply === -1) return res.status(400).json({ error: "This NFT has unlimited supply — no restock needed" });
+  const raw = (req.body as { minted?: number }).minted;
+  const minted = Number.isInteger(raw) ? Math.max(0, Math.min(Number(raw), template.supply)) : 0;
+  try {
+    await prisma.nftSupply.upsert({
+      where: { templateId: template.id },
+      create: { templateId: template.id, minted },
+      update: { minted },
+    });
+    res.json({ ok: true, minted, remaining: template.supply - minted });
+  } catch { res.status(500).json({ error: "Restock failed" }); }
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
