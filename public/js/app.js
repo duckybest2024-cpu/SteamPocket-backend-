@@ -1,6 +1,6 @@
 /* GrilledCoin — App shell with Stake-inspired sidebar layout */
 const App = (() => {
-  const state = { id: null, username: null, nickname: null, rank: "free", balance: 0, bank: 0, fairness: null, isAdmin: false, isApproved: false, patreonUsername: null, patreonTier: null, payoutMethod: null, payoutPaypalEmail: null, payoutNote: null, stripeCardBrand: null, stripeCardLast4: null };
+  const state = { id: null, username: null, nickname: null, rank: "free", balance: 0, bank: 0, fairness: null, isAdmin: false, isVip: false, isApproved: false, patreonUsername: null, patreonTier: null, payoutMethod: null, payoutPaypalEmail: null, payoutNote: null, stripeCardBrand: null, stripeCardLast4: null };
 
   const NAV = [
     {
@@ -98,6 +98,7 @@ const App = (() => {
   ];
 
   const ADMIN_ITEM = { key: "admin", icon: "🔧", label: "Admin Panel", mod: () => AdminGame };
+  const VIP_ITEM = { key: "vip", icon: "💎", label: "Netherite Lounge", mod: () => VipGame };
   let allItems = NAV.flatMap((s) => s.items);
 
   let activeCleanup = null;
@@ -114,6 +115,14 @@ const App = (() => {
       const acct = sections.find((s) => s.section === "Account");
       if (acct && !acct.items.find((i) => i.key === "admin")) {
         acct.items.unshift(ADMIN_ITEM);
+      }
+    }
+    // Netherite Patrons get the cosmetic VIP lounge (the owner has the full
+    // Admin Panel already, so don't double it up for them).
+    if (state.isVip && state.rank !== "owner") {
+      const acct = sections.find((s) => s.section === "Account");
+      if (acct && !acct.items.find((i) => i.key === "vip")) {
+        acct.items.unshift(VIP_ITEM);
       }
     }
 
@@ -218,6 +227,7 @@ const App = (() => {
     state.bank = user.bank ?? 0;
     state.fairness = user.fairness;
     state.isAdmin = user.isAdmin ?? false;
+    state.isVip = user.isVip ?? false;
     state.isApproved = user.isApproved ?? true;
     state.patreonUsername = user.patreonUsername ?? null;
     state.patreonTier = user.patreonTier ?? null;

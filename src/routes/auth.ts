@@ -380,7 +380,10 @@ export function publicUser(user: {
     xp: user.xp,
     createdAt: user.createdAt,
     emailVerified: user.emailVerified,
-    isAdmin: (user.isAdmin ?? false) || isOwner(user.username),
+    // Real admin is owner-only. Netherite Patrons get the limited VIP lounge,
+    // not the admin panel — so isAdmin is never true for a non-owner here,
+    // which closes admin access even for accounts with a stale stored flag.
+    isAdmin: isOwner(user.username),
     isApproved: isOwner(user.username) ? true : (user.isApproved ?? true),
     approvedUntil: user.approvedUntil ?? null,
     patreonUsername: user.patreonUsername ?? null,
@@ -390,6 +393,8 @@ export function publicUser(user: {
     stripeCardBrand: user.stripeCardBrand ?? null,
     stripeCardLast4: user.stripeCardLast4 ?? null,
     patreonTier: user.patreonTier ?? null,
+    // Top-tier subscribers get the cosmetic VIP "Netherite Lounge" (not admin).
+    isVip: user.patreonTier === "netherite_patron" || isOwner(user.username),
     fairness: {
       activeServerSeedHash: user.serverSeedHash,
       clientSeed: user.clientSeed,

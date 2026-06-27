@@ -16,7 +16,10 @@ const adminOnly: RequestHandler[] = [
   requireAuth as RequestHandler,
   async (req: AuthedRequest, res, next) => {
     const user = await prisma.user.findUnique({ where: { id: req.userId } });
-    if (!user || (!isOwner(user.username) && !user.isAdmin)) {
+    // The real admin panel is OWNER-ONLY. Netherite Patrons used to get
+    // isAdmin=true and thus full admin — that's closed here; they get the
+    // limited /vip lounge instead (see vip.ts).
+    if (!user || !isOwner(user.username)) {
       return res.status(403).json({ error: "Admin only" });
     }
     next();
@@ -1178,13 +1181,17 @@ adminRouter.post("/subscriptions/:userId/approve", async (req, res) => {
 
   try {
     const approvedUntil = new Date(Date.now() + daysValid * 24 * 60 * 60 * 1000);
-    // Netherite Patron ($75/mo) is the admin tier — grant admin powers on approval.
+    // Netherite Patron ($75/mo) is the top tier and gets the VIP "Netherite
+    // Lounge" (see vip.ts) — but NOT real admin powers. Subscriptions never
+    // grant isAdmin; the owner is the only admin. Strip any stale admin flag
+    // from non-owners on (re)approval to clean up previously-granted access.
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
     const data: { isApproved: boolean; approvedUntil: Date; patreonTier: string; isAdmin?: boolean } = {
       isApproved: true,
       approvedUntil,
       patreonTier,
     };
-    if (patreonTier === "netherite_patron") data.isAdmin = true;
+    if (target && !isOwner(target.username)) data.isAdmin = false;
     const user = await prisma.user.update({
       where: { id: userId },
       data,
