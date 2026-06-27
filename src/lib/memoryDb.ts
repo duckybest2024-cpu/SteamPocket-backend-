@@ -676,6 +676,12 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
     defaults: () => ({ status: "open", context: null, createdAt: now() }),
     dateFields: ["createdAt"],
   },
+  directMessage: {
+    idField: "id",
+    autoId: true,
+    defaults: () => ({ createdAt: now() }),
+    dateFields: ["createdAt"],
+  },
   caseOpening: {
     idField: "id",
     autoId: true,

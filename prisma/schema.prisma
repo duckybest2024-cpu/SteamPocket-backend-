@@ -296,6 +296,16 @@ model Report {
   createdAt    DateTime @default(now())
 }
 
+model DirectMessage {
+  id        String   @id @default(cuid())
+  fromId    String
+  fromName  String
+  toId      String
+  toName    String
+  message   String
+  createdAt DateTime @default(now())
+}
+
 model CaseOpening {
   id         String   @id @default(cuid())
   userId     String

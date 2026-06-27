@@ -81,7 +81,7 @@ const App = (() => {
     {
       section: "NFT & Trading",
       items: [
-        { key: "nfts",        icon: "🖼️", label: "NFT Collection",   mod: () => NFTsGame },
+        { key: "nfts",        icon: "🖼️", label: "NFTs & Trading",    mod: () => NFTsGame },
         { key: "nftmarket",   icon: "🏪", label: "NFT Marketplace",  mod: () => NFTMarketGame },
         { key: "cases",       icon: "📦", label: "Cases",             mod: () => CasesGame },
       ],
@@ -90,6 +90,7 @@ const App = (() => {
       section: "Account",
       items: [
         { key: "stats",       icon: "📊", label: "My Stats",          mod: () => StatsGame },
+        { key: "messages",    icon: "💬", label: "Messages",          mod: () => MessagesGame },
         { key: "leaderboard", icon: "🏆", label: "Leaderboard",       mod: () => LeaderboardGame },
         { key: "friends",     icon: "👥", label: "Friends",           mod: () => FriendsGame },
         { key: "settings",    icon: "⚙️", label: "Settings",          mod: () => SettingsGame },
