@@ -53,7 +53,16 @@ authRouter.post("/register", async (req, res) => {
     const existing = await prisma.user.findFirst({
       where: { OR: [{ username: { equals: username, mode: "insensitive" } }, { email }] },
     });
-    if (existing) return res.status(409).json({ error: "Username or email already taken" });
+    if (existing) {
+      // Be specific about WHICH field collided so the person knows what to change
+      // (and so "email taken" isn't shown when it's actually the username).
+      const emailTaken = existing.email.toLowerCase() === email;
+      return res.status(409).json({
+        error: emailTaken
+          ? "An account with that email already exists — try logging in or resetting your password instead."
+          : "That username is already taken — please pick a different one.",
+      });
+    }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const seedPair = createSeedPair();
@@ -371,7 +380,10 @@ export function publicUser(user: {
     xp: user.xp,
     createdAt: user.createdAt,
     emailVerified: user.emailVerified,
-    isAdmin: (user.isAdmin ?? false) || isOwner(user.username),
+    // Real admin is owner-only. Netherite Patrons get the limited VIP lounge,
+    // not the admin panel — so isAdmin is never true for a non-owner here,
+    // which closes admin access even for accounts with a stale stored flag.
+    isAdmin: isOwner(user.username),
     isApproved: isOwner(user.username) ? true : (user.isApproved ?? true),
     approvedUntil: user.approvedUntil ?? null,
     patreonUsername: user.patreonUsername ?? null,
@@ -381,6 +393,8 @@ export function publicUser(user: {
     stripeCardBrand: user.stripeCardBrand ?? null,
     stripeCardLast4: user.stripeCardLast4 ?? null,
     patreonTier: user.patreonTier ?? null,
+    // Top-tier subscribers get the cosmetic VIP "Netherite Lounge" (not admin).
+    isVip: user.patreonTier === "netherite_patron" || isOwner(user.username),
     fairness: {
       activeServerSeedHash: user.serverSeedHash,
       clientSeed: user.clientSeed,

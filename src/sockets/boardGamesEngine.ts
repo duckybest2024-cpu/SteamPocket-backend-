@@ -1615,7 +1615,10 @@ export function attachBoardGames(io: Server): void {
       return;
     }
 
-    const deductCents = room.betChips * 5000;
+    // 1 chip = 100 cents. Must match the pot math in resolveWinner
+    // (betChips * 100) — using 5000 here charged 50x the bet, which made
+    // affordable bets wrongly fail with "Insufficient chips".
+    const deductCents = room.betChips * 100;
     const failed: string[] = [];
 
     for (const p of room.players) {

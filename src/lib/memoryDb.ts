@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import * as fs from "fs";
+import * as path from "path";
 
 type Row = Record<string, any>;
 
@@ -721,6 +723,79 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
 const memoryDb = new MemoryDb();
 for (const [name, config] of Object.entries(MODEL_CONFIGS)) memoryDb.register(name, config);
 
+// ─── Disk persistence ─────────────────────────────────────────────────────
+// The store lives in RAM, so without this every restart/redeploy would wipe
+// all accounts, balances, and config. We snapshot every collection to a single
+// JSON file and reload it on boot. Point DATA_FILE at a PERSISTENT disk (e.g. a
+// Railway Volume mounted at /data → DATA_FILE=/data/db.json) so the data also
+// survives redeploys, not just in-process restarts. See DATABASE_SETUP.md.
+const DATA_FILE = process.env.DATA_FILE || process.env.DB_FILE || path.join(process.cwd(), "data", "db.json");
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingWrite = false;
+
+function reviveDates(modelName: string, row: Row): Row {
+  const cfg = MODEL_CONFIGS[modelName];
+  if (cfg?.dateFields) {
+    for (const f of cfg.dateFields) {
+      if (typeof row[f] === "string") row[f] = new Date(row[f]);
+    }
+  }
+  return row;
+}
+
+function loadFromDisk(): void {
+  try {
+    if (!fs.existsSync(DATA_FILE)) return;
+    const raw = fs.readFileSync(DATA_FILE, "utf8");
+    if (!raw.trim()) return;
+    const data = JSON.parse(raw) as Record<string, Row[]>;
+    for (const [name, rows] of Object.entries(data)) {
+      const col = memoryDb.collections.get(name);
+      if (!col || !Array.isArray(rows)) continue;
+      const map = new Map<string, Row>();
+      const idField = col.config.idField;
+      for (const row of rows) map.set(row[idField], reviveDates(name, row));
+      col.restore(map);
+    }
+    console.log(`💾 Restored database from ${DATA_FILE}`);
+  } catch (err) {
+    console.error("Failed to load database from disk (starting empty):", err);
+  }
+}
+
+function persistNow(): void {
+  try {
+    const out: Record<string, Row[]> = {};
+    for (const [name, col] of memoryDb.collections) out[name] = [...col.snapshot().values()];
+    const dir = path.dirname(DATA_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const tmp = `${DATA_FILE}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(out), "utf8");
+    fs.renameSync(tmp, DATA_FILE); // atomic swap so a crash mid-write can't corrupt it
+    pendingWrite = false;
+  } catch (err) {
+    console.error("Failed to persist database to disk:", err);
+  }
+}
+
+/** Debounced save — coalesces bursts of writes into one disk flush. */
+function schedulePersist(): void {
+  pendingWrite = true;
+  if (persistTimer) return;
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    persistNow();
+  }, 800);
+}
+
+loadFromDisk();
+
+// Safety net + clean shutdown flush (Railway sends SIGTERM on redeploy).
+setInterval(() => { if (pendingWrite) persistNow(); }, 15_000).unref?.();
+for (const sig of ["SIGTERM", "SIGINT", "beforeExit"] as const) {
+  process.on(sig, () => { persistNow(); });
+}
+
 // ─── Lazy "PrismaPromise"-like wrapper ────────────────────────────────────
 // Building a `prisma.model.method(...)` call must NOT execute immediately —
 // `$transaction([...])` relies on collecting these calls into an array
@@ -759,19 +834,21 @@ class LazyOp<T> implements PromiseLike<T> {
 }
 
 function wrapCollection(collection: Collection): any {
+  // Mutating ops trigger a debounced save so changes reach disk.
+  const mut = (fn: () => any) => new LazyOp(() => { const r = fn(); schedulePersist(); return r; });
   return {
-    create: (args: any) => new LazyOp(() => collection.create(args)),
-    createMany: (args: any) => new LazyOp(() => collection.createMany(args)),
+    create: (args: any) => mut(() => collection.create(args)),
+    createMany: (args: any) => mut(() => collection.createMany(args)),
     findUnique: (args: any) => new LazyOp(() => collection.findUnique(args)),
     findUniqueOrThrow: (args: any) => new LazyOp(() => collection.findUniqueOrThrow(args)),
     findFirst: (args?: any) => new LazyOp(() => collection.findFirst(args)),
     findMany: (args?: any) => new LazyOp(() => collection.findMany(args)),
     count: (args?: any) => new LazyOp(() => collection.count(args)),
-    update: (args: any) => new LazyOp(() => collection.update(args)),
-    updateMany: (args: any) => new LazyOp(() => collection.updateMany(args)),
-    upsert: (args: any) => new LazyOp(() => collection.upsert(args)),
-    delete: (args: any) => new LazyOp(() => collection.delete(args)),
-    deleteMany: (args?: any) => new LazyOp(() => collection.deleteMany(args)),
+    update: (args: any) => mut(() => collection.update(args)),
+    updateMany: (args: any) => mut(() => collection.updateMany(args)),
+    upsert: (args: any) => mut(() => collection.upsert(args)),
+    delete: (args: any) => mut(() => collection.delete(args)),
+    deleteMany: (args?: any) => mut(() => collection.deleteMany(args)),
     aggregate: (args?: any) => new LazyOp(() => collection.aggregate(args)),
     groupBy: (args: any) => new LazyOp(() => collection.groupBy(args)),
   };

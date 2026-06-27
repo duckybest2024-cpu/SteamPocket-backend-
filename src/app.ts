@@ -18,6 +18,7 @@ import { friendsRouter } from "./routes/friends";
 import { adminRouter } from "./routes/admin";
 import { settingsRouter } from "./routes/settings";
 import { payoutRouter } from "./routes/payout";
+import { vipRouter } from "./routes/vip";
 import { nftRouter } from "./routes/nfts";
 import { nftMarketRouter } from "./routes/nftmarket";
 import { casesRouter } from "./routes/cases";
@@ -53,6 +54,7 @@ export function createApp() {
   app.use("/auth", authRouter);
   app.use("/settings", settingsRouter);
   app.use("/payout", payoutRouter);
+  app.use("/vip", vipRouter);
   app.use("/fairness", fairnessRouter);
   app.use("/wallet", walletRouter);
   app.use("/bets", betsRouter);
