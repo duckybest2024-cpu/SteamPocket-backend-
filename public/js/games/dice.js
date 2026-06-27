@@ -15,7 +15,7 @@ const DiceGame = (() => {
           </div>
 
           <div class="bp-field">
-            <label class="bp-label">Bet Amount ($)</label>
+            <label class="bp-label">Bet Amount (chips)</label>
             <div class="bp-input-row">
               <input type="number" id="dice-amount" value="10" min="0.01" step="0.01" />
               <button class="quick-btn" id="dice-half">½</button>
@@ -228,6 +228,9 @@ const DiceGame = (() => {
     }
 
     els.target.addEventListener("input", refreshOdds);
+    // Clamp the visible field to the valid 0.01–99.99 range so it can't show an
+    // out-of-range target (e.g. 500) that silently plays at a <1x multiplier.
+    els.target.addEventListener("change", () => { els.target.value = target.toFixed(2); refreshOdds(); });
 
     function setDirection(dir) {
       direction = dir;

@@ -23,7 +23,7 @@ const WheelGame = (() => {
           </div>
 
           <div class="bp-field">
-            <div class="bp-label">Bet Amount ($)</div>
+            <div class="bp-label">Bet Amount (chips)</div>
             <div class="bp-input-row">
               <input type="number" id="wheel-amount" value="1.00" min="0.01" step="0.01" />
               <button class="quick-btn" id="wheel-half">½</button>

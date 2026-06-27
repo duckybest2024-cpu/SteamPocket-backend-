@@ -1394,17 +1394,18 @@ button { font-family: inherit; cursor: pointer; border: none; outline: none; }
 }
 .plinko-slot {
   text-align: center;
-  padding: 5px 2px;
+  padding: 5px 0;
   border-radius: 6px;
-  font-size: 0.72rem;
+  /* Scales down with the board so the full multiplier (e.g. 1.1x) always fits
+     instead of truncating to "1..." when there are many narrow slots. */
+  font-size: clamp(0.5rem, 2.2vw, 0.72rem);
   font-weight: 800;
   color: var(--slot-color, var(--text-dim));
   background: rgba(0,0,0,0.25);
   border: 1px solid var(--slot-color, var(--border));
   transition: transform 0.2s, box-shadow 0.2s;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
 }
 .plinko-slot.landed {
   background: var(--slot-color, var(--accent));

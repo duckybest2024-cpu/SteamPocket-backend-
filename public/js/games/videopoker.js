@@ -35,7 +35,7 @@ const VideoPokerGame = (() => {
           </div>
 
           <div class="bp-field">
-            <div class="bp-label">Bet Amount ($)</div>
+            <div class="bp-label">Bet Amount (chips)</div>
             <div class="bp-input-row">
               <input type="number" id="vp-amount" value="1.00" min="0.01" step="0.01" />
               <button class="quick-btn" id="vp-half">½</button>

@@ -372,7 +372,7 @@ const RouletteGame = (() => {
           </div>
 
           <div class="bp-field">
-            <div class="bp-label">Stake Amount ($)</div>
+            <div class="bp-label">Stake Amount (chips)</div>
             <div class="bp-input-row">
               <input type="number" id="roulette-amount" value="10" min="0.01" step="0.01" />
               <button class="quick-btn" id="roulette-half">½</button>

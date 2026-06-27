@@ -14,7 +14,7 @@ const LimboGame = (() => {
           </div>
 
           <div class="bp-field">
-            <label class="bp-label">Bet Amount ($)</label>
+            <label class="bp-label">Bet Amount (chips)</label>
             <div class="bp-input-row">
               <input type="number" id="limbo-amount" value="10" min="0.01" step="0.01" />
               <button class="quick-btn" id="limbo-half">½</button>

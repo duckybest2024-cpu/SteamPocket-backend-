@@ -146,6 +146,19 @@ const SettingsGame = (() => {
           </div>
 
           <div style="${S.section}">
+            <h3 style="${S.sectionTitle}">🎨 Theme</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 12px;">Pick a skin for the whole app and all games.</p>
+            <div id="s-theme-swatches" style="display:flex;flex-wrap:wrap;gap:10px;">
+              ${(typeof GameThemes !== "undefined" ? GameThemes.THEMES : []).map((t) => `
+                <button type="button" class="s-theme-btn" data-theme="${t.id}" title="${t.name}"
+                  style="display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--bg-elev);border:2px solid ${GameThemes.getGlobal() === t.id ? "var(--accent)" : "var(--border)"};border-radius:10px;padding:8px 10px;cursor:pointer;min-width:64px;">
+                  <span style="font-size:1.4rem;">${t.icon}</span>
+                  <span style="font-size:0.68rem;color:var(--text-dim);">${t.name}</span>
+                </button>`).join("")}
+            </div>
+          </div>
+
+          <div style="${S.section}">
             <h3 style="${S.sectionTitle}">🔊 Sound</h3>
             <div style="${S.form}">
               <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
@@ -212,6 +225,19 @@ const SettingsGame = (() => {
       }
 
       UI.wireAllPasswordToggles(container);
+
+      // Theme picker — sets the global app/game theme.
+      container.querySelectorAll(".s-theme-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const themeId = btn.dataset.theme;
+          GameThemes.setGlobal(themeId);
+          GameThemes.applyGlobal(themeId);
+          container.querySelectorAll(".s-theme-btn").forEach((b) => {
+            b.style.borderColor = b === btn ? "var(--accent)" : "var(--border)";
+          });
+          if (window.UI && UI.toast) UI.toast("Theme applied!", "win");
+        });
+      });
 
       container.querySelector("#s-nickname-btn").addEventListener("click", async () => {
         const val = container.querySelector("#s-nickname").value.trim();
