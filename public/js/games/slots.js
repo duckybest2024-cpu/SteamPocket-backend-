@@ -389,7 +389,7 @@ const SlotsGame = (() => {
             </div>
 
             <div class="bp-field">
-              <div class="bp-label">Bet Per Line ($)</div>
+              <div class="bp-label">Bet Per Line (chips)</div>
               <div class="bp-input-row">
                 <input type="number" id="slots-linebet" value="0.20" min="0.01" step="0.01" />
                 <button class="quick-btn" id="slots-half">½</button>

@@ -48,11 +48,35 @@ const GameThemes = (() => {
   }
 
   function getSaved(gameKey) {
-    return localStorage.getItem(`gc_theme_${gameKey}`) || "classic";
+    // Per-game choice wins; otherwise fall back to the global default theme.
+    return localStorage.getItem(`gc_theme_${gameKey}`) || getGlobal();
   }
 
   function save(gameKey, themeId) {
     localStorage.setItem(`gc_theme_${gameKey}`, themeId);
+  }
+
+  // ── Global / default theme (set from Settings, applies app-wide) ──────────
+  function getGlobal() {
+    return localStorage.getItem("gc_theme_default") || "classic";
+  }
+
+  function setGlobal(themeId) {
+    localStorage.setItem("gc_theme_default", themeId);
+    // Clear per-game overrides so the chosen theme applies everywhere.
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("gc_theme_") && k !== "gc_theme_default") localStorage.removeItem(k);
+    }
+  }
+
+  // Apply a theme's CSS variables to the whole app (document root).
+  function applyGlobal(themeId) {
+    const theme = get(themeId);
+    const root = document.documentElement;
+    VAR_KEYS.forEach((k) => root.style.removeProperty(k));
+    Object.entries(theme.vars).forEach(([k, v]) => root.style.setProperty(k, v));
+    root.dataset.theme = themeId;
   }
 
   // Applies a theme's CSS variable overrides to the nearest .game-layout
@@ -101,5 +125,5 @@ const GameThemes = (() => {
     wirePicker(container, gameKey);
   }
 
-  return { THEMES, get, getSaved, save, apply, renderPicker, wirePicker, init };
+  return { THEMES, get, getSaved, save, apply, renderPicker, wirePicker, init, getGlobal, setGlobal, applyGlobal };
 })();

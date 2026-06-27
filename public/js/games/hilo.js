@@ -16,7 +16,7 @@ const HiloGame = (() => {
           </div>
 
           <div class="bp-field">
-            <div class="bp-label">Bet ($)</div>
+            <div class="bp-label">Bet (chips)</div>
             <div class="bp-input-row">
               <input type="number" id="hilo-amount" value="5.00" min="0.01" step="0.01" style="flex:1;" />
               <button class="quick-btn" id="hilo-half">½</button>

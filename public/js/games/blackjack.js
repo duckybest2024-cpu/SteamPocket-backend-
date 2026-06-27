@@ -15,7 +15,7 @@ const BlackjackGame = (() => {
           </div>
 
           <div class="bp-field">
-            <div class="bp-label">Bet Amount ($)</div>
+            <div class="bp-label">Bet Amount (chips)</div>
             <div class="bp-input-row">
               <input type="number" id="bj-amount" value="10" min="0.01" step="0.01" />
               <button class="quick-btn" id="bj-half">½</button>

@@ -648,6 +648,7 @@ const App = (() => {
     wireAuthForms();
     wireTopbar();
     loadGoogleIntegrations();
+    if (typeof GameThemes !== "undefined") GameThemes.applyGlobal(GameThemes.getGlobal());
 
     const params = new URLSearchParams(window.location.search);
     const payoutSetupSessionId = params.get("payout_setup") === "success" ? params.get("session_id") : null;
