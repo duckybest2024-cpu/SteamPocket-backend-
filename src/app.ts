@@ -19,6 +19,7 @@ import { adminRouter } from "./routes/admin";
 import { settingsRouter } from "./routes/settings";
 import { payoutRouter } from "./routes/payout";
 import { vipRouter } from "./routes/vip";
+import { reportRouter } from "./routes/report";
 import { nftRouter } from "./routes/nfts";
 import { nftMarketRouter } from "./routes/nftmarket";
 import { casesRouter } from "./routes/cases";
@@ -66,6 +67,7 @@ export function createApp() {
   app.use("/settings", settingsRouter);
   app.use("/payout", payoutRouter);
   app.use("/vip", vipRouter);
+  app.use("/report", reportRouter);
   app.use("/fairness", fairnessRouter);
   app.use("/wallet", walletRouter);
   app.use("/bets", betsRouter);

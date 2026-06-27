@@ -904,6 +904,19 @@ adminRouter.delete("/ip-blocks/:ip", (req, res) => {
 // ===========================================================================
 // 4. REPORTS — suspicious users
 // ===========================================================================
+// Player-submitted reports
+adminRouter.get("/reports/user", async (_req, res) => {
+  const reports = await prisma.report.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
+  res.json({ reports });
+});
+
+adminRouter.post("/reports/:id/resolve", async (req, res) => {
+  try {
+    await prisma.report.update({ where: { id: req.params.id }, data: { status: "resolved" } });
+    res.json({ ok: true });
+  } catch { res.status(404).json({ error: "Not found" }); }
+});
+
 adminRouter.get("/reports/suspicious", async (_req, res) => {
   try {
     const users = await prisma.user.findMany({

@@ -2150,14 +2150,38 @@ const AdminGame = (() => {
     }
 
     // ── Reports ────────────────────────────────────────────────────────────────
+    function escapeHtmlAdm(str) {
+      return String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
     async function loadReports() {
       const pane = container.querySelector("#adm-pane-reports");
       if (!pane) return;
       pane.innerHTML = `<div style="color:var(--text-dim);padding:40px 20px;text-align:center;">⏳ Loading…</div>`;
       try {
-        const data = await Api.get("/admin/reports/suspicious");
+        const [data, userReportsData] = await Promise.all([
+          Api.get("/admin/reports/suspicious"),
+          Api.get("/admin/reports/user").catch(() => ({ reports: [] })),
+        ]);
         const users = data.users || [];
+        const userReports = (userReportsData && userReportsData.reports) || [];
+        const openReports = userReports.filter(r => r.status !== "resolved");
         pane.innerHTML = `
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🚩 Player Reports (${openReports.length} open)</h3>
+            ${userReports.length === 0
+              ? `<p style="color:var(--text-dim);font-size:0.88rem;">No player reports yet.</p>`
+              : userReports.map(r => `
+                <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;${r.status === "resolved" ? "opacity:0.5;" : ""}">
+                  <div style="font-weight:700;">🚩 ${escapeHtmlAdm(r.reportedName)} <span style="color:var(--text-dim);font-weight:400;">reported by ${escapeHtmlAdm(r.reporterName)}</span></div>
+                  <div style="font-size:0.9rem;margin:6px 0;">${escapeHtmlAdm(r.reason)}</div>
+                  ${r.context ? `<div style="font-size:0.8rem;color:var(--text-dim);font-style:italic;">Context: "${escapeHtmlAdm(r.context)}"</div>` : ""}
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                    <span style="font-size:0.72rem;color:var(--text-mute);">${new Date(r.createdAt).toLocaleString()}</span>
+                    ${r.status === "resolved" ? `<span style="color:var(--win);font-size:0.8rem;">✓ Resolved</span>` : `<button class="adm-report-resolve" data-id="${r.id}" style="${S.smallBtn}">Mark Resolved</button>`}
+                  </div>
+                </div>`).join("")}
+          </div>
           <div style="${S.sectionCard}">
             <h3 style="${S.sectionTitle}">🔍 Suspicious Users — Balance > 0, No Deposits (${users.length})</h3>
             <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
@@ -2188,6 +2212,16 @@ const AdminGame = (() => {
         `;
         pane.querySelectorAll("[data-uid]").forEach(el => {
           el.addEventListener("click", () => openUserDetailModal(el.getAttribute("data-uid")));
+        });
+        pane.querySelectorAll(".adm-report-resolve").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            btn.disabled = true; btn.textContent = "…";
+            try {
+              await Api.post(`/admin/reports/${btn.dataset.id}/resolve`, {});
+              UI.toast("Report resolved.", "win");
+              loadReports();
+            } catch (err) { UI.toast(err.message || "Failed.", "loss"); btn.disabled = false; btn.textContent = "Mark Resolved"; }
+          });
         });
       } catch (err) {
         pane.innerHTML = `<div style="color:var(--loss);padding:20px;">${err.message}</div>`;
