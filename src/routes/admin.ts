@@ -58,7 +58,14 @@ adminRouter.get("/users", async (req, res) => {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
     const search = typeof req.query.search === "string" && req.query.search.trim() ? req.query.search.trim() : undefined;
 
-    const where = search ? { username: { contains: search } } : {};
+    const where = search
+      ? {
+          OR: [
+            { username: { contains: search, mode: "insensitive" as const } },
+            { email: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
+      : {};
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({

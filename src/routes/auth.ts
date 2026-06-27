@@ -53,7 +53,16 @@ authRouter.post("/register", async (req, res) => {
     const existing = await prisma.user.findFirst({
       where: { OR: [{ username: { equals: username, mode: "insensitive" } }, { email }] },
     });
-    if (existing) return res.status(409).json({ error: "Username or email already taken" });
+    if (existing) {
+      // Be specific about WHICH field collided so the person knows what to change
+      // (and so "email taken" isn't shown when it's actually the username).
+      const emailTaken = existing.email.toLowerCase() === email;
+      return res.status(409).json({
+        error: emailTaken
+          ? "An account with that email already exists — try logging in or resetting your password instead."
+          : "That username is already taken — please pick a different one.",
+      });
+    }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const seedPair = createSeedPair();
