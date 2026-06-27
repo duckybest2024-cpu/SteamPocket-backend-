@@ -18,6 +18,7 @@ process.on("unhandledRejection", (reason) => {
 });
 
 import { prisma } from "./lib/prisma";
+import { loadHouseEdge } from "./lib/gameOdds";
 
 async function waitForDb(retries = 10): Promise<void> {
   for (let i = 0; i < retries; i++) {
@@ -35,6 +36,9 @@ async function waitForDb(retries = 10): Promise<void> {
 
 (async () => {
   await waitForDb();
+
+  // Apply the admin-configured global house edge (if one was saved).
+  await loadHouseEdge().catch(() => {});
 
   const app = createApp();
   const httpServer = http.createServer(app);

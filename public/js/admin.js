@@ -1318,6 +1318,27 @@ const AdminGame = (() => {
               </div>
             </div>
           </div>
+
+          <!-- Game Odds / House Edge -->
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🎲 Game Odds (House Edge)</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              Sets the global house edge for the engine-driven games (Dice, Crash, Limbo, Mines, Hi-Lo).
+              This is a uniform odds knob that applies to <strong>everyone</strong> — higher = players win
+              less and the house keeps more; lower (or negative) = players win more.
+              <strong>1%</strong> = the standard 99% payout. Takes effect immediately, no redeploy needed.
+            </p>
+            <div style="${S.form};max-width:420px;">
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">House Edge (%)</label>
+                <input id="adm-house-edge" type="number" step="0.1" min="-50" max="95" placeholder="1"
+                  value="${cfg["house_edge"] !== undefined && cfg["house_edge"] !== "" ? cfg["house_edge"] : "1"}" style="${S.formInput}" />
+              </div>
+              <div>
+                <button id="adm-odds-save" style="${S.submitBtn}">Save Game Odds</button>
+              </div>
+            </div>
+          </div>
         `;
 
         UI.wireAllPasswordToggles(pane);
@@ -1458,6 +1479,25 @@ const AdminGame = (() => {
             UI.toast(err.message || "Failed.", "loss");
           } finally {
             btn.disabled = false; btn.textContent = "Save PayPal Settings";
+          }
+        });
+
+        // Save Game Odds (house edge)
+        pane.querySelector("#adm-odds-save").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-odds-save");
+          const raw = pane.querySelector("#adm-house-edge").value.trim();
+          const pct = Number(raw);
+          if (raw === "" || !Number.isFinite(pct) || pct < -50 || pct > 95) {
+            return UI.toast("Enter a house edge between -50 and 95.", "loss");
+          }
+          btn.disabled = true; btn.textContent = "Saving…";
+          try {
+            await Api.post("/admin/config", { house_edge: String(pct) });
+            UI.toast(`House edge set to ${pct}%. Live now.`, "win");
+          } catch (err) {
+            UI.toast(err.message || "Failed.", "loss");
+          } finally {
+            btn.disabled = false; btn.textContent = "Save Game Odds";
           }
         });
 

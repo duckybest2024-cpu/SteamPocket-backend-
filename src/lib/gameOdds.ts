@@ -1,0 +1,43 @@
+import { config } from "./config";
+import { getSiteConfig } from "./siteConfig";
+
+/**
+ * Global house-edge control for the engine-driven games (Dice, Crash, Limbo,
+ * Mines, Hi-Lo). These read `config.houseEdge` live at spin-time, so updating
+ * that value here changes the odds for everyone immediately — it is a uniform,
+ * global RTP knob, NOT a per-player or per-outcome override.
+ *
+ * Stored as a percent in SiteConfig key "house_edge" (e.g. "1" = 1% edge /
+ * 99% RTP). Negative values mean players profit on average (the house pays out
+ * more than it takes in) — fine for a play-money game, but it bleeds chips.
+ */
+
+const MIN_EDGE = -0.5; // players win ~50% more than they stake on average
+const MAX_EDGE = 0.95; // brutal — house keeps almost everything
+
+/** Clamp a fractional edge (e.g. 0.01) into the allowed range. */
+export function clampEdge(edge: number): number {
+  if (!Number.isFinite(edge)) return config.houseEdge;
+  return Math.max(MIN_EDGE, Math.min(MAX_EDGE, edge));
+}
+
+/** Set the live global house edge from a PERCENT value (e.g. 1 → 0.01). */
+export function setHouseEdgePercent(percent: number): number {
+  const edge = clampEdge(percent / 100);
+  config.houseEdge = edge;
+  return edge;
+}
+
+/** Current global house edge expressed as a percent (e.g. 0.01 → 1). */
+export function getHouseEdgePercent(): number {
+  return Math.round(config.houseEdge * 10000) / 100;
+}
+
+/** Load the persisted house edge from SiteConfig into the live config at boot. */
+export async function loadHouseEdge(): Promise<void> {
+  const stored = await getSiteConfig("house_edge");
+  if (stored !== null && stored.trim() !== "") {
+    const percent = Number(stored);
+    if (Number.isFinite(percent)) config.houseEdge = clampEdge(percent / 100);
+  }
+}

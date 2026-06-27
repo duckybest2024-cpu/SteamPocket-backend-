@@ -5,6 +5,7 @@ import { requireAuth, AuthedRequest } from "../middleware/auth";
 import { isOwner } from "../lib/owner";
 import { sendTestEmail } from "../lib/mailer";
 import { sendPaypalPayout, isPaypalConfigured } from "../lib/paypal";
+import { setHouseEdgePercent } from "../lib/gameOdds";
 
 export const adminRouter = Router();
 
@@ -636,6 +637,12 @@ adminRouter.post("/config", async (req, res) => {
       create: { key, value: String(value) },
       update: { value: String(value) },
     });
+  }
+  // House edge changes take effect immediately for the engine-driven games
+  // (Dice, Crash, Limbo, Mines, Hi-Lo) — apply it to the live config now.
+  if (updates.house_edge !== undefined && updates.house_edge !== "") {
+    const percent = Number(updates.house_edge);
+    if (Number.isFinite(percent)) setHouseEdgePercent(percent);
   }
   res.json({ ok: true });
 });
