@@ -43,6 +43,12 @@ interface Room {
 
 const rooms = new Map<string, Room>();
 
+// When a player disconnects/leaves mid-game we keep their seat and only forfeit
+// after this grace period, so navigating away or a dropped mobile connection
+// doesn't instantly lose their bet — they can rejoin. Keyed by `${roomId}:${userId}`.
+const forfeitTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const FORFEIT_GRACE_MS = 120_000; // 2 minutes to rejoin before forfeiting
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────────
 
 function shuffle<T>(arr: T[]): T[] {
@@ -1694,14 +1700,37 @@ export function attachBoardGames(io: Server): void {
     await runBotTurns(room, depth + 1);
   }
 
-  /** Handle a player leaving/disconnecting. Forfeits mid-game. */
+  /** Forfeit a player after the grace period if they haven't rejoined. */
+  function scheduleForfeit(room: Room, userId: string): void {
+    const key = `${room.id}:${userId}`;
+    const existing = forfeitTimers.get(key);
+    if (existing) clearTimeout(existing);
+    forfeitTimers.set(key, setTimeout(() => {
+      forfeitTimers.delete(key);
+      const r = rooms.get(room.id);
+      if (!r || r.status !== "playing") return;
+      const p = r.players.find((pp) => pp.userId === userId);
+      if (!p || p.socketId !== "") return; // they rejoined — never mind
+      const winner = r.players.find((pp) => pp.userId !== userId);
+      void finishGame(r, winner?.userId ?? null);
+    }, FORFEIT_GRACE_MS));
+  }
+
+  /**
+   * A player left/disconnected. Mid-game we DON'T forfeit immediately — we keep
+   * their seat and start a grace timer so they can rejoin (navigating away or a
+   * dropped mobile connection shouldn't cost the bet). Only Resign forfeits at
+   * once. In the waiting room (nothing escrowed yet) we just free the seat.
+   */
   async function handleLeave(room: Room, userId: string): Promise<void> {
     const pidx = room.players.findIndex((p) => p.userId === userId);
     if (pidx === -1) return;
 
     if (room.status === "playing") {
-      const winner = room.players.find((p) => p.userId !== userId);
-      await finishGame(room, winner?.userId ?? null);
+      const p = room.players[pidx];
+      p.socketId = ""; // mark detached, keep the seat
+      scheduleForfeit(room, userId);
+      ns.to(room.id).emit("bg:opponent-left", { who: p.username, graceMs: FORFEIT_GRACE_MS });
     } else if (room.status === "waiting") {
       room.players.splice(pidx, 1);
       if (room.players.length === 0) {
@@ -1714,6 +1743,26 @@ export function attachBoardGames(io: Server): void {
 
   ns.on("connection", (socket: AuthedSocket) => {
     let currentRoomId = "";
+
+    // ── bg:rejoin ──────────────────────────────────────────────────────────────────
+    // On (re)entering Board Games, snap back into any game the player is still in.
+    socket.on("bg:rejoin", () => {
+      if (!socket.data.userId) return socket.emit("bg:rejoin", { room: null });
+      const room = [...rooms.values()].find(
+        (r) => r.status !== "finished" && r.players.some((p) => p.userId === socket.data.userId)
+      );
+      if (!room) return socket.emit("bg:rejoin", { room: null });
+      const p = room.players.find((pp) => pp.userId === socket.data.userId);
+      if (p) p.socketId = socket.id; // re-attach
+      const key = `${room.id}:${socket.data.userId}`;
+      const t = forfeitTimers.get(key);
+      if (t) { clearTimeout(t); forfeitTimers.delete(key); } // cancel pending forfeit
+      socket.join(room.id);
+      currentRoomId = room.id;
+      socket.emit("bg:rejoin", { room: roomView(room, socket.data.userId) });
+      ns.to(room.id).emit("bg:opponent-rejoined", { who: socket.data.username });
+      void runBotTurns(room); // nudge in case it was the bot's turn while away
+    });
 
     // ── bg:rooms ───────────────────────────────────────────────────────────────────
     socket.on("bg:rooms", () => {
