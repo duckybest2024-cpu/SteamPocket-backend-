@@ -43,6 +43,16 @@ interface Room {
 
 const rooms = new Map<string, Room>();
 
+// When a player disconnects/leaves mid-game we keep their seat and only forfeit
+// after this grace period, so navigating away or a dropped mobile connection
+// doesn't instantly lose their bet — they can rejoin. Keyed by `${roomId}:${userId}`.
+const forfeitTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const FORFEIT_GRACE_MS = 120_000; // 2 minutes to rejoin before forfeiting
+
+// Per-room move clock: a human who stalls past this loses the game.
+const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const TURN_LIMIT_MS = 90_000; // 90 seconds to make a move
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────────
 
 function shuffle<T>(arr: T[]): T[] {
@@ -166,6 +176,7 @@ interface ChessState {
   check: boolean;
   enPassant: [number, number] | null;
   castling: { wK: boolean; wQ: boolean; bK: boolean; bQ: boolean };
+  lastMove?: { from: [number, number]; to: [number, number] } | null;
 }
 
 function initChess(players: RoomPlayer[]): ChessState {
@@ -354,6 +365,7 @@ function applyChessMove(
     check: inCheck,
     enPassant: newEnPassant,
     castling: newCastling,
+    lastMove: { from: move.from, to: move.to },
   };
   const oppLegal = chessLegalMoves(newState, opp);
   if (oppLegal.length === 0) newState.status = inCheck ? "checkmate" : "stalemate";
@@ -1598,6 +1610,7 @@ export function attachBoardGames(io: Server): void {
         },
       });
     } catch { /* ignore db errors */ }
+    clearTurnTimer(room.id);
     rooms.delete(room.id);
   }
 
@@ -1653,6 +1666,7 @@ export function attachBoardGames(io: Server): void {
     }
     broadcastRoom(room);
     await runBotTurns(room);
+    armTurnTimer(room);
   }
 
   const BOT_MOVE_DELAY_MS = 700;
@@ -1669,17 +1683,25 @@ export function attachBoardGames(io: Server): void {
     await new Promise((resolve) => setTimeout(resolve, BOT_MOVE_DELAY_MS));
     if (!rooms.has(room.id) || room.status !== "playing") return;
 
+    // If the bot can't produce a valid move (AI edge case / bug), it must
+    // forfeit rather than silently freeze the game on its turn forever — bots
+    // never time out, so a stuck bot would otherwise hang the room.
     let move: unknown;
     try {
       move = computeBotMove(room, turnUserId);
     } catch {
+      await botForfeit(room, turnUserId);
       return;
     }
-    if (move === null || move === undefined) return;
+    if (move === null || move === undefined) {
+      await botForfeit(room, turnUserId);
+      return;
+    }
 
     try {
       applyMove(room, move, turnUserId);
     } catch {
+      await botForfeit(room, turnUserId);
       return;
     }
 
@@ -1694,14 +1716,72 @@ export function attachBoardGames(io: Server): void {
     await runBotTurns(room, depth + 1);
   }
 
-  /** Handle a player leaving/disconnecting. Forfeits mid-game. */
+  function clearTurnTimer(roomId: string): void {
+    const t = turnTimers.get(roomId);
+    if (t) { clearTimeout(t); turnTimers.delete(roomId); }
+  }
+
+  /** A bot couldn't move — resolve the game in favour of a human so it can't hang. */
+  async function botForfeit(room: Room, botUserId: string): Promise<void> {
+    const human = room.players.find((p) => !p.isBot && p.userId !== botUserId);
+    ns.to(room.id).emit("bg:bot-stuck", {});
+    await finishGame(room, human?.userId ?? null);
+  }
+
+  /**
+   * (Re)start the move clock for whoever is on turn. If it's a human and they
+   * don't move within TURN_LIMIT_MS, they forfeit. Bots are skipped (they move
+   * on their own). Call this whenever the turn lands back on a human.
+   */
+  function armTurnTimer(room: Room): void {
+    clearTurnTimer(room.id);
+    if (room.status !== "playing") return;
+    const turnUserId = getCurrentTurnUserId(room);
+    if (!turnUserId) return;
+    const player = room.players.find((p) => p.userId === turnUserId);
+    if (!player || player.isBot) return; // bots can't time out
+    turnTimers.set(room.id, setTimeout(() => {
+      turnTimers.delete(room.id);
+      const r = rooms.get(room.id);
+      if (!r || r.status !== "playing") return;
+      if (getCurrentTurnUserId(r) !== turnUserId) return; // they already moved
+      ns.to(r.id).emit("bg:timeout", { who: player.username });
+      const winner = r.players.find((p) => p.userId !== turnUserId);
+      void finishGame(r, winner?.userId ?? null);
+    }, TURN_LIMIT_MS));
+  }
+
+  /** Forfeit a player after the grace period if they haven't rejoined. */
+  function scheduleForfeit(room: Room, userId: string): void {
+    const key = `${room.id}:${userId}`;
+    const existing = forfeitTimers.get(key);
+    if (existing) clearTimeout(existing);
+    forfeitTimers.set(key, setTimeout(() => {
+      forfeitTimers.delete(key);
+      const r = rooms.get(room.id);
+      if (!r || r.status !== "playing") return;
+      const p = r.players.find((pp) => pp.userId === userId);
+      if (!p || p.socketId !== "") return; // they rejoined — never mind
+      const winner = r.players.find((pp) => pp.userId !== userId);
+      void finishGame(r, winner?.userId ?? null);
+    }, FORFEIT_GRACE_MS));
+  }
+
+  /**
+   * A player left/disconnected. Mid-game we DON'T forfeit immediately — we keep
+   * their seat and start a grace timer so they can rejoin (navigating away or a
+   * dropped mobile connection shouldn't cost the bet). Only Resign forfeits at
+   * once. In the waiting room (nothing escrowed yet) we just free the seat.
+   */
   async function handleLeave(room: Room, userId: string): Promise<void> {
     const pidx = room.players.findIndex((p) => p.userId === userId);
     if (pidx === -1) return;
 
     if (room.status === "playing") {
-      const winner = room.players.find((p) => p.userId !== userId);
-      await finishGame(room, winner?.userId ?? null);
+      const p = room.players[pidx];
+      p.socketId = ""; // mark detached, keep the seat
+      scheduleForfeit(room, userId);
+      ns.to(room.id).emit("bg:opponent-left", { who: p.username, graceMs: FORFEIT_GRACE_MS });
     } else if (room.status === "waiting") {
       room.players.splice(pidx, 1);
       if (room.players.length === 0) {
@@ -1714,6 +1794,26 @@ export function attachBoardGames(io: Server): void {
 
   ns.on("connection", (socket: AuthedSocket) => {
     let currentRoomId = "";
+
+    // ── bg:rejoin ──────────────────────────────────────────────────────────────────
+    // On (re)entering Board Games, snap back into any game the player is still in.
+    socket.on("bg:rejoin", () => {
+      if (!socket.data.userId) return socket.emit("bg:rejoin", { room: null });
+      const room = [...rooms.values()].find(
+        (r) => r.status !== "finished" && r.players.some((p) => p.userId === socket.data.userId)
+      );
+      if (!room) return socket.emit("bg:rejoin", { room: null });
+      const p = room.players.find((pp) => pp.userId === socket.data.userId);
+      if (p) p.socketId = socket.id; // re-attach
+      const key = `${room.id}:${socket.data.userId}`;
+      const t = forfeitTimers.get(key);
+      if (t) { clearTimeout(t); forfeitTimers.delete(key); } // cancel pending forfeit
+      socket.join(room.id);
+      currentRoomId = room.id;
+      socket.emit("bg:rejoin", { room: roomView(room, socket.data.userId) });
+      ns.to(room.id).emit("bg:opponent-rejoined", { who: socket.data.username });
+      void runBotTurns(room).then(() => armTurnTimer(room)); // nudge bot, then re-arm clock
+    });
 
     // ── bg:rooms ───────────────────────────────────────────────────────────────────
     socket.on("bg:rooms", () => {
@@ -1875,6 +1975,7 @@ export function attachBoardGames(io: Server): void {
         await finishGame(room, winnerId);
       } else {
         await runBotTurns(room);
+        armTurnTimer(room);
       }
     });
 

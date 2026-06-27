@@ -79,6 +79,33 @@ const BoardGamesGame = (() => {
       }
     });
 
+    // bg:rejoin — snap back into a game still in progress after navigating away
+    socket.on("bg:rejoin", (payload) => {
+      const roomState = payload && payload.room ? normalizeRoom(payload.room) : null;
+      if (!roomState) return;
+      currentRoom = roomState;
+      if (roomState.status === "playing") {
+        _gameRunning = true;
+        launchGameRenderer(roomState);
+      } else {
+        _gameRunning = false;
+        renderWaitingRoom(roomState);
+      }
+    });
+
+    socket.on("bg:opponent-left", (d) => {
+      UI.toast(`${d && d.who ? d.who : "Your opponent"} left — they have ${Math.round((d && d.graceMs || 120000) / 60000)} min to rejoin before forfeiting.`, "info");
+    });
+    socket.on("bg:opponent-rejoined", (d) => {
+      UI.toast(`${d && d.who ? d.who : "Your opponent"} rejoined.`, "info");
+    });
+    socket.on("bg:timeout", (d) => {
+      UI.toast(`${d && d.who ? d.who : "A player"} ran out of time and forfeited.`, "info");
+    });
+    socket.on("bg:bot-stuck", () => {
+      UI.toast("The bot got stuck and forfeited — you win!", "win");
+    });
+
     // bg:create — sent only to the creator; treat as "you joined"
     socket.on("bg:create", (data) => {
       const roomState = normalizeRoom(data && data.room ? data.room : data);
@@ -116,6 +143,9 @@ const BoardGamesGame = (() => {
     injectStyles();
     initSocket(accountState);
 
+    // Snap back into any game still in progress (e.g. after switching tabs),
+    // otherwise show the lobby.
+    socket.emit("bg:rejoin");
     // Request room list from backend
     socket.emit("bg:rooms");
 
