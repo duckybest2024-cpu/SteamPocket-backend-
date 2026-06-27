@@ -81,7 +81,7 @@ const App = (() => {
     {
       section: "NFT & Trading",
       items: [
-        { key: "nfts",        icon: "🖼️", label: "NFT Collection",   mod: () => NFTsGame },
+        { key: "nfts",        icon: "🖼️", label: "NFTs & Trading",    mod: () => NFTsGame },
         { key: "nftmarket",   icon: "🏪", label: "NFT Marketplace",  mod: () => NFTMarketGame },
         { key: "cases",       icon: "📦", label: "Cases",             mod: () => CasesGame },
       ],
