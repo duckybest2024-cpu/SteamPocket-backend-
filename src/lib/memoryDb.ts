@@ -670,6 +670,12 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
     defaults: () => ({ type: "info", active: true, createdAt: now() }),
     dateFields: ["createdAt"],
   },
+  report: {
+    idField: "id",
+    autoId: true,
+    defaults: () => ({ status: "open", context: null, createdAt: now() }),
+    dateFields: ["createdAt"],
+  },
   caseOpening: {
     idField: "id",
     autoId: true,

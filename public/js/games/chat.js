@@ -77,6 +77,10 @@ const ChatGame = (() => {
       const isOwn = myUsername && msg.username === myUsername;
       const initial = (msg.username || "?").charAt(0).toUpperCase();
 
+      const reportBtn = (!isOwn && msg.username)
+        ? `<button class="chat-report-btn" title="Report ${escHtml(msg.username)}" style="background:none;border:none;color:var(--text-mute);cursor:pointer;font-size:0.78rem;padding:0 2px;">⚠️</button>`
+        : "";
+
       const div = document.createElement("div");
       div.style.cssText = S.msgRow(isOwn);
       div.innerHTML = `
@@ -85,11 +89,25 @@ const ChatGame = (() => {
           <div style="${S.msgHeader(isOwn)}">
             <span style="${S.msgName(color)}">${escHtml(msg.username)}</span>
             <span style="${S.msgTime}" data-ts="${msg.timestamp}">${relativeTime(msg.timestamp)}</span>
+            ${reportBtn}
           </div>
           <div style="${S.bubble(isOwn)}">${escHtml(msg.message)}</div>
         </div>
       `;
+      const rb = div.querySelector(".chat-report-btn");
+      if (rb) rb.addEventListener("click", () => reportUser(msg.username, msg.message));
       return div;
+    }
+
+    async function reportUser(username, context) {
+      const reason = prompt(`Report ${username}? Briefly describe the issue:`);
+      if (!reason || !reason.trim()) return;
+      try {
+        await Api.post("/report", { reportedName: username, reason: reason.trim(), context: context || "" });
+        UI.toast("Report submitted — our team will review it. Thanks!", "win");
+      } catch (err) {
+        UI.toast(err.message || "Couldn't submit report.", "loss");
+      }
     }
 
     container.innerHTML = `

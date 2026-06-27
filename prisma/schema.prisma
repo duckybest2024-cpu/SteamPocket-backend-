@@ -285,6 +285,17 @@ model Broadcast {
   createdAt DateTime @default(now())
 }
 
+model Report {
+  id           String   @id @default(cuid())
+  reporterId   String
+  reporterName String
+  reportedName String
+  reason       String
+  context      String?
+  status       String   @default("open") // open | resolved
+  createdAt    DateTime @default(now())
+}
+
 model CaseOpening {
   id         String   @id @default(cuid())
   userId     String
