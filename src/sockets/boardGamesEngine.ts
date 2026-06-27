@@ -51,7 +51,8 @@ const FORFEIT_GRACE_MS = 120_000; // 2 minutes to rejoin before forfeiting
 
 // Per-room move clock: a human who stalls past this loses the game.
 const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
-const TURN_LIMIT_MS = 90_000; // 90 seconds to make a move
+const TURN_LIMIT_MS = 90_000; // 90 seconds for a human to make a move
+const BOT_STALL_MS = 12_000; // if a bot hasn't moved in 12s it has frozen — nudge/forfeit
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────────
 
@@ -1729,9 +1730,11 @@ export function attachBoardGames(io: Server): void {
   }
 
   /**
-   * (Re)start the move clock for whoever is on turn. If it's a human and they
-   * don't move within TURN_LIMIT_MS, they forfeit. Bots are skipped (they move
-   * on their own). Call this whenever the turn lands back on a human.
+   * (Re)start the move clock for whoever is on turn.
+   *  - Human stalls past TURN_LIMIT_MS -> they forfeit.
+   *  - Bot hasn't moved within BOT_STALL_MS (it froze) -> nudge runBotTurns once,
+   *    and if it's STILL its turn, the bot forfeits. This is what stops board
+   *    games hanging when a bot randomly stops playing.
    */
   function armTurnTimer(room: Room): void {
     clearTurnTimer(room.id);
@@ -1739,16 +1742,27 @@ export function attachBoardGames(io: Server): void {
     const turnUserId = getCurrentTurnUserId(room);
     if (!turnUserId) return;
     const player = room.players.find((p) => p.userId === turnUserId);
-    if (!player || player.isBot) return; // bots can't time out
-    turnTimers.set(room.id, setTimeout(() => {
+    if (!player) return;
+    const limit = player.isBot ? BOT_STALL_MS : TURN_LIMIT_MS;
+    turnTimers.set(room.id, setTimeout(async () => {
       turnTimers.delete(room.id);
       const r = rooms.get(room.id);
       if (!r || r.status !== "playing") return;
       if (getCurrentTurnUserId(r) !== turnUserId) return; // they already moved
-      ns.to(r.id).emit("bg:timeout", { who: player.username });
-      const winner = r.players.find((p) => p.userId !== turnUserId);
-      void finishGame(r, winner?.userId ?? null);
-    }, TURN_LIMIT_MS));
+
+      if (player.isBot) {
+        // Bot stalled — try to make it move; if it still can't, it forfeits.
+        await runBotTurns(r);
+        const r2 = rooms.get(room.id);
+        if (!r2 || r2.status !== "playing") return;
+        if (getCurrentTurnUserId(r2) === turnUserId) await botForfeit(r2, turnUserId);
+        else armTurnTimer(r2); // turn moved on — re-arm for whoever's next
+      } else {
+        ns.to(r.id).emit("bg:timeout", { who: player.username });
+        const winner = r.players.find((p) => p.userId !== turnUserId);
+        void finishGame(r, winner?.userId ?? null);
+      }
+    }, limit));
   }
 
   /** Forfeit a player after the grace period if they haven't rejoined. */

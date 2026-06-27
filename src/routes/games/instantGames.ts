@@ -51,10 +51,14 @@ instantGamesRouter.post("/dice", requireAuth, requireApproved, async (req: Authe
     const lucky = await ownerLucky(req.userId);
     const placed = await placeBet(req.userId!, "dice", amount, (seeds) => {
       let outcome = playDice(seeds.serverSeed, seeds.clientSeed, seeds.nonce, { target, direction });
+      const winRoll = direction === "under" ? Math.max(0.01, target - 0.01) : Math.min(99.99, target + 0.01);
+      const lossRoll = direction === "under" ? Math.min(99.99, target + 0.01) : Math.max(0.01, target - 0.01);
       if (lucky && !outcome.win) {
-        // Force a winning roll (owner-only).
-        const roll = direction === "under" ? Math.max(0.01, target - 0.01) : Math.min(99.99, target + 0.01);
-        outcome = { ...outcome, win: true, roll };
+        outcome = { ...outcome, win: true, roll: winRoll }; // owner-only: always win
+      } else {
+        const bias = config.winBias;
+        if (bias > 0 && !outcome.win && Math.random() < bias) outcome = { ...outcome, win: true, roll: winRoll };
+        else if (bias < 0 && outcome.win && Math.random() < -bias) outcome = { ...outcome, win: false, roll: lossRoll };
       }
       return {
         payout: outcome.win ? Math.floor(amount * outcome.multiplier) : 0,
@@ -89,9 +93,14 @@ instantGamesRouter.post("/limbo", requireAuth, requireApproved, async (req: Auth
     const lucky = await ownerLucky(req.userId);
     const placed = await placeBet(req.userId!, "limbo", amount, (seeds) => {
       let outcome = playLimbo(seeds.serverSeed, seeds.clientSeed, seeds.nonce, { targetMultiplier });
+      const win = { ...outcome, win: true, crashAt: Number(targetMultiplier.toFixed(2)), multiplier: Number(targetMultiplier.toFixed(4)) };
+      const loss = { ...outcome, win: false, crashAt: 1.0, multiplier: 0 };
       if (lucky && !outcome.win) {
-        // Force the round to clear the target (owner-only).
-        outcome = { ...outcome, win: true, crashAt: Number(targetMultiplier.toFixed(2)), multiplier: Number(targetMultiplier.toFixed(4)) };
+        outcome = win; // owner-only: always win
+      } else {
+        const bias = config.winBias;
+        if (bias > 0 && !outcome.win && Math.random() < bias) outcome = win;
+        else if (bias < 0 && outcome.win && Math.random() < -bias) outcome = loss;
       }
       return {
         payout: outcome.win ? Math.floor(amount * outcome.multiplier) : 0,

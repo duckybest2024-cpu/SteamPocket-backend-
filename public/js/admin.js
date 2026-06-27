@@ -1330,9 +1330,14 @@ const AdminGame = (() => {
             </p>
             <div style="${S.form};max-width:420px;">
               <div style="${S.formGroup}">
-                <label style="${S.formLabel}">House Edge (%)</label>
+                <label style="${S.formLabel}">House Edge (%) — how much players win when they DO win</label>
                 <input id="adm-house-edge" type="number" step="0.1" min="-50" max="95" placeholder="1"
                   value="${cfg["house_edge"] !== undefined && cfg["house_edge"] !== "" ? cfg["house_edge"] : "1"}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Win Chance Bias (%) — how OFTEN players win (Dice &amp; Limbo). +30 = win 30% more often · −50 = win 50% less often · 0 = fair</label>
+                <input id="adm-win-bias" type="number" step="5" min="-100" max="100" placeholder="0"
+                  value="${cfg["win_bias"] !== undefined && cfg["win_bias"] !== "" ? cfg["win_bias"] : "0"}" style="${S.formInput}" />
               </div>
               <div>
                 <button id="adm-odds-save" style="${S.submitBtn}">Save Game Odds</button>
@@ -1521,10 +1526,15 @@ const AdminGame = (() => {
           if (raw === "" || !Number.isFinite(pct) || pct < -50 || pct > 95) {
             return UI.toast("Enter a house edge between -50 and 95.", "loss");
           }
+          const biasRaw = pane.querySelector("#adm-win-bias").value.trim();
+          const bias = biasRaw === "" ? 0 : Number(biasRaw);
+          if (!Number.isFinite(bias) || bias < -100 || bias > 100) {
+            return UI.toast("Win Chance Bias must be between -100 and 100.", "loss");
+          }
           btn.disabled = true; btn.textContent = "Saving…";
           try {
-            await Api.post("/admin/config", { house_edge: String(pct) });
-            UI.toast(`House edge set to ${pct}%. Live now.`, "win");
+            await Api.post("/admin/config", { house_edge: String(pct), win_bias: String(bias) });
+            UI.toast(`Saved — house edge ${pct}%, win bias ${bias > 0 ? "+" : ""}${bias}%. Live now.`, "win");
           } catch (err) {
             UI.toast(err.message || "Failed.", "loss");
           } finally {
