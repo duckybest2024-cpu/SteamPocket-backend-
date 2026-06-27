@@ -1683,17 +1683,25 @@ export function attachBoardGames(io: Server): void {
     await new Promise((resolve) => setTimeout(resolve, BOT_MOVE_DELAY_MS));
     if (!rooms.has(room.id) || room.status !== "playing") return;
 
+    // If the bot can't produce a valid move (AI edge case / bug), it must
+    // forfeit rather than silently freeze the game on its turn forever — bots
+    // never time out, so a stuck bot would otherwise hang the room.
     let move: unknown;
     try {
       move = computeBotMove(room, turnUserId);
     } catch {
+      await botForfeit(room, turnUserId);
       return;
     }
-    if (move === null || move === undefined) return;
+    if (move === null || move === undefined) {
+      await botForfeit(room, turnUserId);
+      return;
+    }
 
     try {
       applyMove(room, move, turnUserId);
     } catch {
+      await botForfeit(room, turnUserId);
       return;
     }
 
@@ -1711,6 +1719,13 @@ export function attachBoardGames(io: Server): void {
   function clearTurnTimer(roomId: string): void {
     const t = turnTimers.get(roomId);
     if (t) { clearTimeout(t); turnTimers.delete(roomId); }
+  }
+
+  /** A bot couldn't move — resolve the game in favour of a human so it can't hang. */
+  async function botForfeit(room: Room, botUserId: string): Promise<void> {
+    const human = room.players.find((p) => !p.isBot && p.userId !== botUserId);
+    ns.to(room.id).emit("bg:bot-stuck", {});
+    await finishGame(room, human?.userId ?? null);
   }
 
   /**

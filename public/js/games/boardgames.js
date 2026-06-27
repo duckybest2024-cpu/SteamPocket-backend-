@@ -102,6 +102,9 @@ const BoardGamesGame = (() => {
     socket.on("bg:timeout", (d) => {
       UI.toast(`${d && d.who ? d.who : "A player"} ran out of time and forfeited.`, "info");
     });
+    socket.on("bg:bot-stuck", () => {
+      UI.toast("The bot got stuck and forfeited — you win!", "win");
+    });
 
     // bg:create — sent only to the creator; treat as "you joined"
     socket.on("bg:create", (data) => {
