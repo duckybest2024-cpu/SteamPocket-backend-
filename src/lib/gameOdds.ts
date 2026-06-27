@@ -42,9 +42,30 @@ export async function loadHouseEdge(): Promise<void> {
   }
   const lucky = await getSiteConfig("owner_lucky");
   config.ownerLucky = lucky === "true";
+  const bias = await getSiteConfig("win_bias");
+  if (bias !== null && bias.trim() !== "") {
+    const pct = Number(bias);
+    if (Number.isFinite(pct)) config.winBias = clampBias(pct / 100);
+  }
 }
 
 /** Owner-only "lucky mode" — when on, the OWNER's own bets always win. */
 export function setOwnerLucky(on: boolean): void {
   config.ownerLucky = on;
+}
+
+/** Clamp a fractional win bias to [-1, 1]. */
+export function clampBias(b: number): number {
+  if (!Number.isFinite(b)) return 0;
+  return Math.max(-1, Math.min(1, b));
+}
+
+/** Set the global win-chance bias from a PERCENT (e.g. 30 -> 0.30 = +30% wins). */
+export function setWinBiasPercent(percent: number): number {
+  config.winBias = clampBias(percent / 100);
+  return config.winBias;
+}
+
+export function getWinBiasPercent(): number {
+  return Math.round(config.winBias * 100);
 }

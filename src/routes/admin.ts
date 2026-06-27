@@ -5,7 +5,7 @@ import { requireAuth, AuthedRequest } from "../middleware/auth";
 import { isOwner } from "../lib/owner";
 import { sendTestEmail } from "../lib/mailer";
 import { sendPaypalPayout, isPaypalConfigured } from "../lib/paypal";
-import { setHouseEdgePercent, getHouseEdgePercent, setOwnerLucky } from "../lib/gameOdds";
+import { setHouseEdgePercent, getHouseEdgePercent, setOwnerLucky, setWinBiasPercent, getWinBiasPercent } from "../lib/gameOdds";
 import { NFT_CATALOG } from "../lib/nftCatalog";
 
 export const adminRouter = Router();
@@ -667,6 +667,15 @@ adminRouter.post("/config", async (req, res) => {
   // Owner-only lucky mode toggle (applies live).
   if (Object.prototype.hasOwnProperty.call(updates, "owner_lucky")) {
     setOwnerLucky(String(updates.owner_lucky) === "true");
+  }
+  // Global win-chance bias (applies live).
+  if (updates.win_bias !== undefined) {
+    const pct = updates.win_bias === "" ? 0 : Number(updates.win_bias);
+    if (Number.isFinite(pct)) {
+      setWinBiasPercent(pct);
+      const canonical = String(getWinBiasPercent());
+      await prisma.siteConfig.upsert({ where: { key: "win_bias" }, create: { key: "win_bias", value: canonical }, update: { value: canonical } });
+    }
   }
   res.json({ ok: true });
 });
