@@ -78,11 +78,6 @@ const KenoGame = (() => {
     els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 2 * 100) / 100; });
 
     // Manual/Auto tabs (visual only)
-    container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
-      container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
-      this.classList.add("active");
-    }));
-
     // Build 80-number grid
     for (let n = 1; n <= 80; n++) {
       const cell = document.createElement("div");
@@ -132,13 +127,15 @@ const KenoGame = (() => {
       updateUI();
     });
 
-    els.play.addEventListener("click", async () => {
-      if (busy || picks.size < 2) return;
+    function play() {
+      return new Promise((resolve, reject) => {
+      if (picks.size < 2) { UI.toast("Pick 2–10 numbers first.", "loss"); return reject(new Error("need picks")); }
       const amount = Math.round((Number(els.amount.value) || 0) * 100);
-      if (amount <= 0) return UI.toast("Enter a bet.", "loss");
+      if (amount <= 0) { UI.toast("Enter a bet.", "loss"); return reject(new Error("bad bet")); }
 
       busy = true;
       els.play.disabled = true;
+      (async () => {
       els.result.className = "result-banner";
       container.querySelectorAll(".keno-cell").forEach((c) => c.classList.remove("hit", "drawn"));
 
@@ -172,13 +169,19 @@ const KenoGame = (() => {
           UI.toast(isWin ? `Won ${UI.money(res.result.payout)} on Keno!` : "No win this round.", isWin ? "win" : "info");
           busy = false;
           updateUI();
+          resolve();
         }
       } catch (err) {
         UI.toast(err.message, "loss");
         busy = false;
         updateUI();
+        reject(err);
       }
-    });
+      })();
+      });
+    }
+
+    GameAuto.setup(container, { playBtn: els.play, play });
 
     updateUI();
     GameThemes.init(container, "keno");

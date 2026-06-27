@@ -470,12 +470,6 @@ const SlotsGame = (() => {
         refreshTotal();
       });
 
-      // ── Manual/Auto tabs (visual only) ────────────────────────────
-      container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function () {
-        container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
-        this.classList.add("active");
-      }));
-
       // ── Grid builder ────────────────────────────────────────────
       // Returns: { reelEls, symbolEls }
       function buildGrid() {
@@ -564,12 +558,10 @@ const SlotsGame = (() => {
       els.lines.addEventListener("input", refreshTotal);
 
       // ── Spin handler ──────────────────────────────────────────────
-      els.spin.addEventListener("click", async () => {
-        if (busy) return;
-
+      async function play() {
         const lineBet = Math.round((Number(els.lineBet.value) || 0) * 100);
         const lines = Math.max(1, Math.min(cfg.maxLines, Math.round(Number(els.lines.value) || 1)));
-        if (lineBet <= 0) return UI.toast("Enter a bet per line.", "loss");
+        if (lineBet <= 0) { UI.toast("Enter a bet per line.", "loss"); throw new Error("bad bet"); }
 
         busy = true;
         els.spin.disabled = true;
@@ -630,12 +622,15 @@ const SlotsGame = (() => {
           UI.toast(isWin ? `Won ${UI.money(res.result.payout)} on ${cfg.label}!` : "No win this spin.", isWin ? "win" : "info");
         } catch (err) {
           UI.toast(err.message, "loss");
+          throw err;
         } finally {
           busy = false;
           els.spin.disabled = false;
           els.back.disabled = false;
         }
-      });
+      }
+
+      GameAuto.setup(container, { playBtn: els.spin, play });
 
       // Initial build
       buildGrid();

@@ -184,11 +184,6 @@ const PlinkoGame = (() => {
       els.amount.value = Math.floor(Number(els.amount.value) * 2);
     });
 
-    container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
-      container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
-      this.classList.add("active");
-    }));
-
     let resizeTimer;
     const onResize = () => {
       clearTimeout(resizeTimer);
@@ -226,10 +221,9 @@ const PlinkoGame = (() => {
       }
     }
 
-    els.drop.addEventListener("click", async () => {
-      if (busy) return;
+    async function play() {
       const chips = Number(els.amount.value);
-      if (!chips || chips <= 0) return UI.toast("Enter a bet amount.", "loss");
+      if (!chips || chips <= 0) { UI.toast("Enter a bet amount.", "loss"); throw new Error("bad amount"); }
       const amount = Math.round(chips * 100); // chips → cents
 
       busy = true;
@@ -258,11 +252,14 @@ const PlinkoGame = (() => {
         UI.toast(isWin ? `Won ${UI.money(res.result.payout)} on Plinko!` : `Plinko: ${UI.money(res.result.payout)} back.`, isWin ? "win" : "info");
       } catch (err) {
         UI.toast(err.message, "loss");
+        throw err;
       } finally {
         busy = false;
         els.drop.disabled = false;
       }
-    });
+    }
+
+    GameAuto.setup(container, { playBtn: els.drop, play });
 
     // Defer layout so the board has rendered dimensions
     requestAnimationFrame(() => refreshLayout());
