@@ -1,6 +1,6 @@
 /* GrilledCoin — App shell with Stake-inspired sidebar layout */
 const App = (() => {
-  const state = { id: null, username: null, nickname: null, rank: "free", balance: 0, bank: 0, fairness: null, isAdmin: false, isApproved: false, patreonUsername: null, patreonTier: null };
+  const state = { id: null, username: null, nickname: null, rank: "free", balance: 0, bank: 0, fairness: null, isAdmin: false, isApproved: false, patreonUsername: null, patreonTier: null, payoutMethod: null, payoutPaypalEmail: null, payoutNote: null, stripeCardBrand: null, stripeCardLast4: null };
 
   const NAV = [
     {
@@ -221,6 +221,11 @@ const App = (() => {
     state.isApproved = user.isApproved ?? true;
     state.patreonUsername = user.patreonUsername ?? null;
     state.patreonTier = user.patreonTier ?? null;
+    state.payoutMethod = user.payoutMethod ?? null;
+    state.payoutPaypalEmail = user.payoutPaypalEmail ?? null;
+    state.payoutNote = user.payoutNote ?? null;
+    state.stripeCardBrand = user.stripeCardBrand ?? null;
+    state.stripeCardLast4 = user.stripeCardLast4 ?? null;
 
     // Sidebar balance
     const balEl = document.getElementById("balance-amount");
@@ -270,7 +275,7 @@ const App = (() => {
         <strong>📧 Verify your email</strong><br/>
         Enter the 6-digit code we sent to ${email ? `<strong>${email}</strong>` : "your email"}.
         ${devCode ? `<div style="margin:8px 0;padding:8px 10px;background:var(--bg-elev);border:1px dashed var(--accent-2);border-radius:8px;font-size:0.82rem;">
-          ⚠️ Email isn't set up yet — here's your code directly: <strong style="letter-spacing:2px;">${devCode}</strong>
+          📩 Didn't get the email? Here's your code: <strong style="letter-spacing:2px;">${devCode}</strong>
         </div>` : ""}
         <div style="display:flex;gap:8px;margin:10px 0;">
           <input id="verify-code-input" type="text" inputmode="numeric" maxlength="6" placeholder="123456"
@@ -316,7 +321,7 @@ const App = (() => {
       try {
         const data = await Api.post("/auth/resend-verification", {});
         resultEl.innerHTML = data.devCode
-          ? `Email isn't set up yet — here's your code directly: <strong style="letter-spacing:2px;">${data.devCode}</strong>`
+          ? `New code sent! In case the email doesn't arrive, here it is: <strong style="letter-spacing:2px;">${data.devCode}</strong>`
           : "New code sent! Check your email.";
       } catch (err) {
         resultEl.textContent = err.message || "Failed to resend.";
@@ -329,6 +334,21 @@ const App = (() => {
   function wireAuthForms() {
     UI.wireAllPasswordToggles(document.getElementById("login-form"));
     UI.wireAllPasswordToggles(document.getElementById("register-form"));
+
+    const payoutMethodSelect = document.getElementById("reg-payout-method");
+    const payoutPaypalField = document.getElementById("reg-payout-paypal-field");
+    const payoutNoteField = document.getElementById("reg-payout-note-field");
+    const payoutCardHint = document.getElementById("reg-payout-card-hint");
+    function syncPayoutFields() {
+      const method = payoutMethodSelect.value;
+      payoutPaypalField.classList.toggle("hidden", method !== "paypal");
+      payoutNoteField.classList.toggle("hidden", method !== "note");
+      payoutCardHint.classList.toggle("hidden", method !== "card");
+      payoutPaypalField.querySelector("input").required = method === "paypal";
+      payoutNoteField.querySelector("input").required = method === "note";
+    }
+    payoutMethodSelect.addEventListener("change", syncPayoutFields);
+    syncPayoutFields();
 
     // Tab switching
     document.querySelectorAll(".auth-tab").forEach((tab) => {
@@ -376,15 +396,30 @@ const App = (() => {
       document.getElementById("auth-error").classList.add("hidden");
       const fd = new FormData(e.target);
       const emailVal = fd.get("email");
+      const payoutMethod = fd.get("payoutMethod");
       try {
         const data = await Api.register({
           username: (fd.get("username") || "").trim(),
           email: (emailVal || "").trim(),
           password: fd.get("password") || "",
           patreonUsername: (fd.get("patreonUsername") || "").trim() || null,
+          payoutMethod,
+          payoutPaypalEmail: payoutMethod === "paypal" ? (fd.get("payoutPaypalEmail") || "").trim() : undefined,
+          payoutNote: payoutMethod === "note" ? (fd.get("payoutNote") || "").trim() : undefined,
         });
         if (data.token) {
           Api.setToken(data.token);
+
+          if (payoutMethod === "card") {
+            try {
+              const session = await Api.post("/payout/card-session", {});
+              window.location.href = session.url;
+              return; // page is navigating away to Stripe's hosted card form
+            } catch (err) {
+              UI.toast(err.message || "Couldn't start card setup — you can add it later in Settings.", "loss");
+            }
+          }
+
           if (data.user && data.user.emailVerified === false) {
             showVerifyCodeUI(data.user.email, data.devCode);
           } else if (data.user && data.user.isApproved === false) {
@@ -557,8 +592,20 @@ const App = (() => {
     wireTopbar();
     loadGoogleIntegrations();
 
+    const params = new URLSearchParams(window.location.search);
+    const payoutSetupSessionId = params.get("payout_setup") === "success" ? params.get("session_id") : null;
+    if (params.has("payout_setup")) history.replaceState({}, "", "/");
+
     if (Api.getToken()) {
       try {
+        if (payoutSetupSessionId) {
+          try {
+            await Api.post("/payout/card-confirm", { sessionId: payoutSetupSessionId });
+            UI.toast("💳 Card saved for payouts!", "win");
+          } catch (err) {
+            UI.toast(err.message || "Failed to save your card.", "loss");
+          }
+        }
         const { user } = await Api.me();
         if (user.emailVerified === false) {
           showScreen("auth");

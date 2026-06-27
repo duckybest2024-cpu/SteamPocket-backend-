@@ -112,6 +112,40 @@ const SettingsGame = (() => {
           </div>
 
           <div style="${S.section}">
+            <h3 style="${S.sectionTitle}">💵 Payout Method</h3>
+            <p style="${S.note}">Where we send any real-money prizes (jackpot/event winnings). Your chip balance always stays virtual — this is just where we'd send cash if you win one.</p>
+            <div style="${S.form}">
+              <div>
+                <label style="${S.label}">Method</label>
+                <select id="s-payout-method" style="${S.input}">
+                  <option value="paypal" ${(accountState.payoutMethod || "paypal") === "paypal" ? "selected" : ""}>PayPal email</option>
+                  <option value="card" ${accountState.payoutMethod === "card" ? "selected" : ""}>Card on file (via Stripe)</option>
+                  <option value="note" ${accountState.payoutMethod === "note" ? "selected" : ""}>Other</option>
+                </select>
+              </div>
+              <div id="s-payout-paypal-wrap">
+                <label style="${S.label}">PayPal Email</label>
+                <input id="s-payout-paypal" type="email" style="${S.input}" autocomplete="off"
+                  value="${accountState.payoutPaypalEmail || ""}" />
+              </div>
+              <div id="s-payout-note-wrap" class="hidden">
+                <label style="${S.label}">How should we pay you?</label>
+                <input id="s-payout-note" type="text" style="${S.input}" maxlength="300" autocomplete="off"
+                  placeholder="e.g. Venmo @you, Zelle 555-1234" value="${accountState.payoutNote || ""}" />
+              </div>
+              <div id="s-payout-card-wrap" class="hidden">
+                <p style="${S.note}">
+                  ${accountState.stripeCardLast4
+                    ? `Card on file: ${accountState.stripeCardBrand || "card"} •••• ${accountState.stripeCardLast4}`
+                    : "No card on file yet."}
+                </p>
+                <button type="button" id="s-payout-card-btn" style="${S.btn}">${accountState.stripeCardLast4 ? "Replace Card" : "Add Card"}</button>
+              </div>
+              <button type="button" id="s-payout-save-btn" style="${S.btn}">Save Payout Method</button>
+            </div>
+          </div>
+
+          <div style="${S.section}">
             <h3 style="${S.sectionTitle}">🔊 Sound</h3>
             <div style="${S.form}">
               <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
@@ -192,6 +226,51 @@ const SettingsGame = (() => {
         const ok = await save({ newUsername: val }, "Username changed!");
         if (ok) rebuild();
       });
+
+      const payoutMethodSelect = container.querySelector("#s-payout-method");
+      const payoutPaypalWrap = container.querySelector("#s-payout-paypal-wrap");
+      const payoutNoteWrap = container.querySelector("#s-payout-note-wrap");
+      const payoutCardWrap = container.querySelector("#s-payout-card-wrap");
+      const payoutSaveBtn = container.querySelector("#s-payout-save-btn");
+      function syncPayoutFields() {
+        const method = payoutMethodSelect.value;
+        payoutPaypalWrap.classList.toggle("hidden", method !== "paypal");
+        payoutNoteWrap.classList.toggle("hidden", method !== "note");
+        payoutCardWrap.classList.toggle("hidden", method !== "card");
+        payoutSaveBtn.classList.toggle("hidden", method === "card");
+      }
+      payoutMethodSelect.addEventListener("change", syncPayoutFields);
+      syncPayoutFields();
+
+      payoutSaveBtn.addEventListener("click", async () => {
+        const method = payoutMethodSelect.value;
+        const body = { payoutMethod: method };
+        if (method === "paypal") {
+          const val = container.querySelector("#s-payout-paypal").value.trim();
+          if (!val) { UI.toast("Enter your PayPal email.", "loss"); return; }
+          body.payoutPaypalEmail = val;
+        } else if (method === "note") {
+          const val = container.querySelector("#s-payout-note").value.trim();
+          if (!val) { UI.toast("Tell us how you'd like to be paid.", "loss"); return; }
+          body.payoutNote = val;
+        }
+        const ok = await save(body, "Payout method saved!");
+        if (ok) rebuild();
+      });
+
+      const payoutCardBtn = container.querySelector("#s-payout-card-btn");
+      if (payoutCardBtn) {
+        payoutCardBtn.addEventListener("click", async () => {
+          payoutCardBtn.disabled = true;
+          try {
+            const session = await Api.post("/payout/card-session", {});
+            window.location.href = session.url;
+          } catch (err) {
+            UI.toast(err.message || "Failed to start card setup.", "loss");
+            payoutCardBtn.disabled = false;
+          }
+        });
+      }
 
       container.querySelector("#s-pw-btn").addEventListener("click", async () => {
         const cur = container.querySelector("#s-cur-pw").value;

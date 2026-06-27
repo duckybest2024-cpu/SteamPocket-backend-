@@ -6,6 +6,7 @@ import { prisma } from "../lib/prisma";
 import { config } from "../lib/config";
 import { applyLedgerEntry } from "../lib/wallet";
 import { checkAndMintNfts } from "../lib/nfts";
+import { makeBot, botStakeCents, randInt, isBotId } from "./botFiller";
 
 interface Entry { userId: string; username: string; amount: number }
 interface AuthedSocket extends Socket { data: { userId?: string; username?: string; isApproved?: boolean } }
@@ -20,6 +21,7 @@ export class JackpotEngine {
   private totalPot = 0;
   private spinTimer: ReturnType<typeof setTimeout> | null = null;
   private spinning = false;
+  private botsSeeded = false; // bots are seeded at most once per round
   private history: { winner: string; amount: number; emoji: string }[] = [];
 
   constructor(io: Server) {
@@ -72,11 +74,39 @@ export class JackpotEngine {
           await this.persistEntries();
           this.broadcast();
           if (this.entries.length >= MIN_ENTRIES) this.schedulePin();
+          this.spawnBots();
         } catch (err: any) {
           socket.emit("error", err.message || "Entry failed");
         }
       });
     });
+  }
+
+  /**
+   * Once a real player has entered, seed the pot with a few synthetic
+   * challengers so the wheel feels competitive instead of "you vs. yourself".
+   * Bot stakes are virtual — never deducted from anyone. If a bot wins, the pot
+   * simply isn't paid out (see spin); if a human wins, the house funds the full
+   * displayed prize. Only runs once per round and never while spinning.
+   */
+  private spawnBots() {
+    if (this.spinning || this.botsSeeded) return;
+    this.botsSeeded = true;
+    const count = randInt(2, 5);
+    const names = new Set(this.entries.map((e) => e.username));
+    for (let i = 0; i < count; i++) {
+      const delay = randInt(500, SPIN_DELAY_MS - 2000);
+      setTimeout(async () => {
+        if (this.spinning) return;
+        const bot = makeBot(names);
+        const amount = botStakeCents(1, 400);
+        this.entries.push({ userId: bot.id, username: bot.username, amount });
+        this.totalPot += amount;
+        await this.persistEntries();
+        this.broadcast();
+        if (this.entries.length >= MIN_ENTRIES) this.schedulePin();
+      }, delay);
+    }
   }
 
   private schedulePin() {
@@ -104,10 +134,14 @@ export class JackpotEngine {
       if (roll < cursor) { winner = e; break; }
     }
 
-    try {
-      await applyLedgerEntry(prisma, winner.userId, "payout", prize, "jackpot_win");
-      await checkAndMintNfts(winner.userId, { isJackpotWin: true });
-    } catch {}
+    // A bot can win the wheel — when it does, nobody is paid (the human stakes
+    // are simply kept). A human winner is paid the full prize.
+    if (!isBotId(winner.userId)) {
+      try {
+        await applyLedgerEntry(prisma, winner.userId, "payout", prize, "jackpot_win");
+        await checkAndMintNfts(winner.userId, { isJackpotWin: true });
+      } catch {}
+    }
 
     this.history.unshift({ winner: winner.username, amount: prize, emoji: "🏆" });
     if (this.history.length > 20) this.history.pop();
@@ -122,6 +156,7 @@ export class JackpotEngine {
     this.entries = [];
     this.totalPot = 0;
     this.spinning = false;
+    this.botsSeeded = false;
     this.spinTimer = null;
 
     await prisma.jackpotRound.create({ data: {} });
