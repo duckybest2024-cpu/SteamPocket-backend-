@@ -97,6 +97,10 @@ const BoardGamesGame = (() => {
       showGameOver(normalized);
     });
 
+    socket.on("bg:resigned", (data) => {
+      UI.toast(`${data && data.who ? data.who : "A player"} resigned.`, "info");
+    });
+
     socket.on("bg:error", (msg) => {
       UI.toast(typeof msg === "string" ? msg : (msg.message || "Board game error"), "loss");
     });
@@ -182,10 +186,11 @@ const BoardGamesGame = (() => {
 
   function renderRoomRow(room) {
     const meta = BOARD_GAMES.find((g) => g.id === room.gameId) || {};
+    const host = room.hostName ? `${room.hostName}'s ${meta.name || room.gameId} lobby` : (meta.name || room.gameId);
     return `
       <div class="bg-room-row">
         <span class="bg-room-row__icon">${meta.icon || "🎲"}</span>
-        <span class="bg-room-row__name">${meta.name || room.gameId}</span>
+        <span class="bg-room-row__name">${host}</span>
         <span class="bg-room-row__bet">💰 ${room.bet} chips/player</span>
         <span class="bg-room-row__count">${room.players.length}/${room.maxPlayers} players</span>
         <button class="bg-join-btn" data-room-id="${room.id}">Join</button>
@@ -392,6 +397,15 @@ const BoardGamesGame = (() => {
       _container.innerHTML = "";
       renderer(_container, socket, roomState, myUserId);
       GameThemes.apply(_container, GameThemes.getSaved(`bg_${roomState.gameId}`));
+
+      // Universal Resign button injected over every board game.
+      const resignBar = document.createElement("div");
+      resignBar.style.cssText = "text-align:center;margin:14px 0 4px;";
+      resignBar.innerHTML = '<button class="bg-resign-btn" style="background:linear-gradient(135deg,#f87171,#ef4444);color:#1a0707;border:none;border-radius:10px;padding:10px 24px;font-weight:700;cursor:pointer;font-size:0.95rem;">🏳️ Resign</button>';
+      _container.appendChild(resignBar);
+      resignBar.querySelector(".bg-resign-btn").addEventListener("click", () => {
+        if (confirm("Resign this game? You'll forfeit your bet to your opponent.")) socket.emit("bg:resign");
+      });
     } else {
       // Fallback: show a placeholder if the specific game module isn't loaded yet
       _container.innerHTML = `

@@ -5,7 +5,7 @@ import { requireAuth, AuthedRequest } from "../middleware/auth";
 import { isOwner } from "../lib/owner";
 import { sendTestEmail } from "../lib/mailer";
 import { sendPaypalPayout, isPaypalConfigured } from "../lib/paypal";
-import { setHouseEdgePercent } from "../lib/gameOdds";
+import { setHouseEdgePercent, getHouseEdgePercent } from "../lib/gameOdds";
 
 export const adminRouter = Router();
 
@@ -642,10 +642,26 @@ adminRouter.post("/config", async (req, res) => {
     });
   }
   // House edge changes take effect immediately for the engine-driven games
-  // (Dice, Crash, Limbo, Mines, Hi-Lo) — apply it to the live config now.
-  if (updates.house_edge !== undefined && updates.house_edge !== "") {
-    const percent = Number(updates.house_edge);
-    if (Number.isFinite(percent)) setHouseEdgePercent(percent);
+  // (Dice, Crash, Limbo, Mines, Hi-Lo). Supports both the Controls "Game Odds"
+  // field (house_edge) and the Config tab's "House Edge % Override" field
+  // (houseEdgeOverride). Blank = reset to the 1% default. We always persist a
+  // canonical "house_edge" key so it reloads correctly on restart.
+  let edgePercent: number | undefined;
+  if (updates.house_edge !== undefined) {
+    edgePercent = updates.house_edge === "" ? 1 : Number(updates.house_edge);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "houseEdgeOverride")) {
+    const v = (updates as Record<string, unknown>).houseEdgeOverride;
+    edgePercent = v === null || v === "" || v === "null" ? 1 : Number(v);
+  }
+  if (edgePercent !== undefined && Number.isFinite(edgePercent)) {
+    setHouseEdgePercent(edgePercent);
+    const canonical = String(getHouseEdgePercent());
+    await prisma.siteConfig.upsert({
+      where: { key: "house_edge" },
+      create: { key: "house_edge", value: canonical },
+      update: { value: canonical },
+    });
   }
   res.json({ ok: true });
 });
