@@ -1536,6 +1536,17 @@ const AdminGame = (() => {
 
           pane.innerHTML = `
             <div style="${S.sectionCard}">
+              <h3 style="${S.sectionTitle}">🏪 NFT Store — Supply &amp; Restock</h3>
+              <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 12px;">
+                Limited-supply NFTs and how many are left. Restock a sold-out one to put it back in the store.
+              </p>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--text-dim);margin-bottom:10px;cursor:pointer;">
+                <input type="checkbox" id="adm-nft-soldout-only" style="width:16px;height:16px;" /> Show sold-out only
+              </label>
+              <div id="adm-nft-store-list" style="color:var(--text-dim);">Loading store…</div>
+            </div>
+
+            <div style="${S.sectionCard}">
               <h3 style="${S.sectionTitle}">🖼️ Mint NFT for User</h3>
               <div style="${S.form}">
                 <div style="display:flex;gap:12px;flex-wrap:wrap;">
@@ -1648,6 +1659,45 @@ const AdminGame = (() => {
               }
             });
           });
+
+          // ── NFT store supply / restock ──────────────────────────────
+          const soldOutOnly = pane.querySelector("#adm-nft-soldout-only");
+          async function loadStore() {
+            const host = pane.querySelector("#adm-nft-store-list");
+            if (!host) return;
+            try {
+              const { items } = await Api.get("/admin/nft-store");
+              const limited = items.filter(i => i.supply !== -1);
+              const list = (soldOutOnly && soldOutOnly.checked) ? limited.filter(i => i.soldOut) : limited;
+              if (!list.length) {
+                host.innerHTML = `<p style="color:var(--text-dim);font-size:0.88rem;">${soldOutOnly && soldOutOnly.checked ? "Nothing is sold out. 🎉" : "No limited-supply NFTs in the catalog."}</p>`;
+                return;
+              }
+              host.innerHTML = list.map(i => `
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;${i.soldOut ? "background:rgba(229,70,61,0.06);" : ""}">
+                  <span style="font-size:1.4rem;">${i.emoji}</span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;">${escapeHtmlAdm(i.name)} <span style="color:var(--gold);font-size:0.75rem;text-transform:capitalize;">${i.rarity}</span></div>
+                    <div style="font-size:0.78rem;color:var(--text-dim);">${i.minted}/${i.supply} sold · ${i.soldOut ? "<span style='color:var(--loss);'>SOLD OUT</span>" : `${i.remaining} left`} · ${i.priceChips} 🪙</div>
+                  </div>
+                  <button class="adm-nft-restock" data-id="${i.id}" style="${S.smallBtn}">Restock</button>
+                </div>`).join("");
+              host.querySelectorAll(".adm-nft-restock").forEach(b => {
+                b.addEventListener("click", async () => {
+                  b.disabled = true; b.textContent = "…";
+                  try {
+                    await Api.post(`/admin/nft-store/${b.dataset.id}/restock`, { minted: 0 });
+                    UI.toast("Restocked — back in the store!", "win");
+                    loadStore();
+                  } catch (err) { UI.toast(err.message || "Failed.", "loss"); b.disabled = false; b.textContent = "Restock"; }
+                });
+              });
+            } catch (err) {
+              host.innerHTML = `<p style="color:var(--loss);">${err.message}</p>`;
+            }
+          }
+          if (soldOutOnly) soldOutOnly.addEventListener("change", loadStore);
+          loadStore();
 
         } catch (err) {
           pane.innerHTML = `<div style="color:var(--loss);padding:30px 20px;text-align:center;">${err.message}</div>`;
