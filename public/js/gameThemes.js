@@ -89,16 +89,10 @@ const GameThemes = (() => {
     target.dataset.theme = themeId;
   }
 
-  function renderPicker(gameKey, currentThemeId) {
-    return `
-      <div class="theme-picker" data-game="${gameKey}" title="Change table skin">
-        ${THEMES.map((t) => `
-          <button class="theme-swatch ${t.id === currentThemeId ? "active" : ""}"
-            data-theme="${t.id}" title="${t.name}"
-            style="--swatch-color:${t.vars["--accent"] || "var(--accent)"}">${t.icon}</button>
-        `).join("")}
-      </div>
-    `;
+  function renderPicker(/* gameKey, currentThemeId */) {
+    // The per-game theme row was moved into Settings → 🎨 Theme (one global
+    // skin for the whole app), so games no longer render their own picker.
+    return "";
   }
 
   // Wires click handlers for a picker rendered with `renderPicker`, applying

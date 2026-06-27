@@ -624,6 +624,14 @@ const App = (() => {
       ins.dataset.fullWidthResponsive = "true";
       host.appendChild(ins);
       try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch { /* blocked by adblock, etc. */ }
+      // Collapse the slot if no ad fills it, so it doesn't leave a black gap.
+      const collapseIfEmpty = () => {
+        const status = ins.getAttribute("data-ad-status");
+        if (status === "unfilled" || ins.offsetHeight < 2) host.classList.add("ad-empty");
+        else host.classList.remove("ad-empty");
+      };
+      setTimeout(collapseIfEmpty, 2500);
+      setTimeout(collapseIfEmpty, 6000);
     });
   }
 

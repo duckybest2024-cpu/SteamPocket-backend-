@@ -223,6 +223,9 @@ button { font-family: inherit; cursor: pointer; border: none; outline: none; }
 .sidebar-footer { border-top: 1px solid var(--border); padding: 14px 16px; flex-shrink: 0; }
 .ad-slot { margin: 10px 0; text-align: center; overflow: hidden; }
 .ad-slot:empty { display: none; }
+/* Don't leave a blank gap when AdSense has no ad to show. */
+ins.adsbygoogle[data-ad-status="unfilled"] { display: none !important; }
+.ad-slot.ad-empty { display: none !important; margin: 0 !important; }
 .sb-bal-label { font-size: 0.68rem; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.07em; display: block; }
 .sb-bal-amount { font-size: 1.2rem; font-weight: 800; color: var(--gold); display: block; margin: 2px 0 10px; }
 .sb-level-row { display: flex; align-items: center; gap: 10px; }
