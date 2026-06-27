@@ -470,6 +470,53 @@ const App = (() => {
       setTimeout(() => Engagement.checkDailyBonus(state), 1500);
       Engagement.jackpotTicker.start(50000);
     }
+
+    loadBroadcasts();
+  }
+
+  // Show admin broadcasts as dismissible banners above the game area.
+  async function loadBroadcasts() {
+    let broadcasts = [];
+    try {
+      const data = await fetch("/broadcasts").then((r) => r.json());
+      broadcasts = (data && data.broadcasts) ? data.broadcasts : [];
+    } catch { return; }
+    if (!broadcasts.length) return;
+
+    let host = document.getElementById("broadcast-banners");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "broadcast-banners";
+      host.style.cssText = "padding:0 14px;margin-top:8px;";
+      const main = document.getElementById("game-area");
+      if (main && main.parentNode) main.parentNode.insertBefore(host, main);
+      else document.getElementById("app-screen").appendChild(host);
+    }
+    host.innerHTML = "";
+
+    let dismissed = [];
+    try { dismissed = JSON.parse(localStorage.getItem("dismissedBroadcasts") || "[]"); } catch { dismissed = []; }
+
+    const colors = { info: "#3b82f6", win: "#22c55e", warning: "#f59e0b", loss: "#ef4444", error: "#ef4444" };
+    broadcasts.filter((b) => b.active !== false && !dismissed.includes(b.id)).forEach((b) => {
+      const c = colors[b.type] || colors.info;
+      const el = document.createElement("div");
+      el.style.cssText = `display:flex;align-items:center;gap:10px;background:${c}1a;border:1px solid ${c};border-radius:10px;padding:10px 14px;margin-bottom:8px;color:var(--text);font-size:0.9rem;`;
+      const msg = document.createElement("span");
+      msg.style.flex = "1";
+      msg.textContent = `📢 ${b.message}`;
+      const x = document.createElement("button");
+      x.textContent = "✕";
+      x.style.cssText = "background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:1rem;";
+      x.addEventListener("click", () => {
+        dismissed.push(b.id);
+        try { localStorage.setItem("dismissedBroadcasts", JSON.stringify(dismissed)); } catch { /* ignore */ }
+        el.remove();
+      });
+      el.appendChild(msg);
+      el.appendChild(x);
+      host.appendChild(el);
+    });
   }
 
   function wireTopbar() {
