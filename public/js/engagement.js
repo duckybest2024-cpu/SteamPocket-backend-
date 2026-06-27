@@ -521,38 +521,39 @@ const Engagement = (() => {
   };
 
   // ─── 7. Level-Up Celebration ──────────────────────────────────────────────
+  // A non-blocking banner that slides in below the top bar — it never covers
+  // the game or blocks taps (pointer-events: none), so play isn't interrupted.
   function levelUp(newLevel, newRank) {
-    const overlay = document.createElement("div");
-    overlay.style.cssText = `
-      position: fixed; inset: 0; z-index: 10001;
-      background: rgba(0,0,0,0.88);
-      display: flex; align-items: center; justify-content: center;
-      animation: fadeIn 0.3s ease;
+    const card = document.createElement("div");
+    card.style.cssText = `
+      position: fixed; top: 74px; left: 50%; z-index: 10001;
+      transform: translateX(-50%) translateY(-14px); opacity: 0;
+      pointer-events: none;
+      background: linear-gradient(135deg, #1f2a36, #11202b);
+      border: 1px solid rgba(240,194,68,0.6); border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 40px rgba(240,194,68,0.25);
+      padding: 14px 26px; text-align: center; max-width: 90%;
+      transition: opacity 0.4s ease, transform 0.4s ease;
     `;
-    overlay.innerHTML = `
-      <div style="
-        text-align: center; padding: 48px;
-        background: #1a2c38; border: 1px solid rgba(240,194,68,0.5);
-        border-radius: 20px; box-shadow: 0 0 80px rgba(240,194,68,0.4);
-        max-width: 380px; width: 90%;
-      ">
-        <div style="font-size: 3.5rem; margin-bottom: 16px;">⬆️</div>
-        <h2 style="color: #f0c244; font-size: 2rem; font-weight: 900; margin-bottom: 8px;">Level Up!</h2>
-        <div style="color: #fff; font-size: 1.2rem; margin-bottom: 8px;">
-          You reached <strong style="color:#f0c244">Level ${newLevel}</strong>
-        </div>
-        ${newRank ? `<div style="color: #b1bad3; font-size: 0.95rem;">New rank: <strong style="color:#fff">${newRank}</strong></div>` : ""}
+    card.innerHTML = `
+      <div style="font-size: 1.5rem; font-weight: 900;">⬆️ <span style="color:#f0c244;">Level Up!</span></div>
+      <div style="color: #fff; font-size: 0.95rem; margin-top: 2px;">
+        Reached <strong style="color:#f0c244">Level ${newLevel}</strong>${newRank ? ` · <span style="color:#b1bad3;">${newRank}</span>` : ""}
       </div>
     `;
-    document.body.appendChild(overlay);
+    document.body.appendChild(card);
+    requestAnimationFrame(() => {
+      card.style.opacity = "1";
+      card.style.transform = "translateX(-50%) translateY(0)";
+    });
     confetti("big");
     sound("levelup");
 
     setTimeout(() => {
-      overlay.style.transition = "opacity 0.5s";
-      overlay.style.opacity = "0";
-      setTimeout(() => overlay.remove(), 500);
-    }, 3000);
+      card.style.opacity = "0";
+      card.style.transform = "translateX(-50%) translateY(-14px)";
+      setTimeout(() => card.remove(), 450);
+    }, 2800);
   }
 
   // ─── 8. Near-Miss Effect ──────────────────────────────────────────────────
