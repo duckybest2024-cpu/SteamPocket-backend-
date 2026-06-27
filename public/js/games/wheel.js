@@ -175,8 +175,11 @@ const WheelGame = (() => {
         // We want rotation such that midAngle + rotation = -π/2 (top)
         const targetAngle = -Math.PI / 2 - midAngle;
 
-        // Spin 5+ full rotations then land
-        const spins = Math.PI * 2 * (5 + Math.random() * 3);
+        // Spin a WHOLE number of full rotations then land, so the wheel comes
+        // to rest with the landed segment's middle exactly under the pointer.
+        // (A fractional turn here would stop the wheel on the wrong segment
+        // even though the result itself is correct.)
+        const spins = Math.PI * 2 * (5 + Math.floor(Math.random() * 4));
         const endRot = targetAngle + spins;
         const startRot = rotation;
         const duration = 3000;
