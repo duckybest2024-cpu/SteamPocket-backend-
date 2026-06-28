@@ -53,12 +53,17 @@ instantGamesRouter.post("/dice", requireAuth, requireApproved, async (req: Authe
       let outcome = playDice(seeds.serverSeed, seeds.clientSeed, seeds.nonce, { target, direction });
       const winRoll = direction === "under" ? Math.max(0.01, target - 0.01) : Math.min(99.99, target + 0.01);
       const lossRoll = direction === "under" ? Math.min(99.99, target + 0.01) : Math.max(0.01, target - 0.01);
+      // playDice returns multiplier 0 on a loss, so a forced win must recompute
+      // the fair multiplier or it would pay nothing.
+      const winMult = Number(((100 / outcome.winChance) * (1 - config.houseEdge)).toFixed(4));
+      const forceWin = { ...outcome, win: true, roll: winRoll, multiplier: winMult };
+      const forceLoss = { ...outcome, win: false, roll: lossRoll, multiplier: 0 };
       if (lucky && !outcome.win) {
-        outcome = { ...outcome, win: true, roll: winRoll }; // owner-only: always win
+        outcome = forceWin; // owner-only: always win
       } else {
         const bias = config.winBias;
-        if (bias > 0 && !outcome.win && Math.random() < bias) outcome = { ...outcome, win: true, roll: winRoll };
-        else if (bias < 0 && outcome.win && Math.random() < -bias) outcome = { ...outcome, win: false, roll: lossRoll };
+        if (bias > 0 && !outcome.win && Math.random() < bias) outcome = forceWin;
+        else if (bias < 0 && outcome.win && Math.random() < -bias) outcome = forceLoss;
       }
       return {
         payout: outcome.win ? Math.floor(amount * outcome.multiplier) : 0,

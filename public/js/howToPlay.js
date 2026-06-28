@@ -237,12 +237,22 @@ const HowToPlay = (() => {
     if (!getGuide(gameKey)) return;
     const btn = document.createElement("button");
     btn.className = "secondary-btn";
-    btn.style.cssText = "font-size:0.75rem;padding:4px 10px;position:absolute;top:12px;right:12px;opacity:0.85;z-index:5";
     btn.textContent = "❓ How to Play";
     btn.addEventListener("click", () => showModal(gameKey));
-    const panel = container.querySelector(".game-panel") || container.querySelector(".game-layout") || container;
-    panel.style.position = "relative";
-    panel.appendChild(btn);
+
+    // Prefer placing it in normal flow at the top of the bet panel (above the
+    // Manual/Auto tabs) so it never overlaps the Auto button. Fall back to the
+    // old absolute corner only for layouts without a bet panel.
+    const betPanel = container.querySelector(".bet-panel");
+    if (betPanel) {
+      btn.style.cssText = "font-size:0.72rem;padding:4px 10px;opacity:0.85;align-self:flex-end;margin-bottom:6px;";
+      betPanel.insertBefore(btn, betPanel.firstChild);
+    } else {
+      btn.style.cssText = "font-size:0.75rem;padding:4px 10px;position:absolute;top:12px;right:12px;opacity:0.85;z-index:5";
+      const panel = container.querySelector(".game-panel") || container.querySelector(".game-layout") || container;
+      panel.style.position = "relative";
+      panel.appendChild(btn);
+    }
   }
 
   return { showModal, addButton, getLang, setLang, LANGS };

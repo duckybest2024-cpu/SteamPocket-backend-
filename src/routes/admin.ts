@@ -902,30 +902,10 @@ adminRouter.post("/maintenance/toggle", (_req, res) => {
 });
 
 // ===========================================================================
-// 2. SITE CONFIG
+// 2. SITE CONFIG — handled by the DB-backed GET/POST /config above. (A second
+// in-memory siteConfig GET/POST used to live here but was dead code: Express
+// runs the earlier handlers first, so these never executed.)
 // ===========================================================================
-const siteConfig = {
-  minBet: 10,
-  maxBet: 100000,
-  houseEdgeOverride: null as number | null,
-};
-
-adminRouter.get("/config", (_req, res) => {
-  res.json(siteConfig);
-});
-
-adminRouter.post("/config", (req, res) => {
-  const { minBet, maxBet, houseEdgeOverride } = req.body as {
-    minBet?: number;
-    maxBet?: number;
-    houseEdgeOverride?: number | null;
-  };
-  if (minBet !== undefined) siteConfig.minBet = Number(minBet);
-  if (maxBet !== undefined) siteConfig.maxBet = Number(maxBet);
-  if (houseEdgeOverride !== undefined)
-    siteConfig.houseEdgeOverride = houseEdgeOverride === null ? null : Number(houseEdgeOverride);
-  res.json(siteConfig);
-});
 
 // ===========================================================================
 // 3. IP BLOCKS
