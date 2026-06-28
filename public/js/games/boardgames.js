@@ -57,6 +57,13 @@ const BoardGamesGame = (() => {
       UI.toast("Board games connection failed: " + err.message, "loss");
     });
 
+    // Whenever the socket (re)connects — including after a page reload or a
+    // dropped mobile connection — ask the server to snap us back into any game
+    // we're still in.
+    socket.on("connect", () => {
+      if (_container) socket.emit("bg:rejoin");
+    });
+
     // bg:rooms — backend sends { rooms: [...] }
     socket.on("bg:rooms", (payload) => {
       const list = (payload && payload.rooms) ? payload.rooms : (Array.isArray(payload) ? payload : []);
@@ -1036,8 +1043,10 @@ const BoardGamesGame = (() => {
 
       /* ── Responsive tweaks ──────────────────────────────────── */
       @media (max-width: 520px) {
+        /* One full-width card per row on phones — two columns clipped the
+           "Rules" button because each card holds two buttons side by side. */
         .bg-games-grid {
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-columns: 1fr;
         }
         .bg-room-row {
           gap: .5rem;
@@ -1048,11 +1057,6 @@ const BoardGamesGame = (() => {
         }
         .bg-waiting {
           padding: 1rem;
-        }
-      }
-      @media (max-width: 360px) {
-        .bg-games-grid {
-          grid-template-columns: 1fr;
         }
       }
     `;
