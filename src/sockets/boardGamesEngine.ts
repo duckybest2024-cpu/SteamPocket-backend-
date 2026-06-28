@@ -1593,6 +1593,12 @@ export function attachBoardGames(io: Server): void {
 
   /** Resolve the winner, persist history, notify clients, and remove the room. */
   async function finishGame(room: Room, winnerId: string | null): Promise<void> {
+    // Re-entry guard: resign + turn-timeout (etc.) can both reach finishGame for
+    // the same room before the first await completes. Flip status synchronously
+    // so the second caller bails out and the winner isn't paid twice.
+    if (room.status === "finished" || !rooms.has(room.id)) return;
+    room.status = "finished";
+    clearTurnTimer(room.id);
     const winnerPlayer = winnerId ? room.players.find((p) => p.userId === winnerId) : null;
     let prize = 0;
     try { prize = await resolveWinner(room, winnerId); } catch { /* ignore */ }
