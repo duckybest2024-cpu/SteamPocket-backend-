@@ -1,5 +1,6 @@
 import { config } from "./config";
 import { getSiteConfig } from "./siteConfig";
+import { setOwner } from "./owner";
 
 /**
  * Global house-edge control for the engine-driven games (Dice, Crash, Limbo,
@@ -47,6 +48,8 @@ export async function loadHouseEdge(): Promise<void> {
     const pct = Number(bias);
     if (Number.isFinite(pct)) config.winBias = clampBias(pct / 100);
   }
+  const owner = await getSiteConfig("owner_username");
+  if (owner) setOwner(owner);
 }
 
 /** Owner-only "lucky mode" — when on, the OWNER's own bets always win. */

@@ -2,7 +2,7 @@ import { RequestHandler, Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireAuth, AuthedRequest } from "../middleware/auth";
-import { isOwner } from "../lib/owner";
+import { isOwner, setOwner, getOwner } from "../lib/owner";
 import { sendTestEmail } from "../lib/mailer";
 import { sendPaypalPayout, isPaypalConfigured } from "../lib/paypal";
 import { setHouseEdgePercent, getHouseEdgePercent, setOwnerLucky, setWinBiasPercent, getWinBiasPercent } from "../lib/gameOdds";
@@ -630,6 +630,7 @@ adminRouter.get("/config", async (_req, res) => {
   const configs = await prisma.siteConfig.findMany();
   const obj: Record<string, string> = {};
   for (const c of configs) obj[c.key] = c.value;
+  obj.owner_username = getOwner(); // always reflect the live owner
   res.json(obj);
 });
 
@@ -667,6 +668,14 @@ adminRouter.post("/config", async (req, res) => {
   // Owner-only lucky mode toggle (applies live).
   if (Object.prototype.hasOwnProperty.call(updates, "owner_lucky")) {
     setOwnerLucky(String(updates.owner_lucky) === "true");
+  }
+  // Transfer ownership (e.g. when selling the site). Only the current owner can
+  // reach this route (adminRouter is owner-gated), so this is a deliberate
+  // hand-off. Applied live + persisted.
+  if (updates.owner_username !== undefined && String(updates.owner_username).trim() !== "") {
+    const newOwner = String(updates.owner_username).trim();
+    setOwner(newOwner);
+    await prisma.siteConfig.upsert({ where: { key: "owner_username" }, create: { key: "owner_username", value: newOwner }, update: { value: newOwner } });
   }
   // Global win-chance bias (applies live).
   if (updates.win_bias !== undefined) {

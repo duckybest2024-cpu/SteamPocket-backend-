@@ -1,7 +1,7 @@
 {
   "name": "GrilledCoin",
   "short_name": "GrilledCoin",
-  "description": "GrilledCoin — provably fair casino for Patreon subscribers — dice, crash, mines, blackjack and more. 1,000 chip welcome bonus.",
+  "description": "GrilledCoin — provably fair casino — dice, crash, mines, blackjack and more. 1,000 chip welcome bonus.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f212e",
