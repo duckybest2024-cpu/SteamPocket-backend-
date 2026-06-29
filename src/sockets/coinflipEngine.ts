@@ -117,7 +117,7 @@ export class CoinflipEngine {
     const reply = (resp: unknown) => ack?.(resp);
     const userId = socket.data.userId;
     if (!userId) return reply({ error: "Authentication required" });
-    if (!socket.data.isApproved) return reply({ error: "Active subscription required. Visit patreon.com/GrilledCoin." });
+    if (!socket.data.isApproved) return reply({ error: "Active subscription required." });
 
     // Prevent duplicate open challenges from same user
     for (const c of this.challenges.values()) {
@@ -176,7 +176,7 @@ export class CoinflipEngine {
     const reply = (resp: unknown) => ack?.(resp);
     const userId = socket.data.userId;
     if (!userId) return reply({ error: "Authentication required" });
-    if (!socket.data.isApproved) return reply({ error: "Active subscription required. Visit patreon.com/GrilledCoin." });
+    if (!socket.data.isApproved) return reply({ error: "Active subscription required." });
 
     const body = payload as { challengeId?: unknown };
     const id = String(body?.challengeId ?? "");
@@ -202,7 +202,7 @@ export class CoinflipEngine {
     const reply = (resp: unknown) => ack?.(resp);
     const userId = socket.data.userId;
     if (!userId) return reply({ error: "Authentication required" });
-    if (!socket.data.isApproved) return reply({ error: "Active subscription required. Visit patreon.com/GrilledCoin." });
+    if (!socket.data.isApproved) return reply({ error: "Active subscription required." });
 
     const body = payload as { challengeId?: unknown };
     const id = String(body?.challengeId ?? "");

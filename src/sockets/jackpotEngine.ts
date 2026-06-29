@@ -62,7 +62,7 @@ export class JackpotEngine {
 
       socket.on("enter", async ({ amount }: { amount: number }) => {
         if (!socket.data.userId) return socket.emit("error", "Login required");
-        if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
+        if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
         if (this.spinning) return socket.emit("error", "Round is spinning");
         if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min entry: 1 chip");
         if (amount > 10_000_000) return socket.emit("error", "Max entry: 100,000 chips");

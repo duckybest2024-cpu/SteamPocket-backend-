@@ -38,7 +38,7 @@ export async function requireApproved(req: AuthedRequest, res: Response, next: N
     if (isOwner(user.username) || user.isAdmin) return next();
     const expired = user.approvedUntil && user.approvedUntil < new Date();
     if (!user.isApproved || expired) {
-      return res.status(403).json({ error: "Active subscription required to play. Visit patreon.com/GrilledCoin." });
+      return res.status(403).json({ error: "Active subscription required to play." });
     }
     next();
   } catch {

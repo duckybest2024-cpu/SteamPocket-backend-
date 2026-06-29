@@ -99,7 +99,7 @@ const App = (() => {
   ];
 
   const ADMIN_ITEM = { key: "admin", icon: "🔧", label: "Admin Panel", mod: () => AdminGame };
-  const VIP_ITEM = { key: "vip", icon: "💎", label: "Netherite Lounge", mod: () => VipGame };
+  const VIP_ITEM = { key: "vip", icon: "💎", label: "VIP Lounge", mod: () => VipGame };
   let allItems = NAV.flatMap((s) => s.items);
 
   let activeCleanup = null;
@@ -118,7 +118,7 @@ const App = (() => {
         acct.items.unshift(ADMIN_ITEM);
       }
     }
-    // Netherite Patrons get the cosmetic VIP lounge (the owner has the full
+    // VIPs get the cosmetic VIP lounge (the owner has the full
     // Admin Panel already, so don't double it up for them).
     if (state.isVip && state.rank !== "owner") {
       const acct = sections.find((s) => s.section === "Account");
@@ -250,12 +250,12 @@ const App = (() => {
     const tierEl = document.getElementById("sb-tier-row");
     if (tierEl) {
       const TIER_LABELS = {
-        bronze_patron: "🥉 Bronze Patron",
-        silver_patron: "🥈 Silver Patron",
-        gold_patron: "🥇 Gold Patron",
-        platinum_patron: "💠 Platinum Patron",
-        diamond_patron: "💎 Diamond Patron",
-        netherite_patron: "⚫ Netherite Patron",
+        bronze_patron: "🥉 Bronze",
+        silver_patron: "🥈 Silver",
+        gold_patron: "🥇 Gold",
+        platinum_patron: "💠 Platinum",
+        diamond_patron: "💎 Diamond",
+        netherite_patron: "👑 VIP",
       };
       tierEl.textContent = state.patreonTier
         ? (TIER_LABELS[state.patreonTier] || state.patreonTier)

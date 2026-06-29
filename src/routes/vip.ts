@@ -4,7 +4,7 @@ import { requireAuth, AuthedRequest } from "../middleware/auth";
 import { isOwner } from "../lib/owner";
 
 /**
- * The "Netherite Lounge" — a cosmetic, read-only VIP panel for top-tier
+ * The "VIP Lounge" — a cosmetic, read-only VIP panel for top-tier
  * (Netherite Patron) subscribers. It deliberately contains nothing sensitive:
  * no balance editing, no odds, no user management, no config. Just the
  * subscriber's own stats, their perks, and a top-players board. Real admin
@@ -13,8 +13,8 @@ import { isOwner } from "../lib/owner";
 export const vipRouter = Router();
 
 const PERKS = [
-  "💎 Netherite badge next to your name",
-  "🏆 Exclusive access to the Netherite Lounge",
+  "💎 VIP badge next to your name",
+  "🏆 Exclusive access to the VIP Lounge",
   "📈 Personal lifetime stats dashboard",
   "🎟️ Priority entry to special events & giveaways",
   "💸 Eligible for discretionary cash prize rewards",
@@ -30,7 +30,7 @@ const vipOnly = [
       select: { username: true, patreonTier: true },
     });
     if (!user || (user.patreonTier !== "netherite_patron" && !isOwner(user.username))) {
-      return res.status(403).json({ error: "Netherite Patron only" });
+      return res.status(403).json({ error: "VIP members only" });
     }
     next();
   },
