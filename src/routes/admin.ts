@@ -5,7 +5,7 @@ import { requireAuth, AuthedRequest } from "../middleware/auth";
 import { isOwner, setOwner, getOwner } from "../lib/owner";
 import { sendTestEmail } from "../lib/mailer";
 import { sendPaypalPayout, isPaypalConfigured } from "../lib/paypal";
-import { setHouseEdgePercent, getHouseEdgePercent, setOwnerLucky, setWinBiasPercent, getWinBiasPercent } from "../lib/gameOdds";
+import { setHouseEdgePercent, getHouseEdgePercent, setOwnerLucky, setWinBiasPercent, getWinBiasPercent, getRealMoneyMode, getCasinoLicense, setCasinoLicense, setRealMoneyMode } from "../lib/gameOdds";
 import { NFT_CATALOG } from "../lib/nftCatalog";
 
 export const adminRouter = Router();
@@ -631,11 +631,40 @@ adminRouter.get("/config", async (_req, res) => {
   const obj: Record<string, string> = {};
   for (const c of configs) obj[c.key] = c.value;
   obj.owner_username = getOwner(); // always reflect the live owner
+  obj.real_money_mode = String(getRealMoneyMode()); // live gate state
+  obj.casino_license = getCasinoLicense();
   res.json(obj);
 });
 
 adminRouter.post("/config", async (req, res) => {
   const updates = req.body as Record<string, string>;
+
+  // ── Real-money "real casino mode" gate ──────────────────────────────────────
+  // Real mode is locked behind a casino licence AND is mutually exclusive with
+  // the odds-tampering controls (a rigged real-money casino is fraud). Validate
+  // this BEFORE persisting anything so rejected requests change nothing.
+  if (updates.casino_license !== undefined) {
+    setCasinoLicense(String(updates.casino_license));
+  }
+  let realModeActive = getRealMoneyMode();
+  if (Object.prototype.hasOwnProperty.call(updates, "real_money_mode")) {
+    const want = String(updates.real_money_mode) === "true";
+    const result = setRealMoneyMode(want);
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    realModeActive = want;
+  }
+  // While real mode is on, refuse any attempt to enable rigging.
+  if (realModeActive) {
+    const triesToRig =
+      (Object.prototype.hasOwnProperty.call(updates, "owner_lucky") && String(updates.owner_lucky) === "true") ||
+      (Object.prototype.hasOwnProperty.call(updates, "win_bias") && Number(updates.win_bias) !== 0);
+    if (triesToRig) {
+      return res.status(400).json({ error: "Odds controls are disabled in real-money mode — a licensed casino must run fair games." });
+    }
+    // Force rigging keys to neutral so the generic persist loop can't smuggle them in.
+    if (Object.prototype.hasOwnProperty.call(updates, "owner_lucky")) updates.owner_lucky = "false";
+    if (Object.prototype.hasOwnProperty.call(updates, "win_bias")) updates.win_bias = "0";
+  }
   for (const [key, value] of Object.entries(updates)) {
     await prisma.siteConfig.upsert({
       where: { key },

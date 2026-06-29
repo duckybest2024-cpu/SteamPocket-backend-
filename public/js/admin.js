@@ -1366,6 +1366,46 @@ const AdminGame = (() => {
               </button>
             </div>
           </div>
+
+          <!-- Real Casino Mode (real-money) — gated behind a licence -->
+          ${(() => {
+            const realOn = cfg["real_money_mode"] === "true";
+            const license = cfg["casino_license"] || "";
+            const hasLicense = license.trim() !== "";
+            return `
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🏛️ Real Casino Mode</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              Switches the casino from play-money to <strong>real-money</strong> operation. This is
+              <strong>locked off</strong> until you enter a valid gambling licence below. Turning it on
+              <strong>disables every odds control</strong> (House Edge bias, Win Chance Bias, Owner Lucky Mode) —
+              a licensed casino must run fair, provably-fair games. You are responsible for licensing,
+              KYC/AML, and connecting a real payment processor; this toggle does not itself move money.
+            </p>
+            <div style="${S.form};max-width:460px;">
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Gambling licence number / reference</label>
+                <input id="adm-casino-license" type="text" placeholder="e.g. MGA/B2C/123/2024"
+                  value="${license.replace(/"/g, "&quot;")}" style="${S.formInput}" autocomplete="off" />
+              </div>
+              <div style="margin-bottom:12px;"><button id="adm-license-save" style="${S.submitBtn};background:var(--bg-elev);">Save Licence</button></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+              <div>
+                <div style="font-weight:700;">${realOn ? "🟢" : "🔴"} Real-money mode is ${realOn ? "ON" : "OFF"}</div>
+                <div style="color:var(--text-dim);font-size:0.8rem;max-width:360px;">
+                  ${hasLicense
+                    ? "Licence on file — you can enable real-money mode."
+                    : "🔒 Locked: enter a licence above first. No licence, no real money."}
+                </div>
+              </div>
+              <button id="adm-real-mode" data-on="${realOn}" ${hasLicense ? "" : "disabled"}
+                style="${realOn ? S.toggleOn : S.toggleOff}${hasLicense ? "" : "opacity:0.45;cursor:not-allowed;"}">
+                ${realOn ? "✅ ON" : "🚫 OFF"}
+              </button>
+            </div>
+          </div>`;
+          })()}
         `;
 
         UI.wireAllPasswordToggles(pane);
@@ -1537,6 +1577,39 @@ const AdminGame = (() => {
           } catch (err) {
             UI.toast(err.message || "Failed.", "loss");
           } finally {
+            btn.disabled = false;
+          }
+        });
+
+        // Save casino licence (unlocks the real-money toggle)
+        const licenseSaveBtn = pane.querySelector("#adm-license-save");
+        if (licenseSaveBtn) licenseSaveBtn.addEventListener("click", async () => {
+          const license = pane.querySelector("#adm-casino-license").value.trim();
+          licenseSaveBtn.disabled = true; licenseSaveBtn.textContent = "Saving…";
+          try {
+            await Api.post("/admin/config", { casino_license: license });
+            UI.toast(license ? "Licence saved — real-money mode unlocked." : "Licence cleared — real-money mode locked.", license ? "win" : "info");
+            loadControls();
+          } catch (err) {
+            UI.toast(err.message || "Failed.", "loss");
+            licenseSaveBtn.disabled = false; licenseSaveBtn.textContent = "Save Licence";
+          }
+        });
+
+        // Real-money mode toggle (server enforces the licence requirement)
+        const realModeBtn = pane.querySelector("#adm-real-mode");
+        if (realModeBtn) realModeBtn.addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          if (btn.disabled) return;
+          const newOn = btn.dataset.on !== "true";
+          if (newOn && !confirm("Turn ON real-money mode? This disables ALL odds controls and switches the casino to real-money operation. You are responsible for licensing, KYC/AML and payments.")) return;
+          btn.disabled = true;
+          try {
+            await Api.post("/admin/config", { real_money_mode: String(newOn) });
+            UI.toast(`Real-money mode ${newOn ? "ON — fair games enforced, odds controls disabled." : "OFF — back to play-money."}`, newOn ? "win" : "info");
+            loadControls();
+          } catch (err) {
+            UI.toast(err.message || "Failed — is a licence on file?", "loss");
             btn.disabled = false;
           }
         });
