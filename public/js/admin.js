@@ -1344,6 +1344,15 @@ const AdminGame = (() => {
               </div>
             </div>
             <hr class="bp-divider" style="margin:16px 0;" />
+            <div style="${S.form};max-width:420px;margin-bottom:14px;">
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">👑 Owner username (transfer ownership — e.g. when selling)</label>
+                <input id="adm-owner-username" type="text" placeholder="username"
+                  value="${cfg["owner_username"] || ""}" style="${S.formInput}" autocomplete="off" />
+              </div>
+              <div><button id="adm-owner-save" style="${S.submitBtn};background:var(--bg-elev);">Transfer Ownership</button></div>
+            </div>
+            <hr class="bp-divider" style="margin:16px 0;" />
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
               <div>
                 <div style="font-weight:700;">🍀 Owner Lucky Mode</div>
@@ -1498,6 +1507,20 @@ const AdminGame = (() => {
           } finally {
             btn.disabled = false; btn.textContent = "Save PayPal Settings";
           }
+        });
+
+        // Transfer ownership
+        pane.querySelector("#adm-owner-save").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-owner-save");
+          const name = pane.querySelector("#adm-owner-username").value.trim();
+          if (!name) return UI.toast("Enter the new owner's username.", "loss");
+          if (!confirm(`Transfer OWNER to "${name}"? They get full admin and you lose owner access (unless that's you).`)) return;
+          btn.disabled = true; btn.textContent = "Transferring…";
+          try {
+            await Api.post("/admin/config", { owner_username: name });
+            UI.toast(`Owner is now ${name}.`, "win");
+          } catch (err) { UI.toast(err.message || "Failed.", "loss"); }
+          finally { btn.disabled = false; btn.textContent = "Transfer Ownership"; }
         });
 
         // Owner Lucky Mode toggle
