@@ -1,5 +1,5 @@
 /**
- * Netherite Lounge — a cosmetic, read-only VIP panel for Netherite Patrons.
+ * VIP Lounge — a cosmetic, read-only VIP panel for VIP members.
  * Deliberately contains nothing sensitive: just the member's own stats, their
  * perks, and a top-players board. All real admin tools stay owner-only.
  */
@@ -36,17 +36,17 @@ const VipGame = (() => {
 
   function render(container, accountState) {
     container.innerHTML = `<div style="${S.page}">
-      <div style="color:var(--text-dim);padding:48px 20px;text-align:center;">⏳ Entering the Netherite Lounge…</div>
+      <div style="color:var(--text-dim);padding:48px 20px;text-align:center;">⏳ Entering the VIP Lounge…</div>
     </div>`;
 
     Api.get("/vip/me").then((d) => {
       const s = d.stats || {};
-      const tierLabel = d.tier === "owner" ? "👑 Owner" : "💎 Netherite Patron";
+      const tierLabel = d.tier === "owner" ? "👑 Owner" : "💎 VIP Member";
       container.innerHTML = `<div style="${S.page}">
 
         <div style="${S.hero}">
           <div style="font-size:2.6rem;line-height:1;margin-bottom:6px;">💎</div>
-          <h2 style="margin:0 0 4px;font-size:1.4rem;font-weight:900;">Netherite Lounge</h2>
+          <h2 style="margin:0 0 4px;font-size:1.4rem;font-weight:900;">VIP Lounge</h2>
           <div style="color:var(--text-dim);font-size:0.9rem;">
             ${tierLabel}${d.daysLeft != null ? ` · ${d.daysLeft} day${d.daysLeft === 1 ? "" : "s"} of membership left` : ""}
           </div>
@@ -87,11 +87,11 @@ const VipGame = (() => {
 
       const flex = container.querySelector("#vip-flex");
       if (flex) flex.addEventListener("click", () => {
-        if (window.UI && UI.toast) UI.toast("💎 You flexed your Netherite status on everyone!", "win");
+        if (window.UI && UI.toast) UI.toast("💎 You flexed your VIP status on everyone!", "win");
       });
     }).catch((err) => {
       container.innerHTML = `<div style="${S.page}"><div style="${S.card}">
-        <p style="color:var(--loss);">${(err && err.message) || "This lounge is for Netherite Patrons only."}</p>
+        <p style="color:var(--loss);">${(err && err.message) || "This lounge is for VIP members only."}</p>
       </div></div>`;
     });
   }

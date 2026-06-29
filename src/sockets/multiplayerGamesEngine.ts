@@ -90,7 +90,7 @@ export function attachBattleDice(io: Server) {
 
     socket.on("join_room", ({ roomId, amount }: { roomId: string; amount: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
-      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min bet: 1 chip");
 
       const room = getOrCreateRoom(roomId);
@@ -162,7 +162,7 @@ export function attachRPS(io: Server) {
   ns.on("connection", (socket: AuthedSocket) => {
     socket.on("queue", async ({ amount }: { amount: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
-      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min bet: 1 chip");
       if (playerMatch.has(socket.data.userId!)) return socket.emit("error", "Already in a match");
 
@@ -348,7 +348,7 @@ export function attachRaffle(io: Server) {
 
     socket.on("buy_tickets", async ({ count }: { count: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
-      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (!Number.isInteger(count) || count < 1 || count > 100) return socket.emit("error", "Buy 1-100 tickets at once");
 
       const total = TICKET_PRICE * count;
@@ -456,7 +456,7 @@ export function attachBingo(io: Server) {
 
     socket.on("join", async () => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
-      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (phase !== "waiting") return socket.emit("error", "Game in progress, wait for next round");
       if (players.has(socket.data.userId!)) return socket.emit("error", "Already joined");
       if (players.size >= 20) return socket.emit("error", "Room full (20 players max)");
@@ -519,7 +519,7 @@ export function attachTower(io: Server) {
   ns.on("connection", (socket: AuthedSocket) => {
     socket.on("start", async ({ amount }: { amount: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
-      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (sessions.get(socket.data.userId!)?.active) return socket.emit("error", "Already in a tower session");
       if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min bet: 1 chip");
 
@@ -679,7 +679,7 @@ export function attachMultiRoulette(io: Server) {
 
     socket.on("bet", async ({ betType, amount }: { betType: string; amount: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
-      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (phase !== "betting") return socket.emit("error", "Betting is closed");
       if (!PAYOUTS[betType] && isNaN(parseInt(betType, 10))) return socket.emit("error", "Invalid bet type");
       if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min bet: 1 chip");
@@ -801,7 +801,7 @@ export function attachPoker(io: Server) {
 
     socket.on("join_table", async ({ tableId, buyIn }: { tableId: string; buyIn: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
-      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required. Visit patreon.com/GrilledCoin.");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (!Number.isInteger(buyIn) || buyIn < 100) return socket.emit("error", "Min buy-in: 1 chip");
 
       const table = getOrCreateTable(tableId, buyIn);

@@ -238,7 +238,7 @@ export class CrashEngine {
     const reply = (resp: unknown) => ack?.(resp);
     const userId = socket.data.userId;
     if (!userId) return reply({ error: "Authentication required to place bets" });
-    if (!socket.data.isApproved) return reply({ error: "Active subscription required to play. Visit patreon.com/GrilledCoin." });
+    if (!socket.data.isApproved) return reply({ error: "Active subscription required to play." });
     if (this.phase !== "betting") return reply({ error: "Betting is closed for this round" });
     if (this.bets.has(userId)) return reply({ error: "You already have a bet in this round" });
 
