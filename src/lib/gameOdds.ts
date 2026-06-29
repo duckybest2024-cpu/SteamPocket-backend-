@@ -50,6 +50,60 @@ export async function loadHouseEdge(): Promise<void> {
   }
   const owner = await getSiteConfig("owner_username");
   if (owner) setOwner(owner);
+  // Real-money mode + licence. Real mode only survives a restart if a licence is
+  // still on file; otherwise it stays locked off. While on, rigging is forced off.
+  const license = await getSiteConfig("casino_license");
+  config.casinoLicense = license ? license.trim() : "";
+  const realMode = await getSiteConfig("real_money_mode");
+  config.realMoneyMode = realMode === "true" && config.casinoLicense !== "";
+  if (config.realMoneyMode) {
+    config.ownerLucky = false;
+    config.winBias = 0;
+  }
+}
+
+/** Is real-money "real casino mode" currently on? */
+export function getRealMoneyMode(): boolean {
+  return config.realMoneyMode;
+}
+
+/** The licence identifier on file ("" = unlicensed / play-money). */
+export function getCasinoLicense(): string {
+  return config.casinoLicense;
+}
+
+/**
+ * Set/clear the casino licence. Clearing it (empty string) immediately drops
+ * real-money mode, since real mode is not allowed without a licence.
+ */
+export function setCasinoLicense(license: string): void {
+  config.casinoLicense = (license ?? "").trim();
+  if (config.casinoLicense === "") config.realMoneyMode = false;
+}
+
+/** True when odds-tampering controls must stay disabled (i.e. real mode is on). */
+export function riggingLocked(): boolean {
+  return config.realMoneyMode;
+}
+
+/**
+ * Turn real-money mode on/off. Enabling REQUIRES a licence on file and
+ * neutralises every odds-tampering control (a rigged real-money casino is
+ * fraud). Returns { ok, error } so the caller can reject the request cleanly.
+ */
+export function setRealMoneyMode(on: boolean): { ok: boolean; error?: string } {
+  if (on) {
+    if (config.casinoLicense.trim() === "") {
+      return { ok: false, error: "A casino licence is required before real-money mode can be enabled." };
+    }
+    config.realMoneyMode = true;
+    // Fair games only once real money is in play.
+    config.ownerLucky = false;
+    config.winBias = 0;
+    return { ok: true };
+  }
+  config.realMoneyMode = false;
+  return { ok: true };
 }
 
 /** Owner-only "lucky mode" — when on, the OWNER's own bets always win. */

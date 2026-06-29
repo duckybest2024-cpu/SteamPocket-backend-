@@ -11,4 +11,13 @@ export const config = {
   // losses flip to wins); <0 = players win LESS often (that fraction of wins flip
   // to losses); 0 = fair odds.
   winBias: 0,
+  // Real-money "real casino mode". Locked OFF until a casino licence is on file
+  // (see casinoLicense). When ON it is mutually exclusive with the odds-tampering
+  // controls above (ownerLucky / winBias) — a rigged real-money casino is fraud,
+  // so those are force-neutralised. This flag is a compliance gate: it does NOT
+  // itself process real payments or pay out winnings — that wiring (payment
+  // processor, KYC/AML, payouts) is the licensed operator's responsibility.
+  realMoneyMode: false,
+  // The operator's gambling licence identifier. Empty = unlicensed (play-money).
+  casinoLicense: "",
 };
