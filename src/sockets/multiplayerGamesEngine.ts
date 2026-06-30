@@ -514,7 +514,10 @@ export function attachTower(io: Server) {
   const sessions = new Map<string, { level: number; bet: number; multiplier: number; active: boolean }>();
 
   const LEVELS = [1.05, 1.10, 1.20, 1.35, 1.55, 1.80, 2.15, 2.60, 3.20, 4.00, 5.00, 6.50, 8.50, 11.0, 15.0, 20.0, 30.0, 50.0, 75.0, 100.0];
-  const FAIL_PROB = 0.20; // 20% chance of losing on each floor
+  // 12% chance of losing per floor (was 20%) — more forgiving so you can climb
+  // further. Still keeps a house edge: floor-1 RTP ~0.88×1.05 ≈ 92%, dropping
+  // as you climb, so it's never exploitable.
+  const FAIL_PROB = 0.12;
 
   ns.on("connection", (socket: AuthedSocket) => {
     socket.on("start", async ({ amount }: { amount: number }) => {

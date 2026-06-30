@@ -76,7 +76,6 @@ const App = (() => {
       items: [
         { key: "chat",     icon: "💬", label: "Chat",          mod: () => ChatGame },
         { key: "scratch",  icon: "🎟️", label: "Scratch Cards", mod: () => ScratchGame },
-        { key: "download", icon: "📲", label: "Get the App",   mod: () => DownloadGame },
       ],
     },
     {
@@ -258,7 +257,7 @@ const App = (() => {
 
     // Sidebar balance
     const balEl = document.getElementById("balance-amount");
-    if (balEl) balEl.textContent = Math.floor(state.balance / 100).toLocaleString() + " 🪙";
+    if (balEl) balEl.innerHTML = `${Math.floor(state.balance / 100).toLocaleString()} <svg class="coin-i" aria-hidden="true"><use href="#ic-chip"/></svg>`;
 
     // Topbar balance
     const tbEl = document.getElementById("topbar-balance");

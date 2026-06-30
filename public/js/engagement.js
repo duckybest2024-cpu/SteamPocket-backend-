@@ -507,7 +507,7 @@ const Engagement = (() => {
     const el = _getJackpotEl();
     if (!el) return;
     const chips = Math.floor(_jackpotAmount / 100).toLocaleString();
-    el.innerHTML = `🏆 JACKPOT <strong>${chips} 🪙</strong>`;
+    el.innerHTML = `🏆 JACKPOT <strong>${chips} <svg class="coin-i" aria-hidden="true"><use href="#ic-chip"/></svg></strong>`;
     el.style.display = "flex";
   }
 
