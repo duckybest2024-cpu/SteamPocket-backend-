@@ -218,6 +218,10 @@ button { font-family: inherit; cursor: pointer; border: none; outline: none; }
   width: 3px; height: 60%; background: var(--accent); border-radius: 0 3px 3px 0;
 }
 .nav-item-icon { font-size: 1rem; width: 22px; text-align: center; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+/* Inline gold-chip coin icon (device-independent — replaces the 🪙 emoji that
+   renders as a building glyph on some Android emoji fonts) */
+.coin-i { width: 1em; height: 1em; display: inline-block; vertical-align: -0.14em; }
+
 /* Brand-kit gold/ember SVG icons in the sidebar + breadcrumb */
 .nav-svg-icon { width: 20px; height: 20px; display: block; }
 #topbar-breadcrumb .nav-svg-icon { width: 18px; height: 18px; display: inline-block; vertical-align: -3px; margin-right: 2px; }

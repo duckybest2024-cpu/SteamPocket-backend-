@@ -45,7 +45,7 @@ const UI = (() => {
     const formatted = chips.toLocaleString();
     const balEl = document.getElementById("balance-amount");
     const tbEl = document.getElementById("topbar-balance");
-    if (balEl) balEl.textContent = formatted + " 🪙";
+    if (balEl) balEl.innerHTML = `${formatted} <svg class="coin-i" aria-hidden="true"><use href="#ic-chip"/></svg>`;
     if (tbEl) tbEl.textContent = formatted;
   }
 
