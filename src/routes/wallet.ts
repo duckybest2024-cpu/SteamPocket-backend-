@@ -39,6 +39,25 @@ walletRouter.get("/transactions", requireAuth, async (req: AuthedRequest, res) =
 // Stripe checkout — create a hosted payment session for a chip package
 // ---------------------------------------------------------------------------
 
+// List the chip packages for the store UI, plus whether checkout is live.
+walletRouter.get("/packages", requireAuth, async (_req, res) => {
+  const enabled = await configFlag("stripeCheckoutEnabled", true);
+  const configured = !!getStripe();
+  res.json({
+    enabled,
+    configured,
+    packages: CHIP_PACKAGES.map((p) => ({
+      id: p.id,
+      name: p.name,
+      emoji: p.emoji,
+      chips: p.chips,
+      priceCents: p.priceCents,
+      badge: p.badge,
+      saving: p.saving,
+    })),
+  });
+});
+
 const checkoutSchema = z.object({ packageId: z.string() });
 
 walletRouter.post("/create-checkout-session", requireAuth, async (req: AuthedRequest, res) => {
