@@ -55,7 +55,7 @@ export async function loadHouseEdge(): Promise<void> {
   const license = await getSiteConfig("casino_license");
   config.casinoLicense = license ? license.trim() : "";
   const realMode = await getSiteConfig("real_money_mode");
-  config.realMoneyMode = realMode === "true" && config.casinoLicense !== "";
+  config.realMoneyMode = realMode === "true" && isLicenseValid();
   if (config.realMoneyMode) {
     config.ownerLucky = false;
     config.winBias = 0;
@@ -73,12 +73,26 @@ export function getCasinoLicense(): string {
 }
 
 /**
- * Set/clear the casino licence. Clearing it (empty string) immediately drops
- * real-money mode, since real mode is not allowed without a licence.
+ * Set/clear the casino licence. Clearing it — or setting one that no longer
+ * matches the server secret — immediately drops real-money mode.
  */
 export function setCasinoLicense(license: string): void {
   config.casinoLicense = (license ?? "").trim();
-  if (config.casinoLicense === "") config.realMoneyMode = false;
+  if (!isLicenseValid()) config.realMoneyMode = false;
+}
+
+/**
+ * A typed-in licence alone can't unlock real-money mode (that was the bypass).
+ * The on-file licence must MATCH a server-side secret (CASINO_LICENSE_KEY) that
+ * only whoever controls the deployment can set. No secret configured → real
+ * money stays locked, full stop. This is a guardrail, not proof of a real
+ * licence: operating real-money gambling still requires an actual licence +
+ * KYC/AML and is the operator's legal responsibility.
+ */
+export function isLicenseValid(): boolean {
+  const secret = (process.env.CASINO_LICENSE_KEY ?? "").trim();
+  if (secret === "") return false;
+  return config.casinoLicense.trim() !== "" && config.casinoLicense.trim() === secret;
 }
 
 /** True when odds-tampering controls must stay disabled (i.e. real mode is on). */
@@ -93,8 +107,12 @@ export function riggingLocked(): boolean {
  */
 export function setRealMoneyMode(on: boolean): { ok: boolean; error?: string } {
   if (on) {
-    if (config.casinoLicense.trim() === "") {
-      return { ok: false, error: "A casino licence is required before real-money mode can be enabled." };
+    if (!isLicenseValid()) {
+      return {
+        ok: false,
+        error:
+          "Real-money mode is locked: the licence on file must match the operator's CASINO_LICENSE_KEY secret set on the server. A licence typed into the admin panel alone cannot enable it.",
+      };
     }
     config.realMoneyMode = true;
     // Fair games only once real money is in play.

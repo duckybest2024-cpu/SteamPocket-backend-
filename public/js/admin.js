@@ -1377,10 +1377,12 @@ const AdminGame = (() => {
             <h3 style="${S.sectionTitle}">🏛️ Real Casino Mode</h3>
             <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
               Switches the casino from play-money to <strong>real-money</strong> operation. This is
-              <strong>locked off</strong> until you enter a valid gambling licence below. Turning it on
-              <strong>disables every odds control</strong> (House Edge bias, Win Chance Bias, Owner Lucky Mode) —
-              a licensed casino must run fair, provably-fair games. You are responsible for licensing,
-              KYC/AML, and connecting a real payment processor; this toggle does not itself move money.
+              <strong>locked off</strong> until the licence you save below <strong>matches the
+              <code>CASINO_LICENSE_KEY</code> secret set on the server</strong> — a licence typed here
+              alone will NOT unlock it (that closes the fake-licence bypass). Turning it on
+              <strong>disables every odds control</strong> (House Edge bias, Win Chance Bias, Owner Lucky
+              Mode) and all free bonuses — a licensed casino must run fair games. You are responsible for
+              licensing, KYC/AML, and connecting a real payment processor; this toggle does not move money.
             </p>
             <div style="${S.form};max-width:460px;">
               <div style="${S.formGroup}">
@@ -1395,7 +1397,7 @@ const AdminGame = (() => {
                 <div style="font-weight:700;">${realOn ? "🟢" : "🔴"} Real-money mode is ${realOn ? "ON" : "OFF"}</div>
                 <div style="color:var(--text-dim);font-size:0.8rem;max-width:360px;">
                   ${hasLicense
-                    ? "Licence on file — you can enable real-money mode."
+                    ? "Licence on file. Real-money mode will only switch on if it matches the server's CASINO_LICENSE_KEY secret."
                     : "🔒 Locked: enter a licence above first. No licence, no real money."}
                 </div>
               </div>

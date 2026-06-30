@@ -5,11 +5,17 @@ import { requireAuth, AuthedRequest } from "../middleware/auth";
 import { applyLedgerEntry, updateHouseChips, InsufficientFundsError } from "../lib/wallet";
 import { getStripe, CHIP_PACKAGES } from "../lib/stripe";
 import { getSiteConfig } from "../lib/siteConfig";
+import { getRealMoneyMode } from "../lib/gameOdds";
 
 async function configFlag(key: string, defaultValue: boolean): Promise<boolean> {
   const raw = await getSiteConfig(key);
   return raw === null ? defaultValue : raw !== "false";
 }
+
+// Free chip bonuses (daily bonus, rakeback, promo codes) are play-money perks.
+// They are switched OFF while real-money mode is on — a licensed real-money
+// casino does not hand out free credits like a social game.
+const REAL_MONEY_BONUS_ERROR = "Free bonuses are disabled in real-money mode.";
 
 async function configNumber(key: string, defaultValue: number): Promise<number> {
   const raw = await getSiteConfig(key);
@@ -221,6 +227,7 @@ walletRouter.post("/cashout-chips", requireAuth, async (req: AuthedRequest, res)
 
 /** Daily rakeback: 5% of cumulative wagers since the last claim, paid as a flat bonus. */
 walletRouter.post("/rakeback/claim", requireAuth, async (req: AuthedRequest, res) => {
+  if (getRealMoneyMode()) return res.status(503).json({ error: REAL_MONEY_BONUS_ERROR });
   if (!(await configFlag("rakebackEnabled", true))) {
     return res.status(503).json({ error: "Rakeback is currently disabled." });
   }
@@ -302,6 +309,7 @@ walletRouter.get("/leaderboard", async (req, res) => {
 
 // Promo code redemption
 walletRouter.post("/promo/redeem", requireAuth, async (req: AuthedRequest, res) => {
+  if (getRealMoneyMode()) return res.status(503).json({ error: REAL_MONEY_BONUS_ERROR });
   if (!(await configFlag("promoRedeemEnabled", true))) {
     return res.status(503).json({ error: "Promo code redemption is currently disabled." });
   }
@@ -333,6 +341,7 @@ const dailyBonusClaimed = new Map<string, string>(); // userId -> ISO date (YYYY
 
 walletRouter.post("/daily-bonus", requireAuth, async (req: AuthedRequest, res) => {
   try {
+    if (getRealMoneyMode()) return res.status(503).json({ error: REAL_MONEY_BONUS_ERROR });
     if (!(await configFlag("dailyBonusEnabled", true))) {
       return res.status(503).json({ error: "The daily bonus is currently disabled." });
     }
