@@ -25,28 +25,35 @@ const LobbyGame = (() => {
       <style>
         .lobby-wrap { padding: 20px; max-width: 1100px; }
         .lobby-hero {
-          background: linear-gradient(135deg, #0f212e 0%, #1a0533 50%, #0f3460 100%);
-          border: 1px solid var(--border);
+          background:
+            linear-gradient(135deg, rgba(20,17,10,0.92) 0%, rgba(10,11,16,0.95) 55%, rgba(17,13,5,0.92) 100%),
+            url('/images/felt.jpg') center/cover;
+          border: 1px solid var(--gold, #f3c14b);
           border-radius: 16px;
           padding: 36px 32px;
           margin-bottom: 28px;
           position: relative;
           overflow: hidden;
+          box-shadow: inset 0 0 80px rgba(0,0,0,0.6), 0 18px 50px -28px rgba(243,193,75,0.45);
         }
         .lobby-hero::before {
           content: '';
           position: absolute;
           inset: 0;
-          background: radial-gradient(ellipse at 70% 50%, rgba(52,211,153,0.12) 0%, transparent 60%);
+          background: radial-gradient(ellipse at 75% 0%, rgba(243,193,75,0.18) 0%, transparent 60%);
           pointer-events: none;
         }
         .lobby-hero-title {
+          display: flex; align-items: center; gap: 12px;
           font-size: 2rem;
-          font-weight: 800;
-          color: #fff;
+          font-weight: 900;
           margin: 0 0 8px 0;
           position: relative;
+          background: linear-gradient(135deg, #fff5d6, #f3c14b 55%, #b8860b);
+          -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
         }
+        .lobby-hero-logo { height: 44px; width: 44px; object-fit: contain;
+          filter: drop-shadow(0 3px 8px rgba(0,0,0,0.6)); flex-shrink: 0; }
         .lobby-hero-sub {
           color: var(--text-dim);
           font-size: 1rem;
@@ -72,8 +79,8 @@ const LobbyGame = (() => {
         }
         .lhs-value {
           font-size: 1.15rem;
-          font-weight: 700;
-          color: var(--win);
+          font-weight: 800;
+          color: var(--gold, #f3c14b);
         }
         .lobby-section-title {
           font-size: 0.8rem;
@@ -112,8 +119,8 @@ const LobbyGame = (() => {
         }
         .lobby-card:hover {
           transform: translateY(-3px);
-          border-color: rgba(52,211,153,0.4);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+          border-color: rgba(243,193,75,0.55);
+          box-shadow: 0 10px 28px -10px rgba(243,193,75,0.4);
         }
         .lobby-card:hover::after {
           background: rgba(255,255,255,0.04);
@@ -154,7 +161,7 @@ const LobbyGame = (() => {
       <div class="lobby-wrap">
 
         <div class="lobby-hero">
-          <div class="lobby-hero-title">🎰 GrilledCoin</div>
+          <div class="lobby-hero-title"><img src="/images/logo-icon.svg" alt="" class="lobby-hero-logo" />GrilledCoin</div>
           <div class="lobby-hero-sub">Provably fair · 99% RTP · Real-time multiplayer</div>
           <div class="lobby-hero-stats">
             <div class="lhs-item">

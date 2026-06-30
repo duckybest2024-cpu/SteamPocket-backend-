@@ -832,14 +832,16 @@ ins.adsbygoogle[data-ad-status="unfilled"] { display: none !important; }
   padding: 20px;
 }
 
-/* Roulette board */
-.roulette-board-wrap {
+/* Roulette board — felt behind the number grid + outside bets */
+.roulette-board-wrap,
+.roulette-board, .outside-bets {
   background: url('/images/felt-blue.jpg') center/cover;
   border-radius: 12px;
   border: 2px solid rgba(255,255,255,0.1);
   box-shadow: inset 0 0 40px rgba(0,0,0,0.4);
   padding: 14px;
 }
+.roulette-board { margin-bottom: 12px; }
 
 /* Card back image for hidden cards */
 .card.hidden-card {
