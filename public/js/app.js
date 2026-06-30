@@ -74,7 +74,6 @@ const App = (() => {
     {
       section: "Community",
       items: [
-        { key: "chat",     icon: "💬", label: "Chat",          mod: () => ChatGame },
         { key: "scratch",  icon: "🎟️", label: "Scratch Cards", mod: () => ScratchGame },
       ],
     },
@@ -90,7 +89,6 @@ const App = (() => {
       section: "Account",
       items: [
         { key: "stats",       icon: "📊", label: "My Stats",          mod: () => StatsGame },
-        { key: "messages",    icon: "💬", label: "Messages",          mod: () => MessagesGame },
         { key: "leaderboard", icon: "🏆", label: "Leaderboard",       mod: () => LeaderboardGame },
         { key: "friends",     icon: "👥", label: "Friends",           mod: () => FriendsGame },
         { key: "settings",    icon: "⚙️", label: "Settings",          mod: () => SettingsGame },
