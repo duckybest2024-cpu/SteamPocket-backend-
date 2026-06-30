@@ -103,6 +103,21 @@ const App = (() => {
   const VIP_ITEM = { key: "vip", icon: "💎", label: "VIP Lounge", mod: () => VipGame };
   let allItems = NAV.flatMap((s) => s.items);
 
+  // Brand-kit gold/ember SVG icons (sprite embedded in index.html). Keys not
+  // listed here keep their emoji — the kit only replaced the menu/account set.
+  const NAV_ICONS = {
+    store: "ic-chip", coinflip: "ic-coinflip", jackpot: "ic-jackpot", horserace: "ic-horse",
+    battledice: "ic-battle", rps: "ic-rps", raffle: "ic-raffle", bingo: "ic-bingo",
+    multiroulette: "ic-roulette", poker: "ic-poker", arcade: "ic-arcade", boardgames: "ic-board",
+    nfts: "ic-nft-art", nftmarket: "ic-nft-shop", cases: "ic-cases", leaderboard: "ic-leader",
+    friends: "ic-friends", settings: "ic-settings", admin: "ic-admin",
+  };
+  function iconHtml(item) {
+    const sym = NAV_ICONS[item.key];
+    if (sym) return `<svg class="nav-svg-icon" aria-hidden="true"><use href="#${sym}"/></svg>`;
+    return item.icon;
+  }
+
   let activeCleanup = null;
   let activeKey = null;
 
@@ -143,7 +158,7 @@ const App = (() => {
         const btn = document.createElement("button");
         btn.className = "nav-item" + (item.key === activeKey ? " active" : "");
         btn.dataset.key = item.key;
-        btn.innerHTML = `<span class="nav-item-icon">${item.icon}</span><span class="nav-item-label">${item.label}</span>`;
+        btn.innerHTML = `<span class="nav-item-icon">${iconHtml(item)}</span><span class="nav-item-label">${item.label}</span>`;
         btn.addEventListener("click", () => { mount(item.key); closeSidebar(); });
         sec.appendChild(btn);
       }
@@ -198,9 +213,11 @@ const App = (() => {
 
     // Update topbar breadcrumb
     const item = allItems.find((i) => i.key === key);
-    const label = item ? `${item.icon} ${item.label}` : key;
     const bc = document.getElementById("topbar-breadcrumb");
-    if (bc) bc.textContent = label;
+    if (bc) {
+      if (item) bc.innerHTML = `${iconHtml(item)} <span>${item.label}</span>`;
+      else bc.textContent = key;
+    }
 
     const container = document.getElementById("game-area");
     container.innerHTML = "";
