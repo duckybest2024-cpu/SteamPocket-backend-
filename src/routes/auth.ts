@@ -17,27 +17,11 @@ function generateCode(): string {
   return String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
 }
 
-const credentialsSchema = z
-  .object({
-    username: z.string().min(3, "Username must be at least 3 characters").max(20).regex(/^[a-zA-Z0-9_]+$/, "Username: letters, numbers, underscore only"),
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters").max(72),
-    patreonUsername: z.string().min(1).max(50).optional().nullable(),
-    // Where to send real-money prize payouts (jackpots, hosted-event winnings, etc).
-    // "card" is finished in a follow-up step after registration (Stripe-hosted card
-    // collection), so no extra fields are required for it here.
-    payoutMethod: z.enum(["paypal", "card", "note"], { errorMap: () => ({ message: "Please choose a payout method" }) }),
-    payoutPaypalEmail: z.string().email("Invalid PayPal email").optional().nullable(),
-    payoutNote: z.string().min(3, "Please describe how you'd like to be paid").max(300).optional().nullable(),
-  })
-  .refine(
-    (data) => {
-      if (data.payoutMethod === "paypal") return !!data.payoutPaypalEmail;
-      if (data.payoutMethod === "note") return !!data.payoutNote?.trim();
-      return true;
-    },
-    { message: "Please fill in your payout details", path: ["payoutMethod"] }
-  );
+const credentialsSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters").max(20).regex(/^[a-zA-Z0-9_]+$/, "Username: letters, numbers, underscore only"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(72),
+});
 
 authRouter.post("/register", async (req, res) => {
   const registrationEnabled = ((await getSiteConfig("registrationEnabled")) ?? "true") !== "false";
@@ -46,7 +30,7 @@ authRouter.post("/register", async (req, res) => {
   const parsed = credentialsSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
-  const { username, password, patreonUsername, payoutMethod, payoutPaypalEmail, payoutNote } = parsed.data;
+  const { username, password } = parsed.data;
   const email = parsed.data.email.toLowerCase();
 
   try {
@@ -80,13 +64,12 @@ authRouter.post("/register", async (req, res) => {
         serverSeedHash: seedPair.serverSeedHash,
         clientSeed: seedPair.clientSeed,
         emailVerified: false,
-        payoutMethod,
-        payoutPaypalEmail: payoutMethod === "paypal" ? payoutPaypalEmail!.toLowerCase() : null,
-        payoutNote: payoutMethod === "note" ? payoutNote!.trim() : null,
+        // Card is collected via Stripe's hosted page right after signup.
+        payoutMethod: "card",
         emailToken,
         emailTokenExpiry,
-        patreonUsername: patreonUsername ?? null,
-        isApproved: false,
+        // No Patreon gate anymore — new members get access on signup.
+        isApproved: true,
       },
     });
 
@@ -296,7 +279,8 @@ authRouter.post("/google", async (req, res) => {
           serverSeedHash: seedPair.serverSeedHash,
           clientSeed: seedPair.clientSeed,
           emailVerified: true,
-          isApproved: false,
+          payoutMethod: "card",
+          isApproved: true,
         },
       });
     }
