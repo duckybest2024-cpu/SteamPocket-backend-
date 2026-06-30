@@ -7,6 +7,7 @@ const App = (() => {
       section: "Home",
       items: [
         { key: "lobby",       icon: "🏠", label: "Lobby",         mod: () => LobbyGame },
+        { key: "store",       icon: "💰", label: "Buy Chips",     mod: () => StoreGame },
       ],
     },
     {
