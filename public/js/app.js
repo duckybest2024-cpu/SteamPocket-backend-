@@ -347,21 +347,6 @@ const App = (() => {
     UI.wireAllPasswordToggles(document.getElementById("login-form"));
     UI.wireAllPasswordToggles(document.getElementById("register-form"));
 
-    const payoutMethodSelect = document.getElementById("reg-payout-method");
-    const payoutPaypalField = document.getElementById("reg-payout-paypal-field");
-    const payoutNoteField = document.getElementById("reg-payout-note-field");
-    const payoutCardHint = document.getElementById("reg-payout-card-hint");
-    function syncPayoutFields() {
-      const method = payoutMethodSelect.value;
-      payoutPaypalField.classList.toggle("hidden", method !== "paypal");
-      payoutNoteField.classList.toggle("hidden", method !== "note");
-      payoutCardHint.classList.toggle("hidden", method !== "card");
-      payoutPaypalField.querySelector("input").required = method === "paypal";
-      payoutNoteField.querySelector("input").required = method === "note";
-    }
-    payoutMethodSelect.addEventListener("change", syncPayoutFields);
-    syncPayoutFields();
-
     // Tab switching
     document.querySelectorAll(".auth-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
@@ -408,28 +393,25 @@ const App = (() => {
       document.getElementById("auth-error").classList.add("hidden");
       const fd = new FormData(e.target);
       const emailVal = fd.get("email");
-      const payoutMethod = fd.get("payoutMethod");
       try {
         const data = await Api.register({
           username: (fd.get("username") || "").trim(),
           email: (emailVal || "").trim(),
           password: fd.get("password") || "",
-          patreonUsername: (fd.get("patreonUsername") || "").trim() || null,
-          payoutMethod,
-          payoutPaypalEmail: payoutMethod === "paypal" ? (fd.get("payoutPaypalEmail") || "").trim() : undefined,
-          payoutNote: payoutMethod === "note" ? (fd.get("payoutNote") || "").trim() : undefined,
         });
         if (data.token) {
           Api.setToken(data.token);
 
-          if (payoutMethod === "card") {
-            try {
-              const session = await Api.post("/payout/card-session", {});
+          // Everyone adds a card via Stripe's secure hosted page right after
+          // signing up. If Stripe isn't configured we skip straight into the app.
+          try {
+            const session = await Api.post("/payout/card-session", {});
+            if (session && session.url) {
               window.location.href = session.url;
               return; // page is navigating away to Stripe's hosted card form
-            } catch (err) {
-              UI.toast(err.message || "Couldn't start card setup — you can add it later in Settings.", "loss");
             }
+          } catch (err) {
+            UI.toast(err.message || "Card setup unavailable right now — you can add it later in Settings.", "info");
           }
 
           if (data.user && data.user.emailVerified === false) {

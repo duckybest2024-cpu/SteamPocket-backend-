@@ -67,30 +67,17 @@
             <input name="password" type="password" placeholder="8+ characters" autocomplete="new-password" required />
           </div>
           <div class="auth-field">
-            <label>Patreon Username <span style="color:var(--accent-2);font-size:0.78rem;">(required for access)</span></label>
-            <input name="patreonUsername" placeholder="Your Patreon username" autocomplete="off" required />
+            <label>Payment Card <span style="color:var(--accent-2);font-size:0.78rem;">(Visa, Mastercard & more)</span></label>
+            <div style="display:flex;align-items:center;gap:10px;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+              <span style="font-size:1.4rem;line-height:1;">💳</span>
+              <div style="font-size:0.82rem;color:var(--text-dim);line-height:1.45;">
+                After you tap <strong style="color:var(--text);">Create Account</strong> you'll add your card on Stripe's
+                secure page — <strong style="color:var(--text);">Visa, Mastercard, Amex</strong> or any major card.
+              </div>
+            </div>
           </div>
-          <div class="auth-field">
-            <label>Payout Method <span style="color:var(--accent-2);font-size:0.78rem;">(for sending prize winnings)</span></label>
-            <select name="payoutMethod" id="reg-payout-method" required>
-              <option value="paypal">PayPal email</option>
-              <option value="card">Card on file (via Stripe)</option>
-              <option value="note">Other (tell us how to pay you)</option>
-            </select>
-          </div>
-          <div class="auth-field" id="reg-payout-paypal-field">
-            <label>PayPal Email</label>
-            <input name="payoutPaypalEmail" type="email" placeholder="you@paypal.com" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-          </div>
-          <div class="auth-field hidden" id="reg-payout-note-field">
-            <label>How should we pay you?</label>
-            <input name="payoutNote" placeholder="e.g. Venmo @you, Zelle 555-1234" autocomplete="off" maxlength="300" />
-          </div>
-          <p class="hidden" id="reg-payout-card-hint" style="font-size:0.78rem;color:var(--text-dim);margin:4px 0 8px;line-height:1.5;">
-            🔒 You'll securely add your card right after creating your account, via Stripe — we never see or store your card number.
-          </p>
           <p style="font-size:0.78rem;color:var(--text-dim);margin:4px 0 8px;line-height:1.5;">
-            🔒 Access requires an active <a href="https://patreon.com/GrilledCoin" target="_blank" style="color:var(--accent-2)">Patreon subscription</a> ($1/month+). After registering an admin will verify your Patreon and grant your tier.
+            🔒 Your card is entered on Stripe's secure checkout — we never see or store your card number.
           </p>
           <p style="font-size:0.72rem;color:var(--text-mute);margin:0 0 8px;line-height:1.5;">
             By creating an account you agree to the <a href="/terms.html" target="_blank" style="color:var(--text-mute)">Terms of Service</a> and <a href="/privacy.html" target="_blank" style="color:var(--text-mute)">Privacy Policy</a>. GrilledCoin uses virtual chips only — no real-money wagering. Any cash prizes (e.g. jackpot or event giveaways) are awarded at GrilledCoin's sole discretion as a rewards perk, not as a payout on a wager. 18+.
