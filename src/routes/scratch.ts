@@ -231,28 +231,12 @@ scratchRouter.post("/reveal/:betId", requireAuth, requireApproved, async (req: A
       const newXp = userRecord.xp + gainedXp;
       const newLevel = levelFromXp(newXp);
       const didLevelUp = newLevel > userRecord.level;
-      const levelBonus = didLevelUp ? newLevel * 500 : 0;
 
+      // Leveling is purely cosmetic — no chip bonus, no economy effect.
       userRecord = await tx.user.update({
         where: { id: userId },
-        data: {
-          xp: newXp,
-          level: newLevel,
-          ...(levelBonus > 0 ? { balance: { increment: levelBonus } } : {}),
-        },
+        data: { xp: newXp, level: newLevel },
       });
-
-      if (levelBonus > 0) {
-        await tx.transaction.create({
-          data: {
-            userId,
-            type: "levelup_bonus",
-            amount: levelBonus,
-            balance: userRecord.balance,
-            reference: `level_${newLevel}`,
-          },
-        });
-      }
 
       // Update the bet record to reflect final outcome
       await tx.bet.update({

@@ -81,7 +81,7 @@ const UI = (() => {
         Engagement.levelUp(state.level, state.rank);
       }
     }
-    if (patch.leveledUp) toast(`🎉 Level up! You're now level ${state.level} (+${money(state.level * 500)} bonus)`, "win");
+    if (patch.leveledUp) toast(`🎉 Level up! You're now level ${state.level}.`, "win");
 
     // Engagement system hooks
     if (typeof Engagement !== "undefined" && patch.result) {

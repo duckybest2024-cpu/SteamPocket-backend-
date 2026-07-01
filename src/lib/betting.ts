@@ -67,30 +67,16 @@ export async function placeBet(
     const newLevel = levelFromXp(newXp);
     const leveledUp = newLevel > afterPayout.level;
 
-    let levelBonus = 0;
-    if (leveledUp) levelBonus = newLevel * 500; // small cash bonus per level gained, in cents
-
+    // Leveling is purely cosmetic — XP/level drive only a progress badge, they
+    // grant no chips and have no effect on the game economy or odds.
     const updated = await tx.user.update({
       where: { id: userId },
       data: {
         xp: newXp,
         level: newLevel,
         nonce: { increment: 1 },
-        ...(levelBonus > 0 ? { balance: { increment: levelBonus } } : {}),
       },
     });
-
-    if (levelBonus > 0) {
-      await tx.transaction.create({
-        data: {
-          userId,
-          type: "levelup_bonus",
-          amount: levelBonus,
-          balance: updated.balance,
-          reference: `level_${newLevel}`,
-        },
-      });
-    }
 
     const bet = await tx.bet.create({
       data: {
