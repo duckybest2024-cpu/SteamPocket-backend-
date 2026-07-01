@@ -4,7 +4,23 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, AuthedRequest } from "../middleware/auth";
 import { applyLedgerEntry, updateHouseChips, InsufficientFundsError } from "../lib/wallet";
 import { getStripe, CHIP_PACKAGES } from "../lib/stripe";
-import { getLiqpayKeys, buildLiqpayCheckout, LIQPAY_CHECKOUT_URL } from "../lib/liqpay";
+import { getSiteConfig } from "../lib/siteConfig";
+import { getRealMoneyMode } from "../lib/gameOdds";
+
+async function configFlag(key: string, defaultValue: boolean): Promise<boolean> {
+  const raw = await getSiteConfig(key);
+  return raw === null ? defaultValue : raw !== "false";
+}
+
+// Free chip bonuses (daily bonus, rakeback, promo codes) are play-money perks.
+// They are switched OFF while real-money mode is on — a licensed real-money
+// casino does not hand out free credits like a social game.
+const REAL_MONEY_BONUS_ERROR = "Free bonuses are disabled in real-money mode.";
+
+async function configNumber(key: string, defaultValue: number): Promise<number> {
+  const raw = await getSiteConfig(key);
+  return raw === null ? defaultValue : Number(raw);
+}
 
 export const walletRouter = Router();
 
@@ -29,10 +45,33 @@ walletRouter.get("/transactions", requireAuth, async (req: AuthedRequest, res) =
 // Stripe checkout — create a hosted payment session for a chip package
 // ---------------------------------------------------------------------------
 
+// List the chip packages for the store UI, plus whether checkout is live.
+walletRouter.get("/packages", requireAuth, async (_req, res) => {
+  const enabled = await configFlag("stripeCheckoutEnabled", true);
+  const configured = !!getStripe();
+  res.json({
+    enabled,
+    configured,
+    packages: CHIP_PACKAGES.map((p) => ({
+      id: p.id,
+      name: p.name,
+      emoji: p.emoji,
+      chips: p.chips,
+      priceCents: p.priceCents,
+      badge: p.badge,
+      saving: p.saving,
+    })),
+  });
+});
+
 const checkoutSchema = z.object({ packageId: z.string() });
 
 walletRouter.post("/create-checkout-session", requireAuth, async (req: AuthedRequest, res) => {
   try {
+    if (!(await configFlag("stripeCheckoutEnabled", true))) {
+      return res.status(503).json({ error: "Chip purchases are temporarily disabled." });
+    }
+
     const stripe = getStripe();
     if (!stripe) {
       return res.status(503).json({
@@ -56,7 +95,7 @@ walletRouter.post("/create-checkout-session", requireAuth, async (req: AuthedReq
             currency: "usd",
             product_data: {
               name: `${pkg.name} — ${pkg.chips} chips`,
-              description: `${pkg.chips.toLocaleString()} Casino Aurelius chips (play money). Use test card 4242 4242 4242 4242.`,
+              description: `${pkg.chips.toLocaleString()} GrilledCoin chips (play money). Use test card 4242 4242 4242 4242.`,
             },
             unit_amount: pkg.priceCents,
           },
@@ -81,60 +120,6 @@ walletRouter.post("/create-checkout-session", requireAuth, async (req: AuthedReq
 });
 
 // ---------------------------------------------------------------------------
-// LiqPay checkout — create a form submission payload for a chip package
-// ---------------------------------------------------------------------------
-
-const liqpayCheckoutSchema = z.object({
-  packageId: z.string(),
-  currency: z.enum(["USD", "UAH"]).default("USD"),
-});
-
-walletRouter.post("/liqpay-checkout", requireAuth, async (req: AuthedRequest, res) => {
-  try {
-    const keys = getLiqpayKeys();
-    if (!keys) {
-      return res.status(503).json({
-        error: "LiqPay not configured. Add LIQPAY_PUBLIC_KEY and LIQPAY_PRIVATE_KEY to environment variables.",
-      });
-    }
-
-    const parsed = liqpayCheckoutSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
-
-    const { currency } = parsed.data;
-    const pkg = CHIP_PACKAGES.find((p) => p.id === parsed.data.packageId);
-    if (!pkg) return res.status(400).json({ error: "Invalid package" });
-    if (pkg.priceCents < 500) return res.status(400).json({ error: "Minimum deposit is $5" });
-
-    const origin = `${req.protocol}://${req.get("host")}`;
-    const orderId = `${req.userId!}_${pkg.id}_${Date.now()}`;
-    const sandbox = process.env.LIQPAY_SANDBOX === "true";
-
-    // Use UAH price if requested (priceUAH exists on all packages)
-    const amountSmallest = currency === "UAH"
-      ? (pkg as typeof pkg & { priceUAH?: number }).priceUAH ?? pkg.priceCents * 41
-      : pkg.priceCents;
-
-    const { data, signature } = buildLiqpayCheckout({
-      publicKey: keys.publicKey,
-      privateKey: keys.privateKey,
-      amountSmallest,
-      currency,
-      description: `${pkg.name} — ${pkg.chips.toLocaleString()} Casino Aurelius chips`,
-      orderId,
-      serverUrl: `${origin}/wallet/liqpay-callback`,
-      resultUrl: `${origin}/?checkout=success`,
-      sandbox,
-    });
-
-    res.json({ data, signature, checkoutUrl: LIQPAY_CHECKOUT_URL });
-  } catch (err) {
-    console.error("LiqPay checkout error:", err);
-    res.status(500).json({ error: "Failed to create payment — please try again" });
-  }
-});
-
-// ---------------------------------------------------------------------------
 // Chip system: cash out chips to bank, buy chips from bank
 // ---------------------------------------------------------------------------
 
@@ -147,6 +132,11 @@ walletRouter.post("/buy-chips", requireAuth, async (req: AuthedRequest, res) => 
 
     const userId = req.userId!;
     const { amount } = parsed.data;
+
+    const minBuyChips = await configNumber("minBuyChips", 1);
+    if (amount < minBuyChips * 100) {
+      return res.status(400).json({ error: `Minimum purchase is ${minBuyChips} chip${minBuyChips === 1 ? "" : "s"}` });
+    }
 
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (user.bank < amount) return res.status(400).json({ error: "Not enough chips in your bank" });
@@ -172,34 +162,63 @@ walletRouter.post("/buy-chips", requireAuth, async (req: AuthedRequest, res) => 
   }
 });
 
+const cashoutSchema = z.object({ amount: z.number().int().positive().optional() });
+
 walletRouter.post("/cashout-chips", requireAuth, async (req: AuthedRequest, res) => {
   try {
+    const parsed = cashoutSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+
     const userId = req.userId!;
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
 
     if (user.balance <= 0) return res.status(400).json({ error: "No chips to cash out" });
 
-    const MIN_CASHOUT_CENTS = 5000; // 50 chips minimum
+    const minCashoutChips = await configNumber("minCashoutChips", 50);
+    const MIN_CASHOUT_CENTS = minCashoutChips * 100;
     if (user.balance < MIN_CASHOUT_CENTS) {
-      return res.status(400).json({ error: `Minimum cashout is 50 chips (you have ${Math.floor(user.balance / 100)})` });
+      return res.status(400).json({ error: `Minimum cashout is ${minCashoutChips} chips (you have ${Math.floor(user.balance / 100)})` });
     }
 
-    const amount = user.balance;
+    const requestedAmount = parsed.data.amount;
+    let amount = requestedAmount ? Math.min(requestedAmount, user.balance) : user.balance;
+
+    const maxDailyCashoutChips = await configNumber("maxDailyCashoutChips", 0); // 0 = unlimited
+    if (maxDailyCashoutChips > 0) {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const withdrawnToday = await prisma.transaction.aggregate({
+        where: { userId, type: "withdrawal", createdAt: { gt: since } },
+        _sum: { amount: true },
+      });
+      const alreadyWithdrawn = Math.abs(withdrawnToday._sum.amount ?? 0);
+      const remainingCap = maxDailyCashoutChips * 100 - alreadyWithdrawn;
+      if (remainingCap <= 0) {
+        return res.status(400).json({ error: `Daily cashout limit reached (${maxDailyCashoutChips} chips per 24h)` });
+      }
+      amount = Math.min(amount, remainingCap);
+    }
+
+    if (amount < MIN_CASHOUT_CENTS) return res.status(400).json({ error: `Minimum cashout is ${minCashoutChips} chips` });
+
+    const withdrawalFeePercent = await configNumber("withdrawalFeePercent", 0);
+    const fee = Math.floor((amount * withdrawalFeePercent) / 100);
+    const netAmount = amount - fee;
+
     const updated = await prisma.$transaction(async (tx) => {
       const u = await tx.user.update({
         where: { id: userId },
-        data: { balance: 0, bank: { increment: amount } },
+        data: { balance: { decrement: amount }, bank: { increment: netAmount } },
       });
       await tx.transaction.create({
-        data: { userId, type: "withdrawal", amount: -amount, balance: 0, reference: "cashout_chips" },
+        data: { userId, type: "withdrawal", amount: -amount, balance: u.balance, reference: "cashout_chips" },
       });
       return u;
     });
 
-    // Moving from playing chips → player bank: house gains chips, loses dollars
-    void updateHouseChips(amount, -amount);
+    // Moving from playing chips → player bank: house gains chips, loses only the net dollar payout (keeps the fee)
+    void updateHouseChips(amount, -netAmount);
 
-    res.json({ balance: updated.balance, bank: updated.bank, cashedOut: amount });
+    res.json({ balance: updated.balance, bank: updated.bank, cashedOut: netAmount, fee });
   } catch (err) {
     console.error("Cashout chips error:", err);
     res.status(500).json({ error: "Transaction failed — please try again" });
@@ -208,15 +227,21 @@ walletRouter.post("/cashout-chips", requireAuth, async (req: AuthedRequest, res)
 
 /** Daily rakeback: 5% of cumulative wagers since the last claim, paid as a flat bonus. */
 walletRouter.post("/rakeback/claim", requireAuth, async (req: AuthedRequest, res) => {
+  if (getRealMoneyMode()) return res.status(503).json({ error: REAL_MONEY_BONUS_ERROR });
+  if (!(await configFlag("rakebackEnabled", true))) {
+    return res.status(503).json({ error: "Rakeback is currently disabled." });
+  }
+
   const userId = req.userId!;
 
   const lastClaim = await prisma.rakebackClaim.findFirst({ where: { userId }, orderBy: { createdAt: "desc" } });
   const since = lastClaim?.createdAt ?? new Date(0);
 
-  const dayMs = 24 * 60 * 60 * 1000;
-  if (lastClaim && Date.now() - lastClaim.createdAt.getTime() < dayMs) {
-    const retryAfterMs = dayMs - (Date.now() - lastClaim.createdAt.getTime());
-    return res.status(429).json({ error: "Rakeback can be claimed once every 24 hours", retryAfterMs });
+  const rakebackCooldownHours = await configNumber("rakebackCooldownHours", 24);
+  const cooldownMs = rakebackCooldownHours * 60 * 60 * 1000;
+  if (lastClaim && Date.now() - lastClaim.createdAt.getTime() < cooldownMs) {
+    const retryAfterMs = cooldownMs - (Date.now() - lastClaim.createdAt.getTime());
+    return res.status(429).json({ error: `Rakeback can be claimed once every ${rakebackCooldownHours} hours`, retryAfterMs });
   }
 
   const wagered = await prisma.bet.aggregate({
@@ -224,7 +249,8 @@ walletRouter.post("/rakeback/claim", requireAuth, async (req: AuthedRequest, res
     _sum: { amount: true },
   });
   const totalWagered = wagered._sum.amount ?? 0;
-  const rakeback = Math.floor(totalWagered * 0.05);
+  const rakebackPercent = await configNumber("rakebackPercent", 5);
+  const rakeback = Math.floor(totalWagered * (rakebackPercent / 100));
 
   if (rakeback <= 0) return res.status(400).json({ error: "No eligible wagers since your last claim" });
 
@@ -236,8 +262,13 @@ walletRouter.post("/rakeback/claim", requireAuth, async (req: AuthedRequest, res
 
 /** Top wagered / top won leaderboards over a rolling 7-day window. */
 walletRouter.get("/leaderboard", async (req, res) => {
+  if (!(await configFlag("leaderboardEnabled", true))) {
+    return res.status(503).json({ error: "Leaderboard is currently disabled." });
+  }
+
   const metric = req.query.metric === "profit" ? "profit" : "wagered";
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const windowDays = await configNumber("leaderboardWindowDays", 7);
+  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
 
   const grouped = await prisma.bet.groupBy({
     by: ["userId"],
@@ -261,11 +292,11 @@ walletRouter.get("/leaderboard", async (req, res) => {
     where: { id: { in: ranked.map((r) => r.userId) } },
     select: { id: true, username: true, level: true },
   });
-  const userMap = new Map(users.map((u) => [u.id, u]));
+  const userMap = new Map<string, any>(users.map((u) => [u.id, u]));
 
   res.json({
     metric,
-    windowDays: 7,
+    windowDays,
     leaderboard: ranked.map((r, i) => ({
       rank: i + 1,
       username: userMap.get(r.userId)?.username ?? "unknown",
@@ -276,8 +307,12 @@ walletRouter.get("/leaderboard", async (req, res) => {
   });
 });
 
-// Promo code redemption (used in chip shop + feature 14)
+// Promo code redemption
 walletRouter.post("/promo/redeem", requireAuth, async (req: AuthedRequest, res) => {
+  if (getRealMoneyMode()) return res.status(503).json({ error: REAL_MONEY_BONUS_ERROR });
+  if (!(await configFlag("promoRedeemEnabled", true))) {
+    return res.status(503).json({ error: "Promo code redemption is currently disabled." });
+  }
   const { code } = req.body as { code?: string };
   if (!code) return res.status(400).json({ error: "Code required" });
   try {
@@ -296,6 +331,35 @@ walletRouter.post("/promo/redeem", requireAuth, async (req: AuthedRequest, res) 
     });
     res.json({ chips: promo.chips, balance: updated.balance, message: `Redeemed! ${Math.floor(promo.chips / 100)} chips added.` });
   } catch (err) { res.status(500).json({ error: "Failed to redeem code" }); }
+});
+
+// ---------------------------------------------------------------------------
+// Daily Login Bonus
+// ---------------------------------------------------------------------------
+
+const dailyBonusClaimed = new Map<string, string>(); // userId -> ISO date (YYYY-MM-DD)
+
+walletRouter.post("/daily-bonus", requireAuth, async (req: AuthedRequest, res) => {
+  try {
+    if (getRealMoneyMode()) return res.status(503).json({ error: REAL_MONEY_BONUS_ERROR });
+    if (!(await configFlag("dailyBonusEnabled", true))) {
+      return res.status(503).json({ error: "The daily bonus is currently disabled." });
+    }
+
+    const userId = req.userId!;
+    const today = new Date().toISOString().slice(0, 10);
+    if (dailyBonusClaimed.get(userId) === today) {
+      return res.status(400).json({ error: "Already claimed today's bonus" });
+    }
+    const dailyBonusChips = await configNumber("dailyBonusChips", 50);
+    const chipsToAward = dailyBonusChips * 100;
+    await applyLedgerEntry(prisma, userId, "daily_bonus", chipsToAward);
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { balance: true } });
+    dailyBonusClaimed.set(userId, today);
+    return res.json({ chips: dailyBonusChips, streak: 1, balance: user?.balance ?? 0 });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to claim daily bonus" });
+  }
 });
 
 walletRouter.use((err: unknown, _req: unknown, res: import("express").Response, next: import("express").NextFunction) => {

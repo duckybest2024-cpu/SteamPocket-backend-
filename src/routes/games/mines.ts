@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import crypto from "crypto";
-import { requireAuth, AuthedRequest } from "../../middleware/auth";
+import { requireAuth, requireApproved, AuthedRequest } from "../../middleware/auth";
 import { prisma } from "../../lib/prisma";
 import { applyLedgerEntry, InsufficientFundsError, levelFromXp, xpForWager } from "../../lib/wallet";
 import { minesRounds, MinesActiveRound } from "../../lib/activeRounds";
@@ -21,7 +21,7 @@ const startSchema = z.object({
   mineCount: z.number().int(),
 });
 
-minesRouter.post("/start", requireAuth, async (req: AuthedRequest, res) => {
+minesRouter.post("/start", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = startSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
@@ -71,7 +71,7 @@ minesRouter.post("/start", requireAuth, async (req: AuthedRequest, res) => {
 
 const tileSchema = z.object({ tile: z.number().int() });
 
-minesRouter.post("/reveal", requireAuth, async (req: AuthedRequest, res) => {
+minesRouter.post("/reveal", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const userId = req.userId!;
   const round = minesRounds.get(userId);
   if (!round) return res.status(404).json({ error: "No active mines round — start one first" });
@@ -123,7 +123,7 @@ minesRouter.post("/reveal", requireAuth, async (req: AuthedRequest, res) => {
   });
 });
 
-minesRouter.post("/cashout", requireAuth, async (req: AuthedRequest, res) => {
+minesRouter.post("/cashout", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const userId = req.userId!;
   const round = minesRounds.get(userId);
   if (!round) return res.status(404).json({ error: "No active mines round" });
@@ -141,7 +141,7 @@ minesRouter.post("/cashout", requireAuth, async (req: AuthedRequest, res) => {
   });
 });
 
-minesRouter.get("/active", requireAuth, async (req: AuthedRequest, res) => {
+minesRouter.get("/active", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const round = minesRounds.get(req.userId!);
   if (!round) return res.status(404).json({ error: "No active round" });
   res.json({ round: publicRound(round) });

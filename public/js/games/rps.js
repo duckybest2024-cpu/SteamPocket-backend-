@@ -8,39 +8,69 @@ const RPSGame = (() => {
     let inMatch = false;
 
     container.innerHTML = `
-      <div class="game-panel" style="max-width:500px;text-align:center">
-        <h2 style="margin:0 0 4px">✊ Rock Paper Scissors</h2>
-        <p style="margin:0 0 18px;color:var(--text-dim);font-size:0.88rem">1v1 — winner takes 95% of the pot.</p>
+      <div class="game-layout">
+        <aside class="bet-panel">
+          ${GameThemes.renderPicker("rps", GameThemes.getSaved("rps"))}
 
-        <div id="rps-lobby" style="margin-bottom:18px">
-          <div style="display:flex;gap:8px;margin-bottom:10px">
-            <input id="rps-amount" type="number" value="100" min="1" style="flex:1" placeholder="Bet (chips)" />
-            <button id="rps-queue" class="primary-btn">Find Match</button>
+          <div class="bp-tabs">
+            <button class="bp-tab active">Manual</button>
+            <button class="bp-tab">Auto</button>
           </div>
-          <div id="rps-status" style="font-size:0.88rem;color:var(--text-dim)">Enter a bet and click Find Match to be paired with someone.</div>
-        </div>
-
-        <div id="rps-match" style="display:none">
-          <div id="rps-vs" style="margin-bottom:16px;font-size:1.1rem;font-weight:700"></div>
-          <div style="display:flex;gap:14px;justify-content:center;margin-bottom:14px">
-            <button class="rps-choice secondary-btn" data-c="rock" style="font-size:2rem;padding:16px 20px;flex:1;max-width:120px">🪨<br><span style="font-size:0.75rem">Rock</span></button>
-            <button class="rps-choice secondary-btn" data-c="paper" style="font-size:2rem;padding:16px 20px;flex:1;max-width:120px">📄<br><span style="font-size:0.75rem">Paper</span></button>
-            <button class="rps-choice secondary-btn" data-c="scissors" style="font-size:2rem;padding:16px 20px;flex:1;max-width:120px">✂️<br><span style="font-size:0.75rem">Scissors</span></button>
+          <div>
+            <div class="bp-label">Bet Amount</div>
+            <div class="bp-input-row">
+              <input id="rps-amount" type="number" value="100" min="1" step="1" />
+              <button id="rps-half" class="quick-btn">&frac12;</button>
+              <button id="rps-dbl" class="quick-btn">2&times;</button>
+            </div>
           </div>
-          <div id="rps-waiting-choice" style="color:var(--text-dim);font-size:0.88rem;display:none">Waiting for opponent…</div>
+          <div style="font-size:0.82rem;color:var(--text-dim);line-height:1.5">
+            1v1 — winner takes <strong style="color:var(--win)">95%</strong> of the pot. You are matched with someone who bet the same amount.
+          </div>
+          <hr class="bp-divider" />
+          <button id="rps-queue" class="play-btn">Find Match</button>
+        </aside>
+        <div class="game-canvas">
+          <div id="rps-lobby">
+            <div id="rps-status" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:0.88rem;color:var(--text-dim)">
+              Enter a bet and click Find Match to be paired with someone.
+            </div>
+          </div>
+          <div id="rps-match" style="display:none">
+            <div id="rps-vs" style="font-size:1.1rem;font-weight:700;text-align:center;padding:12px;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px"></div>
+            <div style="display:flex;gap:14px;justify-content:center;margin-top:14px">
+              <button class="rps-choice secondary-btn" data-c="rock" style="font-size:2rem;padding:16px 20px;flex:1;max-width:140px">🪨<br><span style="font-size:0.75rem">Rock</span></button>
+              <button class="rps-choice secondary-btn" data-c="paper" style="font-size:2rem;padding:16px 20px;flex:1;max-width:140px">📄<br><span style="font-size:0.75rem">Paper</span></button>
+              <button class="rps-choice secondary-btn" data-c="scissors" style="font-size:2rem;padding:16px 20px;flex:1;max-width:140px">✂️<br><span style="font-size:0.75rem">Scissors</span></button>
+            </div>
+            <div id="rps-waiting-choice" style="color:var(--text-dim);font-size:0.88rem;text-align:center;margin-top:10px;display:none">Waiting for opponent…</div>
+          </div>
+          <div id="rps-result" class="result-banner" style="font-size:1.1rem;margin-top:auto"></div>
         </div>
-
-        <div id="rps-result" class="result-banner" style="font-size:1.1rem"></div>
       </div>`;
+    HowToPlay.addButton(container, "rps");
 
-    const amountEl = document.getElementById("rps-amount");
-    const queueBtn = document.getElementById("rps-queue");
-    const statusEl = document.getElementById("rps-status");
-    const lobbyEl = document.getElementById("rps-lobby");
-    const matchEl = document.getElementById("rps-match");
-    const vsEl = document.getElementById("rps-vs");
-    const resultEl = document.getElementById("rps-result");
-    const waitingEl = document.getElementById("rps-waiting-choice");
+    const amountEl = container.querySelector("#rps-amount");
+    const queueBtn = container.querySelector("#rps-queue");
+    const statusEl = container.querySelector("#rps-status");
+    const lobbyEl = container.querySelector("#rps-lobby");
+    const matchEl = container.querySelector("#rps-match");
+    const vsEl = container.querySelector("#rps-vs");
+    const resultEl = container.querySelector("#rps-result");
+    const waitingEl = container.querySelector("#rps-waiting-choice");
+
+    container.querySelector("#rps-half").addEventListener("click", () => {
+      amountEl.value = Math.max(1, Math.floor(Number(amountEl.value) * 0.5));
+    });
+    container.querySelector("#rps-dbl").addEventListener("click", () => {
+      amountEl.value = Math.floor(Number(amountEl.value) * 2);
+    });
+    container.querySelectorAll(".bp-tab").forEach(t =>
+      t.addEventListener("click", function() {
+        container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
+        this.classList.add("active");
+      })
+    );
 
     socket = io("/rps", { auth: { token: Api.getToken() } });
 
@@ -68,7 +98,7 @@ const RPSGame = (() => {
     });
 
     socket.on("choice_recorded", () => {
-      document.querySelectorAll(".rps-choice").forEach((b) => b.disabled = true);
+      container.querySelectorAll(".rps-choice").forEach((b) => b.disabled = true);
       waitingEl.style.display = "";
     });
 
@@ -86,12 +116,11 @@ const RPSGame = (() => {
 
       if (isWinner || isTie) App.refreshAccount();
 
-      // Back to lobby after 4s
       setTimeout(() => {
         matchEl.style.display = "none";
         lobbyEl.style.display = "";
         waitingEl.style.display = "none";
-        document.querySelectorAll(".rps-choice").forEach((b) => b.disabled = false);
+        container.querySelectorAll(".rps-choice").forEach((b) => b.disabled = false);
         queueBtn.textContent = "Find Match";
         inMatch = false;
         matchId = "";
@@ -110,12 +139,14 @@ const RPSGame = (() => {
       }
     });
 
-    document.querySelectorAll(".rps-choice").forEach((btn) => {
+    container.querySelectorAll(".rps-choice").forEach((btn) => {
       btn.addEventListener("click", () => {
         if (!matchId) return;
         socket.emit("choose", { matchId, choice: btn.dataset.c });
       });
     });
+
+    GameThemes.init(container, "rps");
 
     return () => { if (socket) socket.disconnect(); };
   }

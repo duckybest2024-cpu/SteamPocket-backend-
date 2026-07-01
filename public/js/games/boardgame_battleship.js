@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Battleship Board Game — Casino Aurelius
+   Battleship Board Game — GrilledCoin
    Exported global: BattleshipGame
    Entry point:     BattleshipGame.renderBoard(container, socket, room, myUserId)
    ═══════════════════════════════════════════════════════════════ */
@@ -459,17 +459,6 @@ const BattleshipGame = (() => {
     // Track fired cells for opponent grid
     const firedCells = new Set();
 
-    // Seed fired cells from existing opponentGrid data
-    if (room.state && room.state.opponentGrid) {
-      (room.state.opponentGrid.hits || []).forEach(([r, c]) => firedCells.add(cellKey(r, c)));
-      (room.state.opponentGrid.misses || []).forEach(([r, c]) => firedCells.add(cellKey(r, c)));
-    }
-
-    // Determine initial phase
-    const initialPhase = (room.state && room.state.phase) || "placement";
-    const iHavePlaced = room.state && room.state.placedPlayers &&
-      room.state.placedPlayers.includes(myUserId);
-
     // ── Build HTML shell ──
     container.innerHTML = `
       <div class="bs-wrap">
@@ -625,7 +614,7 @@ const BattleshipGame = (() => {
       const cells = getShipCells(r, c, ship.size, isHorizontal);
 
       if (!isValidPlacement(cells, placedShips)) {
-        showToast("Can't place ship there — overlapping or out of bounds", "loss");
+        UI.toast("Can't place ship there — overlapping or out of bounds", "loss");
         return;
       }
 
@@ -664,7 +653,7 @@ const BattleshipGame = (() => {
       submitBtn.disabled = true;
       socket.emit("bg:move", {
         roomId: room.id,
-        move: { type: "place", ships: placedShips },
+        move: { ships: placedShips.map(s => ({ cells: s.cells })) },
       });
       placeActions.style.display = "none";
       placeWaiting.style.display = "";
@@ -689,7 +678,7 @@ const BattleshipGame = (() => {
 
       socket.emit("bg:move", {
         roomId: room.id,
-        move: { type: "fire", target: [r, c] },
+        move: { row: r, col: c },
       });
     });
 
@@ -737,17 +726,92 @@ const BattleshipGame = (() => {
       }
     }
 
+    // ── Translate backend gameState → UI state ──
+    // Backend: state.players[userId].grid (0=empty,1=ship,2=hit on ship,3=miss)
+    //          state.players[userId].shipsPlaced
+    //          state.turn (userId)
+    //          state.phase "placement"|"battle"
+    //          state.playerOrder [userId, ...]
+    function translateState(gs) {
+      if (!gs || !gs.players) return null;
+      const opponentId = (gs.playerOrder || []).find(uid => uid !== myUserId);
+      const myPlayer  = gs.players[myUserId]  || {};
+      const oppPlayer = gs.players[opponentId] || {};
+
+      // Extract my ships from my grid (cells with value 1 originally).
+      // After placement the backend stores ship cells as grid[r][c] === 1.
+      // We rebuild a single "all-cells" ship list for painting.
+      const myGrid = myPlayer.grid || [];
+      const myShipCells = [];
+      for (let r = 0; r < myGrid.length; r++) {
+        for (let c = 0; c < (myGrid[r] || []).length; c++) {
+          if (myGrid[r][c] === 1) myShipCells.push([r, c]);
+        }
+      }
+      // Synthetic ship list (one ship, all cells) — just for painting positions
+      const myShips = myShipCells.length > 0 ? [{ name: "Ship", cells: myShipCells }] : [];
+
+      // Hits and misses on MY grid (opponent fired at me):
+      // grid[r][c] === 2 = hit on ship (opponent hit me)
+      // grid[r][c] === 3 = miss (opponent missed)
+      const myGridHits   = [];
+      const myGridMisses = [];
+      for (let r = 0; r < myGrid.length; r++) {
+        for (let c = 0; c < (myGrid[r] || []).length; c++) {
+          if (myGrid[r][c] === 2) myGridHits.push([r, c]);
+          else if (myGrid[r][c] === 3) myGridMisses.push([r, c]);
+        }
+      }
+
+      // Hits/misses on OPPONENT's grid (I fired at opponent):
+      const oppGrid = oppPlayer.grid || [];
+      const oppGridHits   = [];
+      const oppGridMisses = [];
+      for (let r = 0; r < oppGrid.length; r++) {
+        for (let c = 0; c < (oppGrid[r] || []).length; c++) {
+          if (oppGrid[r][c] === 2) oppGridHits.push([r, c]);
+          else if (oppGrid[r][c] === 3) oppGridMisses.push([r, c]);
+        }
+      }
+
+      // placedPlayers list (who has submitted ships)
+      const placedPlayers = (gs.playerOrder || []).filter(uid => gs.players[uid] && gs.players[uid].shipsPlaced);
+
+      return {
+        phase:         gs.phase || "placement",
+        turn:          gs.turn,
+        status:        gs.status,
+        winner:        gs.winner,
+        myShips,
+        myGrid:        { hits: myGridHits, misses: myGridMisses },
+        opponentGrid:  { hits: oppGridHits, misses: oppGridMisses },
+        placedPlayers,
+      };
+    }
+
     // ── Initialize from current room state ──
-    const st = room.state || {};
+    const rawInitialState = room.gameState || room.state || null;
+    const st = rawInitialState ? (translateState(rawInitialState) || {}) : {};
+
+    // Seed firedCells from initial state
+    if (st.opponentGrid) {
+      (st.opponentGrid.hits || []).forEach(([r, c]) => firedCells.add(cellKey(r, c)));
+      (st.opponentGrid.misses || []).forEach(([r, c]) => firedCells.add(cellKey(r, c)));
+    }
+
     if (st.phase === "battle") {
       showBattlePhase(st);
     } else {
       showPlacementPhase(st);
     }
 
-    // ── Socket event: state update from server ──
-    socket.on("bg:state", ({ roomId, state: newState }) => {
-      if (roomId !== room.id) return;
+    // ── Socket event: room update from server ──
+    socket.on("bg:room-update", (updatedRoom) => {
+      const rawState = updatedRoom.gameState;
+      if (!rawState) return;
+      const newState = translateState(rawState);
+      if (!newState) return;
+
       // Update firedCells from latest opponentGrid
       if (newState.opponentGrid) {
         (newState.opponentGrid.hits || []).forEach(([r, c]) => firedCells.add(cellKey(r, c)));
@@ -761,24 +825,9 @@ const BattleshipGame = (() => {
       }
     });
 
-    // ── Socket event: game over ──
-    socket.on("bg:over", ({ roomId, winner, payout }) => {
-      if (roomId !== room.id) return;
-      const iWon = winner === myUserId;
-      resultEl.className = "bs-result " + (iWon ? "win" : "loss");
-      resultEl.textContent = iWon
-        ? `Victory! You sank the enemy fleet! +${((payout || 0) / 100).toLocaleString()} chips`
-        : "Defeat! Your fleet has been sunk.";
-
-      if (iWon && typeof updateBalance === "function") updateBalance();
-      oppGridEl.querySelectorAll(".bs-cell.clickable").forEach(el => el.classList.remove("clickable"));
-      setStatus("waiting", iWon ? "You won!" : "Game over");
-    });
-
     // ── Socket event: error ──
-    socket.on("bg:error", ({ roomId, message }) => {
-      if (roomId !== room.id) return;
-      showToast(message || "An error occurred", "loss");
+    socket.on("bg:error", ({ message }) => {
+      UI.toast(message || "An error occurred", "loss");
       submitBtn.disabled = false;
     });
   }

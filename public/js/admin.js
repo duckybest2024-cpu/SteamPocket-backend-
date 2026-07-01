@@ -1,14 +1,37 @@
 const AdminGame = (() => {
   const RANK_INFO = {
-    bronze:   { label: "Bronze",   c: "#cd7f32" },
-    silver:   { label: "Silver",   c: "#c0c0c0" },
-    gold:     { label: "Gold",     c: "#ffd700" },
-    platinum: { label: "Platinum", c: "#b9f2ff" },
-    diamond:  { label: "Diamond",  c: "#00e5ff" },
-    owner:    { label: "👑 Owner", c: "#a855f7" },
+    newcomer:    { label: "Newcomer",     c: "#9ca3af" },
+    beginner:    { label: "Beginner",     c: "#6b7280" },
+    amateur:     { label: "Amateur",      c: "#78716c" },
+    apprentice:  { label: "Apprentice",   c: "#92400e" },
+    bronze:      { label: "Bronze",       c: "#cd7f32" },
+    silver:      { label: "Silver",       c: "#c0c0c0" },
+    gold:        { label: "Gold",         c: "#ffd700" },
+    platinum:    { label: "Platinum",     c: "#b9f2ff" },
+    diamond:     { label: "Diamond",      c: "#00e5ff" },
+    emerald:     { label: "Emerald",      c: "#10b981" },
+    sapphire:    { label: "Sapphire",     c: "#3b82f6" },
+    ruby:        { label: "Ruby",         c: "#ef4444" },
+    jade:        { label: "Jade",         c: "#06b6d4" },
+    crystal:     { label: "Crystal",      c: "#8b5cf6" },
+    elite:       { label: "Elite",        c: "#6366f1" },
+    master:      { label: "Master",       c: "#f59e0b" },
+    grandmaster: { label: "Grandmaster",  c: "#f97316" },
+    legend:      { label: "Legend",       c: "#ec4899" },
+    titan:       { label: "Titan",        c: "#a855f7" },
+    owner:       { label: "👑 Owner",     c: "#a855f7" },
   };
 
-  const RANK_OPTS = ["bronze","silver","gold","platinum","diamond"];
+  const PATREON_TIER_INFO = {
+    bronze_patron:   { label: "🥉 Bronze",   c: "#cd7f32", price: "$1/mo" },
+    silver_patron:   { label: "🥈 Silver",   c: "#c0c0c0", price: "$5/mo" },
+    gold_patron:     { label: "🥇 Gold",     c: "#ffd700", price: "$10/mo" },
+    platinum_patron: { label: "💠 Platinum", c: "#b9f2ff", price: "$25/mo" },
+    diamond_patron:  { label: "💎 Diamond",  c: "#00e5ff", price: "$50/mo" },
+    netherite_patron:{ label: "👑 VIP",      c: "#f3c14b", price: "$75/mo" },
+  };
+
+  const RANK_OPTS = ["newcomer","beginner","amateur","apprentice","bronze","silver","gold","platinum","diamond","emerald","sapphire","ruby","jade","crystal","elite","master","grandmaster","legend","titan"];
 
   const GAMES = ["dice","limbo","mines","plinko","crash","keno","hilo","blackjack","roulette","slots","baccarat","videopoker","wheel","coinflip"];
 
@@ -62,7 +85,7 @@ const AdminGame = (() => {
     badge: `display:inline-block;border-radius:6px;padding:2px 8px;font-size:0.72rem;font-weight:700;`,
   };
 
-  const TABS = ["stats","users","adjust","bets","players","broadcasts","promos","controls","nfts","bank","danger"];
+  const TABS = ["stats","users","adjust","bets","players","broadcasts","promos","controls","nfts","bank","danger","maintenance","config","ipblocks","reports","analytics","referrals","leaderboard","chatmod","scratch","prizes","subscriptions"];
 
   function money(cents) { return UI.money(cents); }
   function chips(cents) { return Math.floor(cents / 100).toLocaleString() + " 🪙"; }
@@ -127,6 +150,34 @@ const AdminGame = (() => {
         <button id="adm-modal-zero-btn" data-id="${user.id}" style="${S.redBtn};margin-bottom:18px;">
           Zero Balance
         </button>
+
+        <h3 style="margin:0 0 10px;font-size:0.9rem;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;">💵 Real-Money Payout</h3>
+        <div style="background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:18px;">
+          <div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:10px;">
+            ${user.payoutMethod === "paypal"
+              ? `PayPal: <strong style="color:var(--text);">${user.payoutPaypalEmail || "—"}</strong>`
+              : user.payoutMethod === "card"
+              ? `Card on file: <strong style="color:var(--text);">${user.stripeCardBrand || "card"} •••• ${user.stripeCardLast4 || "????"}</strong>`
+              : user.payoutMethod === "note"
+              ? `Payout note: <strong style="color:var(--text);">${(user.payoutNote || "—").replace(/</g,"&lt;")}</strong>`
+              : `<span style="color:var(--loss);">No payout method on file.</span>`}
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+            <div>
+              <label style="font-size:0.72rem;color:var(--text-dim);display:block;margin-bottom:3px;">Amount (USD)</label>
+              <input id="adm-payout-amount" type="number" min="0.01" step="0.01" placeholder="50.00"
+                style="width:110px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);" />
+            </div>
+            <div style="flex:1;min-width:160px;">
+              <label style="font-size:0.72rem;color:var(--text-dim);display:block;margin-bottom:3px;">Note (optional)</label>
+              <input id="adm-payout-note" type="text" placeholder="e.g. Weekly jackpot winner"
+                style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box;" />
+            </div>
+            <button id="adm-payout-auto-btn" data-id="${user.id}" style="${S.greenBtn}">Send via PayPal</button>
+            <button id="adm-payout-manual-btn" data-id="${user.id}" style="${S.smallBtn}">Log Manual Payout</button>
+          </div>
+          <div id="adm-payout-history" style="margin-top:12px;font-size:0.8rem;color:var(--text-dim);"></div>
+        </div>
 
         <h3 style="margin:0 0 10px;font-size:0.9rem;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;">Last 20 Bets</h3>
         <div style="${S.tableWrap};margin-bottom:18px;">
@@ -199,6 +250,58 @@ const AdminGame = (() => {
           }
         });
       }
+
+      const historyEl = overlay.querySelector("#adm-payout-history");
+      function loadPayoutHistory() {
+        Api.get(`/admin/users/${userId}/payouts`).then(({ records, paypalConfigured }) => {
+          const autoBtn = overlay.querySelector("#adm-payout-auto-btn");
+          if (autoBtn) {
+            const eligible = user.payoutMethod === "paypal" && user.payoutPaypalEmail && paypalConfigured;
+            autoBtn.disabled = !eligible;
+            autoBtn.title = paypalConfigured
+              ? (eligible ? "" : "User hasn't set PayPal as their payout method")
+              : "PayPal isn't configured in Admin → Config yet";
+          }
+          if (!historyEl) return;
+          historyEl.innerHTML = records.length
+            ? `<strong style="color:var(--text);">Payout history:</strong><br/>` + records.map(r => `
+                <div style="padding:4px 0;border-bottom:1px solid var(--border);">
+                  ${money(r.amountCents)} via ${r.method} to ${r.destination}
+                  — <span style="color:${r.status === "sent" ? "var(--win)" : "var(--loss)"};">${r.status}</span>
+                  by ${r.adminUsername} (${fmtDate(r.createdAt)})${r.note ? ` — "${r.note}"` : ""}
+                </div>`).join("")
+            : "No payouts logged yet.";
+        }).catch(() => { if (historyEl) historyEl.textContent = ""; });
+      }
+      loadPayoutHistory();
+
+      async function sendPayout(mode) {
+        const amountInput = overlay.querySelector("#adm-payout-amount");
+        const noteInput = overlay.querySelector("#adm-payout-note");
+        const amount = Number(amountInput.value);
+        if (!amount || amount <= 0) { UI.toast("Enter a payout amount.", "loss"); return; }
+        if (mode === "manual" && !confirm(`Log a manual payout of $${amount.toFixed(2)} to ${user.username}? This doesn't move any money — it's just a record that you paid them outside the app.`)) return;
+        const btn = overlay.querySelector(mode === "auto" ? "#adm-payout-auto-btn" : "#adm-payout-manual-btn");
+        if (btn) { btn.disabled = true; btn.dataset.prevText = btn.textContent; btn.textContent = "Sending…"; }
+        try {
+          await Api.post(`/admin/users/${userId}/payout`, {
+            amountCents: Math.round(amount * 100),
+            note: noteInput.value.trim() || undefined,
+            mode,
+          });
+          UI.toast(`Payout of $${amount.toFixed(2)} ${mode === "auto" ? "sent via PayPal" : "logged"}!`, "win");
+          amountInput.value = ""; noteInput.value = "";
+          loadPayoutHistory();
+        } catch (err) {
+          UI.toast(err.message || "Payout failed.", "loss");
+        } finally {
+          if (btn) { btn.disabled = mode === "auto" ? !(user.payoutMethod === "paypal" && user.payoutPaypalEmail) : false; btn.textContent = btn.dataset.prevText; }
+        }
+      }
+      const autoBtn = overlay.querySelector("#adm-payout-auto-btn");
+      if (autoBtn) autoBtn.addEventListener("click", () => sendPayout("auto"));
+      const manualBtn = overlay.querySelector("#adm-payout-manual-btn");
+      if (manualBtn) manualBtn.addEventListener("click", () => sendPayout("manual"));
     }).catch(err => {
       const body = overlay.querySelector("#adm-modal-body");
       if (body) body.innerHTML = `<div style="color:var(--loss);">${err.message}</div>`;
@@ -234,7 +337,18 @@ const AdminGame = (() => {
             <button id="adm-tab-controls"   style="${tabStyle("controls")}">🔧 Controls</button>
             <button id="adm-tab-nfts"       style="${tabStyle("nfts")}">🖼️ NFTs</button>
             <button id="adm-tab-bank"       style="${tabStyle("bank")}">🏦 Bank</button>
-            <button id="adm-tab-danger"     style="${tabStyle("danger")}">⚠️ Danger</button>
+            <button id="adm-tab-danger"       style="${tabStyle("danger")}">⚠️ Danger</button>
+            <button id="adm-tab-maintenance"  style="${tabStyle("maintenance")}">🔒 Maintenance</button>
+            <button id="adm-tab-config"       style="${tabStyle("config")}">⚙️ Config</button>
+            <button id="adm-tab-ipblocks"     style="${tabStyle("ipblocks")}">🚫 IP Blocks</button>
+            <button id="adm-tab-reports"      style="${tabStyle("reports")}">🔍 Reports</button>
+            <button id="adm-tab-analytics"    style="${tabStyle("analytics")}">📈 Analytics</button>
+            <button id="adm-tab-referrals"    style="${tabStyle("referrals")}">🔗 Referrals</button>
+            <button id="adm-tab-leaderboard"  style="${tabStyle("leaderboard")}">🏆 Leaderboard</button>
+            <button id="adm-tab-chatmod"      style="${tabStyle("chatmod")}">💬 Chat Mod</button>
+            <button id="adm-tab-scratch"        style="${tabStyle("scratch")}">🎟️ Scratch</button>
+            <button id="adm-tab-prizes"         style="${tabStyle("prizes")}">🎁 Prizes</button>
+            <button id="adm-tab-subscriptions"  style="${tabStyle("subscriptions")}">🔑 Subscriptions</button>
           </div>
           ${TABS.map(t => `<div id="adm-pane-${t}" style="${t === "stats" ? "" : "display:none;"}"></div>`).join("")}
         </div>
@@ -247,6 +361,7 @@ const AdminGame = (() => {
 
       buildAdjustPane();
       buildDangerPane();
+      buildConfigPane();
       switchTab("stats", true);
     }
 
@@ -273,6 +388,17 @@ const AdminGame = (() => {
       if (key === "controls") loadControls();
       if (key === "nfts") loadNfts();
       if (key === "bank") loadBank();
+      if (key === "maintenance") loadMaintenance();
+      if (key === "config") loadConfig();
+      if (key === "ipblocks") loadIpBlocks();
+      if (key === "reports") loadReports();
+      if (key === "analytics") loadAnalytics();
+      if (key === "referrals") loadReferrals();
+      if (key === "leaderboard") loadLeaderboard();
+      if (key === "chatmod") loadChatMod();
+      if (key === "scratch") loadScratch();
+      if (key === "prizes") loadPrizes();
+      if (key === "subscriptions") loadSubscriptions();
     }
 
     // ── Stats ──────────────────────────────────────────────────────────────────
@@ -408,7 +534,7 @@ const AdminGame = (() => {
           tableBody.innerHTML = `<tr><td colspan="9" style="padding:30px;text-align:center;color:var(--text-dim);">No users found.</td></tr>`;
         } else {
           tableBody.innerHTML = users.map((u) => {
-            const isOwnerUser = (u.username || "").toLowerCase() === "ditol21";
+            const isOwnerUser = (u.rank || "") === "owner";
             const rankSelectHtml = isOwnerUser
               ? `<span style="color:var(--accent-2);font-weight:700;font-size:0.8rem;">👑 Owner</span>`
               : `<select class="adm-rank-select" data-id="${u.id}" style="${S.rankSelect}">
@@ -871,7 +997,7 @@ const AdminGame = (() => {
           pane.innerHTML = `
             <div style="${S.sectionCard}">
               <h3 style="${S.sectionTitle}">🎫 Create Promo Code</h3>
-              <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">Players can redeem codes in the Chip Shop.</p>
+              <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">Create codes for giveaways and events.</p>
               <div style="${S.form}">
                 <div style="display:flex;gap:12px;flex-wrap:wrap;">
                   <div style="${S.formGroup};flex:1;min-width:140px;">
@@ -1065,7 +1191,226 @@ const AdminGame = (() => {
               </div>
             </div>
           </div>
+
+          <!-- Google Integrations -->
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🔗 Google Integrations</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              These IDs are public identifiers (not secrets) and take effect immediately for all visitors — no redeploy needed.
+            </p>
+            <div style="${S.form};max-width:420px;">
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Google Sign-In Client ID</label>
+                <input id="adm-google-client-id" type="text" placeholder="xxxxxxxx.apps.googleusercontent.com"
+                  value="${cfg["google_client_id"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Google Analytics Measurement ID</label>
+                <input id="adm-ga-id" type="text" placeholder="G-XXXXXXXXXX"
+                  value="${cfg["ga_measurement_id"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Google AdSense Publisher ID</label>
+                <input id="adm-adsense-id" type="text" placeholder="ca-pub-XXXXXXXXXXXXXXXX"
+                  value="${cfg["adsense_publisher_id"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">AdSense Ad Slot ID (login/sign-up screen — first thing visitors see)</label>
+                <input id="adm-adsense-slot-auth" type="text" placeholder="1234567890"
+                  value="${cfg["adsense_slot_auth"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">AdSense Ad Slot ID (top banner — shows on every page)</label>
+                <input id="adm-adsense-slot-top" type="text" placeholder="1234567890"
+                  value="${cfg["adsense_slot_top"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">AdSense Ad Slot ID (sidebar unit)</label>
+                <input id="adm-adsense-slot" type="text" placeholder="1234567890"
+                  value="${cfg["adsense_slot_sidebar"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">AdSense Ad Slot ID (footer banner — shows on every page)</label>
+                <input id="adm-adsense-slot-footer" type="text" placeholder="1234567890"
+                  value="${cfg["adsense_slot_footer"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">AdSense Ad Slot ID (lobby page)</label>
+                <input id="adm-adsense-slot-lobby" type="text" placeholder="1234567890"
+                  value="${cfg["adsense_slot_lobby"] || ""}" style="${S.formInput}" />
+              </div>
+              <div>
+                <button id="adm-google-save" style="${S.submitBtn}">Save Google Settings</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Email Settings (SMTP) -->
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">📧 Email Settings (SMTP)</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              Required for verification code emails to actually be delivered. Without these,
+              codes only get printed to the server logs. Most providers (Gmail, SendGrid,
+              Mailgun, etc.) give you a host, port, username, and password/API key to fill in here.
+            </p>
+            <div style="${S.form};max-width:420px;">
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">SMTP Host</label>
+                <input id="adm-smtp-host" type="text" placeholder="smtp.gmail.com"
+                  value="${cfg["smtp_host"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">SMTP Port</label>
+                <input id="adm-smtp-port" type="number" placeholder="587"
+                  value="${cfg["smtp_port"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">SMTP Username</label>
+                <input id="adm-smtp-user" type="text" placeholder="you@example.com"
+                  value="${cfg["smtp_user"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">SMTP Password / API Key</label>
+                <input id="adm-smtp-pass" type="password" placeholder="••••••••"
+                  value="${cfg["smtp_pass"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">From Address</label>
+                <input id="adm-smtp-from" type="text" placeholder="GrilledCoin <noreply@grilledcoin.app>"
+                  value="${cfg["smtp_from"] || ""}" style="${S.formInput}" />
+              </div>
+              <div>
+                <button id="adm-smtp-save" style="${S.submitBtn}">Save Email Settings</button>
+                <button id="adm-smtp-test" style="${S.submitBtn};margin-left:8px;background:var(--bg-elev);">Send Test Email</button>
+              </div>
+              <div id="adm-smtp-result" style="display:none;margin-top:10px;font-size:0.85rem;"></div>
+            </div>
+          </div>
+
+          <!-- PayPal Payouts -->
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">💵 PayPal Payouts</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              Required for the "Send via PayPal" automated payout button on a user's profile to work.
+              Get these from a PayPal Business account under Apps & Credentials. Use Sandbox while testing,
+              then switch to Live to send real money.
+            </p>
+            <div style="${S.form};max-width:420px;">
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Client ID</label>
+                <input id="adm-paypal-client-id" type="text" placeholder="AeA1QIZX..."
+                  value="${cfg["paypal_client_id"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Client Secret</label>
+                <input id="adm-paypal-client-secret" type="password" placeholder="••••••••"
+                  value="${cfg["paypal_client_secret"] || ""}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Mode</label>
+                <select id="adm-paypal-mode" style="${S.formInput}">
+                  <option value="sandbox" ${cfg["paypal_mode"] !== "live" ? "selected" : ""}>Sandbox (testing)</option>
+                  <option value="live" ${cfg["paypal_mode"] === "live" ? "selected" : ""}>Live (real money)</option>
+                </select>
+              </div>
+              <div>
+                <button id="adm-paypal-save" style="${S.submitBtn}">Save PayPal Settings</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Game Odds / House Edge -->
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🎲 Game Odds (House Edge)</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              Sets the global house edge for the engine-driven games (Dice, Crash, Limbo, Mines, Hi-Lo).
+              This is a uniform odds knob that applies to <strong>everyone</strong> — higher = players win
+              less and the house keeps more; lower (or negative) = players win more.
+              <strong>1%</strong> = the standard 99% payout. Takes effect immediately, no redeploy needed.
+            </p>
+            <div style="${S.form};max-width:420px;">
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">House Edge (%) — how much players win when they DO win</label>
+                <input id="adm-house-edge" type="number" step="0.1" min="-50" max="95" placeholder="1"
+                  value="${cfg["house_edge"] !== undefined && cfg["house_edge"] !== "" ? cfg["house_edge"] : "1"}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Win Chance Bias (%) — how OFTEN players win (Dice &amp; Limbo). +30 = win 30% more often · −50 = win 50% less often · 0 = fair</label>
+                <input id="adm-win-bias" type="number" step="5" min="-100" max="100" placeholder="0"
+                  value="${cfg["win_bias"] !== undefined && cfg["win_bias"] !== "" ? cfg["win_bias"] : "0"}" style="${S.formInput}" />
+              </div>
+              <div>
+                <button id="adm-odds-save" style="${S.submitBtn}">Save Game Odds</button>
+              </div>
+            </div>
+            <hr class="bp-divider" style="margin:16px 0;" />
+            <div style="${S.form};max-width:420px;margin-bottom:14px;">
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">👑 Owner username (transfer ownership — e.g. when selling)</label>
+                <input id="adm-owner-username" type="text" placeholder="username"
+                  value="${cfg["owner_username"] || ""}" style="${S.formInput}" autocomplete="off" />
+              </div>
+              <div><button id="adm-owner-save" style="${S.submitBtn};background:var(--bg-elev);">Transfer Ownership</button></div>
+            </div>
+            <hr class="bp-divider" style="margin:16px 0;" />
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+              <div>
+                <div style="font-weight:700;">🍀 Owner Lucky Mode</div>
+                <div style="color:var(--text-dim);font-size:0.8rem;max-width:340px;">
+                  When ON, <strong>your own</strong> Dice &amp; Limbo bets always win. Owner-only — affects no other players.
+                </div>
+              </div>
+              <button id="adm-owner-lucky" data-on="${cfg["owner_lucky"] === "true"}"
+                style="${cfg["owner_lucky"] === "true" ? S.toggleOn : S.toggleOff}">
+                ${cfg["owner_lucky"] === "true" ? "✅ ON" : "🚫 OFF"}
+              </button>
+            </div>
+          </div>
+
+          <!-- Real Casino Mode (real-money) — gated behind a licence -->
+          ${(() => {
+            const realOn = cfg["real_money_mode"] === "true";
+            const license = cfg["casino_license"] || "";
+            const hasLicense = license.trim() !== "";
+            return `
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🏛️ Real Casino Mode</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              Switches the casino from play-money to <strong>real-money</strong> operation. This is
+              <strong>locked off</strong> until the licence you save below <strong>matches the
+              <code>CASINO_LICENSE_KEY</code> secret set on the server</strong> — a licence typed here
+              alone will NOT unlock it (that closes the fake-licence bypass). Turning it on
+              <strong>disables every odds control</strong> (House Edge bias, Win Chance Bias, Owner Lucky
+              Mode) and all free bonuses — a licensed casino must run fair games. You are responsible for
+              licensing, KYC/AML, and connecting a real payment processor; this toggle does not move money.
+            </p>
+            <div style="${S.form};max-width:460px;">
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}">Gambling licence number / reference</label>
+                <input id="adm-casino-license" type="text" placeholder="e.g. MGA/B2C/123/2024"
+                  value="${license.replace(/"/g, "&quot;")}" style="${S.formInput}" autocomplete="off" />
+              </div>
+              <div style="margin-bottom:12px;"><button id="adm-license-save" style="${S.submitBtn};background:var(--bg-elev);">Save Licence</button></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+              <div>
+                <div style="font-weight:700;">${realOn ? "🟢" : "🔴"} Real-money mode is ${realOn ? "ON" : "OFF"}</div>
+                <div style="color:var(--text-dim);font-size:0.8rem;max-width:360px;">
+                  ${hasLicense
+                    ? "Licence on file. Real-money mode will only switch on if it matches the server's CASINO_LICENSE_KEY secret."
+                    : "🔒 Locked: enter a licence above first. No licence, no real money."}
+                </div>
+              </div>
+              <button id="adm-real-mode" data-on="${realOn}" ${hasLicense ? "" : "disabled"}
+                style="${realOn ? S.toggleOn : S.toggleOff}${hasLicense ? "" : "opacity:0.45;cursor:not-allowed;"}">
+                ${realOn ? "✅ ON" : "🚫 OFF"}
+              </button>
+            </div>
+          </div>`;
+          })()}
         `;
+
+        UI.wireAllPasswordToggles(pane);
 
         // Maintenance toggle
         pane.querySelector("#adm-maintenance-toggle").addEventListener("click", async (e) => {
@@ -1137,6 +1482,182 @@ const AdminGame = (() => {
           }
         });
 
+        // Save Google integration settings
+        pane.querySelector("#adm-google-save").addEventListener("click", async () => {
+          const googleClientId = pane.querySelector("#adm-google-client-id").value.trim();
+          const gaId = pane.querySelector("#adm-ga-id").value.trim();
+          const adsenseId = pane.querySelector("#adm-adsense-id").value.trim();
+          const adsenseSlot = pane.querySelector("#adm-adsense-slot").value.trim();
+          const adsenseSlotFooter = pane.querySelector("#adm-adsense-slot-footer").value.trim();
+          const adsenseSlotLobby = pane.querySelector("#adm-adsense-slot-lobby").value.trim();
+          const adsenseSlotAuth = pane.querySelector("#adm-adsense-slot-auth").value.trim();
+          const adsenseSlotTop = pane.querySelector("#adm-adsense-slot-top").value.trim();
+          const btn = pane.querySelector("#adm-google-save");
+          btn.disabled = true; btn.textContent = "Saving…";
+          try {
+            await Api.post("/admin/config", {
+              google_client_id: googleClientId,
+              ga_measurement_id: gaId,
+              adsense_publisher_id: adsenseId,
+              adsense_slot_sidebar: adsenseSlot,
+              adsense_slot_footer: adsenseSlotFooter,
+              adsense_slot_lobby: adsenseSlotLobby,
+              adsense_slot_auth: adsenseSlotAuth,
+              adsense_slot_top: adsenseSlotTop,
+            });
+            UI.toast("Google settings saved.", "win");
+          } catch (err) {
+            UI.toast(err.message || "Failed.", "loss");
+          } finally {
+            btn.disabled = false; btn.textContent = "Save Google Settings";
+          }
+        });
+
+        // Save Email (SMTP) settings
+        pane.querySelector("#adm-smtp-save").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-smtp-save");
+          btn.disabled = true; btn.textContent = "Saving…";
+          try {
+            await Api.post("/admin/config", {
+              smtp_host: pane.querySelector("#adm-smtp-host").value.trim(),
+              smtp_port: pane.querySelector("#adm-smtp-port").value.trim(),
+              smtp_user: pane.querySelector("#adm-smtp-user").value.trim(),
+              smtp_pass: pane.querySelector("#adm-smtp-pass").value,
+              smtp_from: pane.querySelector("#adm-smtp-from").value.trim(),
+            });
+            UI.toast("Email settings saved.", "win");
+          } catch (err) {
+            UI.toast(err.message || "Failed.", "loss");
+          } finally {
+            btn.disabled = false; btn.textContent = "Save Email Settings";
+          }
+        });
+
+        // Save PayPal settings
+        pane.querySelector("#adm-paypal-save").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-paypal-save");
+          btn.disabled = true; btn.textContent = "Saving…";
+          try {
+            await Api.post("/admin/config", {
+              paypal_client_id: pane.querySelector("#adm-paypal-client-id").value.trim(),
+              paypal_client_secret: pane.querySelector("#adm-paypal-client-secret").value,
+              paypal_mode: pane.querySelector("#adm-paypal-mode").value,
+            });
+            UI.toast("PayPal settings saved.", "win");
+          } catch (err) {
+            UI.toast(err.message || "Failed.", "loss");
+          } finally {
+            btn.disabled = false; btn.textContent = "Save PayPal Settings";
+          }
+        });
+
+        // Transfer ownership
+        pane.querySelector("#adm-owner-save").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-owner-save");
+          const name = pane.querySelector("#adm-owner-username").value.trim();
+          if (!name) return UI.toast("Enter the new owner's username.", "loss");
+          if (!confirm(`Transfer OWNER to "${name}"? They get full admin and you lose owner access (unless that's you).`)) return;
+          btn.disabled = true; btn.textContent = "Transferring…";
+          try {
+            await Api.post("/admin/config", { owner_username: name });
+            UI.toast(`Owner is now ${name}.`, "win");
+          } catch (err) { UI.toast(err.message || "Failed.", "loss"); }
+          finally { btn.disabled = false; btn.textContent = "Transfer Ownership"; }
+        });
+
+        // Owner Lucky Mode toggle
+        pane.querySelector("#adm-owner-lucky").addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          const newOn = btn.dataset.on !== "true";
+          btn.disabled = true;
+          try {
+            await Api.post("/admin/config", { owner_lucky: String(newOn) });
+            btn.dataset.on = String(newOn);
+            btn.setAttribute("style", newOn ? S.toggleOn : S.toggleOff);
+            btn.textContent = newOn ? "✅ ON" : "🚫 OFF";
+            UI.toast(`Owner Lucky Mode ${newOn ? "ON — your Dice & Limbo bets always win" : "OFF"}.`, newOn ? "win" : "info");
+          } catch (err) {
+            UI.toast(err.message || "Failed.", "loss");
+          } finally {
+            btn.disabled = false;
+          }
+        });
+
+        // Save casino licence (unlocks the real-money toggle)
+        const licenseSaveBtn = pane.querySelector("#adm-license-save");
+        if (licenseSaveBtn) licenseSaveBtn.addEventListener("click", async () => {
+          const license = pane.querySelector("#adm-casino-license").value.trim();
+          licenseSaveBtn.disabled = true; licenseSaveBtn.textContent = "Saving…";
+          try {
+            await Api.post("/admin/config", { casino_license: license });
+            UI.toast(license ? "Licence saved — real-money mode unlocked." : "Licence cleared — real-money mode locked.", license ? "win" : "info");
+            loadControls();
+          } catch (err) {
+            UI.toast(err.message || "Failed.", "loss");
+            licenseSaveBtn.disabled = false; licenseSaveBtn.textContent = "Save Licence";
+          }
+        });
+
+        // Real-money mode toggle (server enforces the licence requirement)
+        const realModeBtn = pane.querySelector("#adm-real-mode");
+        if (realModeBtn) realModeBtn.addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          if (btn.disabled) return;
+          const newOn = btn.dataset.on !== "true";
+          if (newOn && !confirm("Turn ON real-money mode? This disables ALL odds controls and switches the casino to real-money operation. You are responsible for licensing, KYC/AML and payments.")) return;
+          btn.disabled = true;
+          try {
+            await Api.post("/admin/config", { real_money_mode: String(newOn) });
+            UI.toast(`Real-money mode ${newOn ? "ON — fair games enforced, odds controls disabled." : "OFF — back to play-money."}`, newOn ? "win" : "info");
+            loadControls();
+          } catch (err) {
+            UI.toast(err.message || "Failed — is a licence on file?", "loss");
+            btn.disabled = false;
+          }
+        });
+
+        // Save Game Odds (house edge)
+        pane.querySelector("#adm-odds-save").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-odds-save");
+          const raw = pane.querySelector("#adm-house-edge").value.trim();
+          const pct = Number(raw);
+          if (raw === "" || !Number.isFinite(pct) || pct < -50 || pct > 95) {
+            return UI.toast("Enter a house edge between -50 and 95.", "loss");
+          }
+          const biasRaw = pane.querySelector("#adm-win-bias").value.trim();
+          const bias = biasRaw === "" ? 0 : Number(biasRaw);
+          if (!Number.isFinite(bias) || bias < -100 || bias > 100) {
+            return UI.toast("Win Chance Bias must be between -100 and 100.", "loss");
+          }
+          btn.disabled = true; btn.textContent = "Saving…";
+          try {
+            await Api.post("/admin/config", { house_edge: String(pct), win_bias: String(bias) });
+            UI.toast(`Saved — house edge ${pct}%, win bias ${bias > 0 ? "+" : ""}${bias}%. Live now.`, "win");
+          } catch (err) {
+            UI.toast(err.message || "Failed.", "loss");
+          } finally {
+            btn.disabled = false; btn.textContent = "Save Game Odds";
+          }
+        });
+
+        // Send a test email using the currently saved SMTP settings
+        pane.querySelector("#adm-smtp-test").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-smtp-test");
+          const resultEl = pane.querySelector("#adm-smtp-result");
+          btn.disabled = true; btn.textContent = "Sending…";
+          resultEl.style.display = "none";
+          try {
+            const r = await Api.post("/admin/test-email", {});
+            resultEl.style.display = "block";
+            resultEl.innerHTML = `<span style="color:var(--win);">✅ Test email sent to ${r.to}. Check your inbox (and spam folder).</span>`;
+          } catch (err) {
+            resultEl.style.display = "block";
+            resultEl.innerHTML = `<span style="color:var(--loss);">❌ ${err.message}</span>`;
+          } finally {
+            btn.disabled = false; btn.textContent = "Send Test Email";
+          }
+        });
+
       } catch (err) {
         pane.innerHTML = `<div style="color:var(--loss);padding:30px 20px;text-align:center;">${err.message}</div>`;
       }
@@ -1153,6 +1674,17 @@ const AdminGame = (() => {
           const nfts = data.nfts || [];
 
           pane.innerHTML = `
+            <div style="${S.sectionCard}">
+              <h3 style="${S.sectionTitle}">🏪 NFT Store — Supply &amp; Restock</h3>
+              <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 12px;">
+                Limited-supply NFTs and how many are left. Restock a sold-out one to put it back in the store.
+              </p>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--text-dim);margin-bottom:10px;cursor:pointer;">
+                <input type="checkbox" id="adm-nft-soldout-only" style="width:16px;height:16px;" /> Show sold-out only
+              </label>
+              <div id="adm-nft-store-list" style="color:var(--text-dim);">Loading store…</div>
+            </div>
+
             <div style="${S.sectionCard}">
               <h3 style="${S.sectionTitle}">🖼️ Mint NFT for User</h3>
               <div style="${S.form}">
@@ -1266,6 +1798,45 @@ const AdminGame = (() => {
               }
             });
           });
+
+          // ── NFT store supply / restock ──────────────────────────────
+          const soldOutOnly = pane.querySelector("#adm-nft-soldout-only");
+          async function loadStore() {
+            const host = pane.querySelector("#adm-nft-store-list");
+            if (!host) return;
+            try {
+              const { items } = await Api.get("/admin/nft-store");
+              const limited = items.filter(i => i.supply !== -1);
+              const list = (soldOutOnly && soldOutOnly.checked) ? limited.filter(i => i.soldOut) : limited;
+              if (!list.length) {
+                host.innerHTML = `<p style="color:var(--text-dim);font-size:0.88rem;">${soldOutOnly && soldOutOnly.checked ? "Nothing is sold out. 🎉" : "No limited-supply NFTs in the catalog."}</p>`;
+                return;
+              }
+              host.innerHTML = list.map(i => `
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;${i.soldOut ? "background:rgba(229,70,61,0.06);" : ""}">
+                  <span style="font-size:1.4rem;">${i.emoji}</span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;">${escapeHtmlAdm(i.name)} <span style="color:var(--gold);font-size:0.75rem;text-transform:capitalize;">${i.rarity}</span></div>
+                    <div style="font-size:0.78rem;color:var(--text-dim);">${i.minted}/${i.supply} sold · ${i.soldOut ? "<span style='color:var(--loss);'>SOLD OUT</span>" : `${i.remaining} left`} · ${i.priceChips} 🪙</div>
+                  </div>
+                  <button class="adm-nft-restock" data-id="${i.id}" style="${S.smallBtn}">Restock</button>
+                </div>`).join("");
+              host.querySelectorAll(".adm-nft-restock").forEach(b => {
+                b.addEventListener("click", async () => {
+                  b.disabled = true; b.textContent = "…";
+                  try {
+                    await Api.post(`/admin/nft-store/${b.dataset.id}/restock`, { minted: 0 });
+                    UI.toast("Restocked — back in the store!", "win");
+                    loadStore();
+                  } catch (err) { UI.toast(err.message || "Failed.", "loss"); b.disabled = false; b.textContent = "Restock"; }
+                });
+              });
+            } catch (err) {
+              host.innerHTML = `<p style="color:var(--loss);">${err.message}</p>`;
+            }
+          }
+          if (soldOutOnly) soldOutOnly.addEventListener("change", loadStore);
+          loadStore();
 
         } catch (err) {
           pane.innerHTML = `<div style="color:var(--loss);padding:30px 20px;text-align:center;">${err.message}</div>`;
@@ -1478,6 +2049,941 @@ const AdminGame = (() => {
           confirmBtn.disabled = false; confirmBtn.textContent = "🗑️ Permanently Delete Account";
         }
       });
+    }
+
+    // ── Maintenance Mode ───────────────────────────────────────────────────────
+    async function loadMaintenance() {
+      const pane = container.querySelector("#adm-pane-maintenance");
+      if (!pane) return;
+      pane.innerHTML = `<div style="color:var(--text-dim);padding:40px 20px;text-align:center;">⏳ Loading…</div>`;
+      try {
+        const data = await Api.get("/admin/maintenance");
+        const on = data.enabled;
+        pane.innerHTML = `
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🔒 Maintenance Mode</h3>
+            <p style="color:var(--text-dim);font-size:0.85rem;margin:0 0 18px;">
+              When enabled, non-admin visitors see a maintenance page instead of the site.
+            </p>
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;">
+              <span style="font-size:1.1rem;font-weight:800;color:${on ? "var(--win)" : "var(--loss)"};">
+                Status: ${on ? "🟢 ACTIVE" : "🔴 INACTIVE"}
+              </span>
+            </div>
+            <button id="adm-maint-toggle" style="${on ? S.toggleOn : S.toggleOff}">
+              ${on ? "Disable Maintenance Mode" : "Enable Maintenance Mode"}
+            </button>
+            <div id="adm-maint-result" style="display:none;${S.resultBox};margin-top:14px;"></div>
+          </div>
+        `;
+        pane.querySelector("#adm-maint-toggle").addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          btn.disabled = true; btn.textContent = "Saving…";
+          try {
+            await Api.post("/admin/maintenance/toggle", {});
+            loadMaintenance();
+          } catch (err) {
+            const r = pane.querySelector("#adm-maint-result");
+            r.style.display = "block"; r.style.color = "var(--loss)"; r.textContent = err.message;
+            btn.disabled = false;
+          }
+        });
+      } catch (err) {
+        pane.innerHTML = `<div style="color:var(--loss);padding:20px;">${err.message}</div>`;
+      }
+    }
+
+    // ── Site Config ────────────────────────────────────────────────────────────
+    function buildConfigPane() {
+      // Will be loaded on demand via loadConfig
+    }
+
+    // Numeric fields saved together via the "Save Config" button below.
+    const ECONOMY_NUMBER_FIELDS = [
+      { key: "minCashoutChips",       label: "Minimum Cashout (chips)",            def: 50,  min: 0 },
+      { key: "withdrawalFeePercent",  label: "Withdrawal Fee (%)",                 def: 0,   min: 0, max: 100, step: "0.01" },
+      { key: "maxDailyCashoutChips",  label: "Max Cashout per 24h (chips, 0 = unlimited)", def: 0, min: 0 },
+      { key: "minBuyChips",           label: "Minimum Chip Purchase (chips)",      def: 1,   min: 1 },
+      { key: "dailyBonusChips",       label: "Daily Bonus Amount (chips)",         def: 50,  min: 0 },
+      { key: "rakebackPercent",       label: "Rakeback (%)",                       def: 5,   min: 0, max: 100, step: "0.01" },
+      { key: "rakebackCooldownHours", label: "Rakeback Cooldown (hours)",          def: 24,  min: 1 },
+      { key: "leaderboardWindowDays", label: "Leaderboard Window (days)",          def: 7,   min: 1 },
+      { key: "emailCodeExpiryMinutes", label: "Email Code Expiry (minutes)",       def: 15,  min: 1 },
+    ];
+
+    // Toggle fields saved immediately on click, mirroring the Game Controls toggles.
+    const ECONOMY_TOGGLE_FIELDS = [
+      { key: "dailyBonusEnabled",    label: "Daily Login Bonus" },
+      { key: "rakebackEnabled",      label: "Rakeback Claims" },
+      { key: "leaderboardEnabled",   label: "Leaderboard" },
+      { key: "registrationEnabled",  label: "New Registrations" },
+      { key: "promoRedeemEnabled",   label: "Promo Code Redemption" },
+      { key: "stripeCheckoutEnabled", label: "Chip Purchases (Stripe)" },
+    ];
+
+    async function loadConfig() {
+      const pane = container.querySelector("#adm-pane-config");
+      if (!pane) return;
+      pane.innerHTML = `<div style="color:var(--text-dim);padding:40px 20px;text-align:center;">⏳ Loading…</div>`;
+      try {
+        const cfg = await Api.get("/admin/config");
+
+        const numberFieldsHtml = ECONOMY_NUMBER_FIELDS.map(f => `
+          <div style="${S.formGroup}">
+            <label style="${S.formLabel}" for="adm-eco-${f.key}">${f.label}</label>
+            <input id="adm-eco-${f.key}" type="number" min="${f.min ?? 0}" ${f.max !== undefined ? `max="${f.max}"` : ""} ${f.step ? `step="${f.step}"` : ""}
+              value="${cfg[f.key] !== undefined ? cfg[f.key] : f.def}" style="${S.formInput}" />
+          </div>
+        `).join("");
+
+        const toggleFieldsHtml = ECONOMY_TOGGLE_FIELDS.map(f => {
+          const disabled = cfg[f.key] === "false";
+          return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+              <span style="font-weight:600;">${f.label}</span>
+              <button class="adm-eco-toggle" data-key="${f.key}" data-disabled="${disabled}"
+                style="${disabled ? S.toggleOff : S.toggleOn}">
+                ${disabled ? "🚫 Disabled" : "✅ Enabled"}
+              </button>
+            </div>
+          `;
+        }).join("");
+
+        pane.innerHTML = `
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">⚙️ Site Config</h3>
+            <div style="${S.form}">
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}" for="adm-cfg-minbet">Min Bet (chips)</label>
+                <input id="adm-cfg-minbet" type="number" min="0" value="${cfg.minBet}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}" for="adm-cfg-maxbet">Max Bet (chips)</label>
+                <input id="adm-cfg-maxbet" type="number" min="0" value="${cfg.maxBet}" style="${S.formInput}" />
+              </div>
+              <div style="${S.formGroup}">
+                <label style="${S.formLabel}" for="adm-cfg-edge">House Edge % — win rate for Dice, Crash, Limbo, Mines, Hi-Lo (blank = default 1%; higher = players win less)</label>
+                <input id="adm-cfg-edge" type="number" min="-50" max="95" step="0.1"
+                  value="${cfg.house_edge != null && cfg.house_edge !== '' && cfg.house_edge !== 'null' ? cfg.house_edge : ''}"
+                  placeholder="e.g. 5" style="${S.formInput}" />
+              </div>
+              <div>
+                <button id="adm-cfg-save" style="${S.submitBtn}">Save Config</button>
+              </div>
+              <div id="adm-cfg-result" style="display:none;${S.resultBox}"></div>
+            </div>
+          </div>
+
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🧩 Economy &amp; Feature Controls</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              Limits and bonus amounts used across cashouts, daily bonus, rakeback, and the leaderboard. Saved fields take effect immediately — no redeploy needed.
+            </p>
+            <div style="${S.form}">
+              ${numberFieldsHtml}
+              <div>
+                <button id="adm-eco-save" style="${S.submitBtn}">Save Economy Settings</button>
+              </div>
+              <div id="adm-eco-result" style="display:none;${S.resultBox}"></div>
+            </div>
+            <hr class="bp-divider" style="margin:16px 0;" />
+            ${toggleFieldsHtml}
+          </div>
+        `;
+
+        pane.querySelector("#adm-cfg-save").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-cfg-save");
+          const r = pane.querySelector("#adm-cfg-result");
+          const minBet = Number(pane.querySelector("#adm-cfg-minbet").value);
+          const maxBet = Number(pane.querySelector("#adm-cfg-maxbet").value);
+          const edgeRaw = pane.querySelector("#adm-cfg-edge").value.trim();
+          btn.disabled = true; btn.textContent = "Saving…";
+          try {
+            // house_edge "" → backend resets to the 1% default; a number applies live.
+            await Api.post("/admin/config", { minBet, maxBet, house_edge: edgeRaw });
+            r.style.display = "block"; r.style.color = "var(--win)"; r.textContent = edgeRaw === "" ? "✅ Saved — house edge reset to 1%." : `✅ Saved — house edge is now ${edgeRaw}%.`;
+            UI.toast("Config saved.", "info");
+          } catch (err) {
+            r.style.display = "block"; r.style.color = "var(--loss)"; r.textContent = err.message;
+          } finally {
+            btn.disabled = false; btn.textContent = "Save Config";
+          }
+        });
+
+        pane.querySelector("#adm-eco-save").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-eco-save");
+          const r = pane.querySelector("#adm-eco-result");
+          const updates = {};
+          for (const f of ECONOMY_NUMBER_FIELDS) {
+            updates[f.key] = Number(pane.querySelector(`#adm-eco-${f.key}`).value);
+          }
+          btn.disabled = true; btn.textContent = "Saving…";
+          try {
+            await Api.post("/admin/config", updates);
+            r.style.display = "block"; r.style.color = "var(--win)"; r.textContent = "✅ Economy settings saved.";
+            UI.toast("Economy settings saved.", "info");
+          } catch (err) {
+            r.style.display = "block"; r.style.color = "var(--loss)"; r.textContent = err.message;
+          } finally {
+            btn.disabled = false; btn.textContent = "Save Economy Settings";
+          }
+        });
+
+        pane.querySelectorAll(".adm-eco-toggle").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const key = btn.dataset.key;
+            const isDisabled = btn.dataset.disabled === "true";
+            btn.disabled = true;
+            try {
+              await Api.post("/admin/config", { [key]: isDisabled ? "true" : "false" });
+              UI.toast(`${key} ${isDisabled ? "enabled" : "disabled"}.`, "info");
+              loadConfig();
+            } catch (err) {
+              UI.toast(err.message || "Failed.", "loss");
+              btn.disabled = false;
+            }
+          });
+        });
+      } catch (err) {
+        pane.innerHTML = `<div style="color:var(--loss);padding:20px;">${err.message}</div>`;
+      }
+    }
+
+    // ── IP Blocks ──────────────────────────────────────────────────────────────
+    async function loadIpBlocks() {
+      const pane = container.querySelector("#adm-pane-ipblocks");
+      if (!pane) return;
+      pane.innerHTML = `<div style="color:var(--text-dim);padding:40px 20px;text-align:center;">⏳ Loading…</div>`;
+      try {
+        const data = await Api.get("/admin/ip-blocks");
+        const blocks = data.blocks || [];
+        pane.innerHTML = `
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🚫 IP Blocklist (${blocks.length})</h3>
+            <div style="${S.tableWrap};margin-bottom:20px;">
+              <table style="${S.table}">
+                <thead><tr>
+                  <th style="${S.th}">IP Address</th>
+                  <th style="${S.th}">Reason</th>
+                  <th style="${S.th}">Added At</th>
+                  <th style="${S.th}">Action</th>
+                </tr></thead>
+                <tbody id="adm-ip-tbody">
+                  ${blocks.length === 0
+                    ? `<tr><td colspan="4" style="${S.td};color:var(--text-dim);text-align:center;">No blocked IPs</td></tr>`
+                    : blocks.map(b => `
+                      <tr>
+                        <td style="${S.td};font-family:monospace;">${b.ip}</td>
+                        <td style="${S.td};color:var(--text-dim);">${b.reason || "—"}</td>
+                        <td style="${S.td};color:var(--text-dim);">${fmtDate(b.addedAt)}</td>
+                        <td style="${S.td};">
+                          <button class="adm-ip-remove-btn" data-ip="${b.ip}" style="${S.redBtn}">Remove</button>
+                        </td>
+                      </tr>`).join("")}
+                </tbody>
+              </table>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:18px;">
+              <h4 style="margin:0 0 12px;font-size:0.88rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;">Block New IP</h4>
+              <div style="${S.form}">
+                <div style="${S.formGroup}">
+                  <label style="${S.formLabel}" for="adm-ip-addr">IP Address</label>
+                  <input id="adm-ip-addr" type="text" placeholder="e.g. 1.2.3.4" style="${S.formInput}" />
+                </div>
+                <div style="${S.formGroup}">
+                  <label style="${S.formLabel}" for="adm-ip-reason">Reason (optional)</label>
+                  <input id="adm-ip-reason" type="text" placeholder="e.g. Spam / abuse" style="${S.formInput}" />
+                </div>
+                <div>
+                  <button id="adm-ip-add-btn" style="${S.submitBtn}">Block IP</button>
+                </div>
+                <div id="adm-ip-result" style="display:none;${S.resultBox}"></div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        pane.querySelectorAll(".adm-ip-remove-btn").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const ip = btn.getAttribute("data-ip");
+            if (!confirm(`Remove block for ${ip}?`)) return;
+            btn.disabled = true;
+            try {
+              await fetch(`/admin/ip-blocks/${encodeURIComponent(ip)}`, {
+                method: "DELETE",
+                headers: { authorization: `Bearer ${Api.getToken()}` },
+              });
+              loadIpBlocks();
+            } catch (err) { UI.toast(err.message, "loss"); btn.disabled = false; }
+          });
+        });
+
+        pane.querySelector("#adm-ip-add-btn").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-ip-add-btn");
+          const r = pane.querySelector("#adm-ip-result");
+          const ip = pane.querySelector("#adm-ip-addr").value.trim();
+          const reason = pane.querySelector("#adm-ip-reason").value.trim();
+          if (!ip) { UI.toast("Enter an IP address.", "loss"); return; }
+          btn.disabled = true; btn.textContent = "Blocking…";
+          try {
+            await Api.post("/admin/ip-blocks", { ip, reason });
+            loadIpBlocks();
+          } catch (err) {
+            r.style.display = "block"; r.style.color = "var(--loss)"; r.textContent = err.message;
+            btn.disabled = false; btn.textContent = "Block IP";
+          }
+        });
+      } catch (err) {
+        pane.innerHTML = `<div style="color:var(--loss);padding:20px;">${err.message}</div>`;
+      }
+    }
+
+    // ── Reports ────────────────────────────────────────────────────────────────
+    function escapeHtmlAdm(str) {
+      return String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    async function loadReports() {
+      const pane = container.querySelector("#adm-pane-reports");
+      if (!pane) return;
+      pane.innerHTML = `<div style="color:var(--text-dim);padding:40px 20px;text-align:center;">⏳ Loading…</div>`;
+      try {
+        const [data, userReportsData] = await Promise.all([
+          Api.get("/admin/reports/suspicious"),
+          Api.get("/admin/reports/user").catch(() => ({ reports: [] })),
+        ]);
+        const users = data.users || [];
+        const userReports = (userReportsData && userReportsData.reports) || [];
+        const openReports = userReports.filter(r => r.status !== "resolved");
+        pane.innerHTML = `
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🚩 Player Reports (${openReports.length} open)</h3>
+            ${userReports.length === 0
+              ? `<p style="color:var(--text-dim);font-size:0.88rem;">No player reports yet.</p>`
+              : userReports.map(r => `
+                <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;${r.status === "resolved" ? "opacity:0.5;" : ""}">
+                  <div style="font-weight:700;">🚩 ${escapeHtmlAdm(r.reportedName)} <span style="color:var(--text-dim);font-weight:400;">reported by ${escapeHtmlAdm(r.reporterName)}</span></div>
+                  <div style="font-size:0.9rem;margin:6px 0;">${escapeHtmlAdm(r.reason)}</div>
+                  ${r.context ? `<div style="font-size:0.8rem;color:var(--text-dim);font-style:italic;">Context: "${escapeHtmlAdm(r.context)}"</div>` : ""}
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                    <span style="font-size:0.72rem;color:var(--text-mute);">${new Date(r.createdAt).toLocaleString()}</span>
+                    ${r.status === "resolved" ? `<span style="color:var(--win);font-size:0.8rem;">✓ Resolved</span>` : `<button class="adm-report-resolve" data-id="${r.id}" style="${S.smallBtn}">Mark Resolved</button>`}
+                  </div>
+                </div>`).join("")}
+          </div>
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🔍 Suspicious Users — Balance > 0, No Deposits (${users.length})</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              Users with a positive balance and active bets but no confirmed deposit transactions.
+            </p>
+            <div style="${S.tableWrap}">
+              <table style="${S.table}">
+                <thead><tr>
+                  <th style="${S.th}">Username</th>
+                  <th style="${S.th}">Balance</th>
+                  <th style="${S.th}">Bets</th>
+                  <th style="${S.th}">Total Wagered</th>
+                </tr></thead>
+                <tbody>
+                  ${users.length === 0
+                    ? `<tr><td colspan="4" style="${S.td};color:var(--text-dim);text-align:center;">No suspicious users found</td></tr>`
+                    : users.map(u => `
+                      <tr>
+                        <td style="${S.td}"><span style="${S.usernameLink}" data-uid="${u.id}">${u.username}</span></td>
+                        <td style="${S.td}">${chips(u.balance || 0)}</td>
+                        <td style="${S.td}">${(u.betCount || 0).toLocaleString()}</td>
+                        <td style="${S.td}">${chips(u.totalWagered || 0)}</td>
+                      </tr>`).join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+        pane.querySelectorAll("[data-uid]").forEach(el => {
+          el.addEventListener("click", () => openUserDetailModal(el.getAttribute("data-uid")));
+        });
+        pane.querySelectorAll(".adm-report-resolve").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            btn.disabled = true; btn.textContent = "…";
+            try {
+              await Api.post(`/admin/reports/${btn.dataset.id}/resolve`, {});
+              UI.toast("Report resolved.", "win");
+              loadReports();
+            } catch (err) { UI.toast(err.message || "Failed.", "loss"); btn.disabled = false; btn.textContent = "Mark Resolved"; }
+          });
+        });
+      } catch (err) {
+        pane.innerHTML = `<div style="color:var(--loss);padding:20px;">${err.message}</div>`;
+      }
+    }
+
+    // ── Analytics ──────────────────────────────────────────────────────────────
+    async function loadAnalytics() {
+      const pane = container.querySelector("#adm-pane-analytics");
+      if (!pane) return;
+      pane.innerHTML = `<div style="color:var(--text-dim);padding:40px 20px;text-align:center;">⏳ Loading…</div>`;
+      try {
+        const data = await Api.get("/admin/analytics");
+        const { dailySignups = [], betsPerGame = [], winLossRatio = "0.0", totalBets = 0 } = data;
+
+        const maxSignups = Math.max(1, ...dailySignups.map(d => d.count));
+        const maxBetsGame = Math.max(1, ...betsPerGame.map(g => g.count));
+
+        pane.innerHTML = `
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">📈 Analytics</h3>
+            <div style="${S.statsGrid};margin-bottom:18px;">
+              <div style="${S.statBox}"><div style="${S.sbLabel}">Total Bets</div><div style="${S.sbValue}">${totalBets.toLocaleString()}</div></div>
+              <div style="${S.statBox}"><div style="${S.sbLabel}">Win Rate</div><div style="${S.sbValue}">${winLossRatio}%</div></div>
+            </div>
+
+            <h4 style="margin:0 0 10px;font-size:0.82rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;">Daily Signups — Last 7 Days</h4>
+            <div style="display:flex;align-items:flex-end;gap:6px;height:80px;margin-bottom:20px;">
+              ${dailySignups.map(d => {
+                const h = Math.max(4, Math.round((d.count / maxSignups) * 72));
+                return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                  <span style="font-size:0.65rem;color:var(--text-dim);">${d.count}</span>
+                  <div style="width:100%;height:${h}px;background:var(--accent);border-radius:4px 4px 0 0;opacity:0.85;"></div>
+                  <span style="font-size:0.6rem;color:var(--text-dim);">${d.date.slice(5)}</span>
+                </div>`;
+              }).join("")}
+            </div>
+
+            <h4 style="margin:0 0 10px;font-size:0.82rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;">Bets by Game</h4>
+            <div style="${S.tableWrap}">
+              <table style="${S.table}">
+                <thead><tr>
+                  <th style="${S.th}">Game</th>
+                  <th style="${S.th}">Bet Count</th>
+                  <th style="${S.th}">Total Wagered</th>
+                  <th style="${S.th}">Total Paid Out</th>
+                  <th style="${S.th}">Bar</th>
+                </tr></thead>
+                <tbody>
+                  ${betsPerGame.slice(0, 20).map(g => `
+                    <tr>
+                      <td style="${S.td};font-weight:700;">${g.game}</td>
+                      <td style="${S.td}">${g.count.toLocaleString()}</td>
+                      <td style="${S.td}">${chips(g.wagered || 0)}</td>
+                      <td style="${S.td}">${chips(g.paidOut || 0)}</td>
+                      <td style="${S.td};min-width:80px;">
+                        <div style="width:${Math.round((g.count/maxBetsGame)*100)}%;min-width:4px;height:8px;background:var(--accent);border-radius:4px;opacity:0.8;"></div>
+                      </td>
+                    </tr>`).join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        pane.innerHTML = `<div style="color:var(--loss);padding:20px;">${err.message}</div>`;
+      }
+    }
+
+    // ── Referrals ──────────────────────────────────────────────────────────────
+    async function loadReferrals() {
+      const pane = container.querySelector("#adm-pane-referrals");
+      if (!pane) return;
+      pane.innerHTML = `<div style="color:var(--text-dim);padding:40px 20px;text-align:center;">⏳ Loading…</div>`;
+      try {
+        const data = await Api.get("/admin/referrals");
+        const refs = data.referrals || [];
+        pane.innerHTML = `
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🔗 Referral Codes (${refs.length} users)</h3>
+            <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 14px;">
+              Each user has an auto-generated referral code. Referred users who register with a code earn the referrer 50 chips.
+            </p>
+            <div style="${S.tableWrap}">
+              <table style="${S.table}">
+                <thead><tr>
+                  <th style="${S.th}">Username</th>
+                  <th style="${S.th}">Referral Code</th>
+                  <th style="${S.th}">Referred</th>
+                  <th style="${S.th}">Bonus Earned</th>
+                </tr></thead>
+                <tbody>
+                  ${refs.length === 0
+                    ? `<tr><td colspan="4" style="${S.td};color:var(--text-dim);text-align:center;">No users found</td></tr>`
+                    : refs.map(r => `
+                      <tr>
+                        <td style="${S.td};font-weight:700;">${r.username}</td>
+                        <td style="${S.td};font-family:monospace;color:var(--accent-2);">${r.referralCode}</td>
+                        <td style="${S.td}">${r.referredCount}</td>
+                        <td style="${S.td}">${chips(r.bonusEarned * 100)}</td>
+                      </tr>`).join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        pane.innerHTML = `<div style="color:var(--loss);padding:20px;">${err.message}</div>`;
+      }
+    }
+
+    // ── Leaderboard ────────────────────────────────────────────────────────────
+    async function loadLeaderboard() {
+      const pane = container.querySelector("#adm-pane-leaderboard");
+      if (!pane) return;
+      pane.innerHTML = `<div style="color:var(--text-dim);padding:40px 20px;text-align:center;">⏳ Loading…</div>`;
+      try {
+        const data = await Api.get("/admin/leaderboard");
+        const users = data.users || [];
+        pane.innerHTML = `
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🏆 Top Players by Total Wagered</h3>
+            <div style="${S.tableWrap};margin-bottom:20px;">
+              <table style="${S.table}">
+                <thead><tr>
+                  <th style="${S.th}">#</th>
+                  <th style="${S.th}">Username</th>
+                  <th style="${S.th}">Balance</th>
+                  <th style="${S.th}">XP</th>
+                  <th style="${S.th}">Total Wagered</th>
+                </tr></thead>
+                <tbody>
+                  ${users.length === 0
+                    ? `<tr><td colspan="5" style="${S.td};color:var(--text-dim);text-align:center;">No players found</td></tr>`
+                    : users.map((u, i) => `
+                      <tr>
+                        <td style="${S.td};color:var(--text-dim);">${i + 1}</td>
+                        <td style="${S.td}"><span style="${S.usernameLink}" data-uid="${u.id}">${u.username}</span></td>
+                        <td style="${S.td}">${chips(u.balance || 0)}</td>
+                        <td style="${S.td}">${(u.xp || 0).toLocaleString()}</td>
+                        <td style="${S.td}">${chips(u.totalWagered || 0)}</td>
+                      </tr>`).join("")}
+                </tbody>
+              </table>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:16px;">
+              <button id="adm-lb-reset" style="${S.deleteBtn}">⚠️ Reset All XP to 0</button>
+              <div id="adm-lb-result" style="display:none;${S.resultBox};margin-top:14px;"></div>
+            </div>
+          </div>
+        `;
+        pane.querySelectorAll("[data-uid]").forEach(el => {
+          el.addEventListener("click", () => openUserDetailModal(el.getAttribute("data-uid")));
+        });
+        pane.querySelector("#adm-lb-reset").addEventListener("click", async () => {
+          if (!confirm("Reset XP for ALL users to 0? This cannot be undone.")) return;
+          const btn = pane.querySelector("#adm-lb-reset");
+          const r = pane.querySelector("#adm-lb-result");
+          btn.disabled = true; btn.textContent = "Resetting…";
+          try {
+            await Api.post("/admin/leaderboard/reset", {});
+            r.style.display = "block"; r.style.color = "var(--win)"; r.textContent = "✅ XP reset for all users.";
+            UI.toast("XP reset.", "info");
+            loadLeaderboard();
+          } catch (err) {
+            r.style.display = "block"; r.style.color = "var(--loss)"; r.textContent = err.message;
+            btn.disabled = false; btn.textContent = "⚠️ Reset All XP to 0";
+          }
+        });
+      } catch (err) {
+        pane.innerHTML = `<div style="color:var(--loss);padding:20px;">${err.message}</div>`;
+      }
+    }
+
+    // ── Chat Moderation ────────────────────────────────────────────────────────
+    async function loadChatMod() {
+      const pane = container.querySelector("#adm-pane-chatmod");
+      if (!pane) return;
+      pane.innerHTML = `<div style="color:var(--text-dim);padding:40px 20px;text-align:center;">⏳ Loading…</div>`;
+      try {
+        const data = await Api.get("/admin/chat/messages");
+        const muted = data.mutedUsers || [];
+        pane.innerHTML = `
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">💬 Chat Moderation</h3>
+            <p style="color:var(--text-dim);font-size:0.85rem;margin:0 0 18px;">
+              Recent chat messages will appear here — chat is stored in memory per session and resets on server restart.
+            </p>
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px;min-height:80px;margin-bottom:20px;color:var(--text-dim);font-size:0.85rem;font-style:italic;">
+              No chat messages available (chat is in-memory, no history is persisted).
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:16px;">
+              <h4 style="margin:0 0 12px;font-size:0.88rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;">Mute / Unmute User</h4>
+              <div style="${S.form}">
+                <div style="${S.formGroup}">
+                  <label style="${S.formLabel}" for="adm-chat-user">Username</label>
+                  <input id="adm-chat-user" type="text" placeholder="Enter username…" style="${S.formInput}" />
+                </div>
+                <div style="display:flex;gap:10px;">
+                  <button id="adm-chat-mute-btn" style="${S.submitBtn}">Mute User</button>
+                  <button id="adm-chat-unmute-btn" style="${S.smallBtn}">Unmute User</button>
+                </div>
+                <div id="adm-chat-result" style="display:none;${S.resultBox}"></div>
+              </div>
+            </div>
+            <div style="margin-top:18px;">
+              <h4 style="margin:0 0 10px;font-size:0.88rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;">
+                Currently Muted (${muted.length})
+              </h4>
+              ${muted.length === 0
+                ? `<p style="color:var(--text-dim);font-size:0.85rem;">No users currently muted.</p>`
+                : `<div style="display:flex;flex-wrap:wrap;gap:8px;">${muted.map(u =>
+                    `<span style="background:rgba(248,113,113,0.12);border:1px solid rgba(248,113,113,0.35);color:var(--loss);border-radius:7px;padding:4px 10px;font-size:0.8rem;font-weight:700;">${u}</span>`
+                  ).join("")}</div>`}
+            </div>
+          </div>
+        `;
+        const r = pane.querySelector("#adm-chat-result");
+        pane.querySelector("#adm-chat-mute-btn").addEventListener("click", async () => {
+          const username = pane.querySelector("#adm-chat-user").value.trim();
+          if (!username) { UI.toast("Enter a username.", "loss"); return; }
+          try {
+            await Api.post("/admin/chat/mute", { username });
+            r.style.display = "block"; r.style.color = "var(--win)"; r.textContent = `✅ ${username} muted.`;
+            loadChatMod();
+          } catch (err) { r.style.display = "block"; r.style.color = "var(--loss)"; r.textContent = err.message; }
+        });
+        pane.querySelector("#adm-chat-unmute-btn").addEventListener("click", async () => {
+          const username = pane.querySelector("#adm-chat-user").value.trim();
+          if (!username) { UI.toast("Enter a username.", "loss"); return; }
+          try {
+            await Api.post("/admin/chat/unmute", { username });
+            r.style.display = "block"; r.style.color = "var(--win)"; r.textContent = `✅ ${username} unmuted.`;
+            loadChatMod();
+          } catch (err) { r.style.display = "block"; r.style.color = "var(--loss)"; r.textContent = err.message; }
+        });
+      } catch (err) {
+        pane.innerHTML = `<div style="color:var(--loss);padding:20px;">${err.message}</div>`;
+      }
+    }
+
+    // ── Scratch Tickets ────────────────────────────────────────────────────────
+    async function loadScratch() {
+      const pane = container.querySelector("#adm-pane-scratch");
+      if (!pane) return;
+      pane.innerHTML = `<div style="color:var(--text-dim);padding:40px 20px;text-align:center;">⏳ Loading…</div>`;
+      try {
+        const data = await Api.get("/admin/scratch/stats");
+        pane.innerHTML = `
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🎟️ Scratch Ticket Stats</h3>
+            <div style="${S.statsGrid}">
+              <div style="${S.statBox}">
+                <div style="${S.sbLabel}">Tickets Sold</div>
+                <div style="${S.sbValue}">${(data.totalSold || 0).toLocaleString()}</div>
+              </div>
+              <div style="${S.statBox}">
+                <div style="${S.sbLabel}">Total Wagered</div>
+                <div style="${S.sbValue}">${chips(data.totalWagered || 0)}</div>
+              </div>
+              <div style="${S.statBox}">
+                <div style="${S.sbLabel}">Total Won (Payouts)</div>
+                <div style="${S.sbValue}">${chips(data.totalPaidOut || 0)}</div>
+              </div>
+              <div style="${S.statBox}">
+                <div style="${S.sbLabel}">Net Revenue</div>
+                <div style="${S.sbValue};color:${(data.revenue || 0) >= 0 ? "var(--win)" : "var(--loss)"};">
+                  ${chips(data.revenue || 0)}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        pane.innerHTML = `<div style="color:var(--loss);padding:20px;">${err.message}</div>`;
+      }
+    }
+
+    // ── Prize Draws ────────────────────────────────────────────────────────────
+    async function loadPrizes() {
+      const pane = container.querySelector("#adm-pane-prizes");
+      if (!pane) return;
+      pane.innerHTML = `<div style="color:var(--text-dim);padding:40px 20px;text-align:center;">⏳ Loading…</div>`;
+      try {
+        const data = await Api.get("/admin/prizes");
+        const prizes = data.prizes || [];
+        pane.innerHTML = `
+          <div style="${S.sectionCard}">
+            <h3 style="${S.sectionTitle}">🎁 Prize Draws (${prizes.length})</h3>
+            <div style="${S.tableWrap};margin-bottom:20px;">
+              <table style="${S.table}">
+                <thead><tr>
+                  <th style="${S.th}">Name</th>
+                  <th style="${S.th}">Prize (chips)</th>
+                  <th style="${S.th}">Created</th>
+                  <th style="${S.th}">Winner</th>
+                  <th style="${S.th}">Action</th>
+                </tr></thead>
+                <tbody>
+                  ${prizes.length === 0
+                    ? `<tr><td colspan="5" style="${S.td};color:var(--text-dim);text-align:center;">No prizes created yet</td></tr>`
+                    : prizes.map(p => `
+                      <tr>
+                        <td style="${S.td};font-weight:700;">${p.name}</td>
+                        <td style="${S.td}">${chips(p.chipAmount * 100)}</td>
+                        <td style="${S.td};color:var(--text-dim);">${fmtDate(p.createdAt)}</td>
+                        <td style="${S.td};">
+                          ${p.winner
+                            ? `<span style="color:var(--win);font-weight:700;">🏆 ${p.winner.username}</span><br><span style="color:var(--text-dim);font-size:0.75rem;">${fmtDate(p.drawnAt)}</span>`
+                            : `<span style="color:var(--text-dim);">—</span>`}
+                        </td>
+                        <td style="${S.td};">
+                          ${p.winner
+                            ? `<span style="color:var(--text-dim);font-size:0.78rem;">Drawn</span>`
+                            : `<button class="adm-prize-draw-btn" data-id="${p.id}" data-name="${p.name}" style="${S.greenBtn}">🎲 Draw Winner</button>`}
+                        </td>
+                      </tr>`).join("")}
+                </tbody>
+              </table>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:18px;">
+              <h4 style="margin:0 0 12px;font-size:0.88rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;">Create New Prize</h4>
+              <div style="${S.form}">
+                <div style="${S.formGroup}">
+                  <label style="${S.formLabel}" for="adm-prize-name">Prize Name</label>
+                  <input id="adm-prize-name" type="text" placeholder="e.g. Weekend Jackpot" style="${S.formInput}" />
+                </div>
+                <div style="${S.formGroup}">
+                  <label style="${S.formLabel}" for="adm-prize-chips">Chip Amount</label>
+                  <input id="adm-prize-chips" type="number" min="0" placeholder="e.g. 1000" style="${S.formInput}" />
+                </div>
+                <div>
+                  <button id="adm-prize-create-btn" style="${S.submitBtn}">Create Prize</button>
+                </div>
+                <div id="adm-prize-result" style="display:none;${S.resultBox}"></div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        pane.querySelectorAll(".adm-prize-draw-btn").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const id = btn.getAttribute("data-id");
+            const name = btn.getAttribute("data-name");
+            if (!confirm(`Draw a random winner for "${name}"? The winner will receive the chips immediately.`)) return;
+            btn.disabled = true; btn.textContent = "Drawing…";
+            try {
+              const result = await Api.post(`/admin/prizes/${id}/draw`, {});
+              UI.toast(`🏆 Winner: ${result.prize.winner.username}!`, "info");
+              loadPrizes();
+            } catch (err) {
+              UI.toast(err.message, "loss");
+              btn.disabled = false; btn.textContent = "🎲 Draw Winner";
+            }
+          });
+        });
+
+        const r = pane.querySelector("#adm-prize-result");
+        pane.querySelector("#adm-prize-create-btn").addEventListener("click", async () => {
+          const btn = pane.querySelector("#adm-prize-create-btn");
+          const name = pane.querySelector("#adm-prize-name").value.trim();
+          const chipAmount = Number(pane.querySelector("#adm-prize-chips").value);
+          if (!name) { UI.toast("Enter a prize name.", "loss"); return; }
+          btn.disabled = true; btn.textContent = "Creating…";
+          try {
+            await Api.post("/admin/prizes/create", { name, chipAmount });
+            r.style.display = "block"; r.style.color = "var(--win)"; r.textContent = "✅ Prize created.";
+            loadPrizes();
+          } catch (err) {
+            r.style.display = "block"; r.style.color = "var(--loss)"; r.textContent = err.message;
+            btn.disabled = false; btn.textContent = "Create Prize";
+          }
+        });
+      } catch (err) {
+        pane.innerHTML = `<div style="color:var(--loss);padding:20px;">${err.message}</div>`;
+      }
+    }
+
+    // ── Subscriptions ──────────────────────────────────────────────────────────
+    async function loadSubscriptions() {
+      const pane = container.querySelector("#adm-pane-subscriptions");
+      if (!pane) return;
+
+      async function render() {
+        pane.innerHTML = `<div style="color:var(--text-dim);padding:40px 20px;text-align:center;">⏳ Loading subscriptions…</div>`;
+        try {
+          const [pendingData, allData] = await Promise.all([
+            Api.get("/admin/subscriptions/pending"),
+            Api.get("/admin/subscriptions"),
+          ]);
+
+          const pending = pendingData.users || [];
+          const all = allData.users || [];
+
+          function tierBadge(tier) {
+            if (!tier) return `<span style="color:var(--text-dim);font-size:0.78rem;">None</span>`;
+            const t = PATREON_TIER_INFO[tier] || { label: tier, c: "#9ca3af" };
+            return `<span style="color:${t.c};font-weight:700;font-size:0.78rem;">${t.label}</span>`;
+          }
+
+          function approvalStatus(u) {
+            if (!u.isApproved) return `<span style="color:var(--loss);font-weight:700;font-size:0.78rem;">⏳ Pending</span>`;
+            const expiry = u.approvedUntil ? new Date(u.approvedUntil) : null;
+            if (expiry && expiry < new Date()) return `<span style="color:var(--loss);font-weight:700;font-size:0.78rem;">⚠️ Expired</span>`;
+            const daysLeft = expiry ? Math.ceil((expiry - Date.now()) / 86400000) : null;
+            return `<span style="color:var(--win);font-weight:700;font-size:0.78rem;">✅ Active${daysLeft !== null ? ` (${daysLeft}d left)` : ""}</span>`;
+          }
+
+          pane.innerHTML = `
+            <div style="${S.sectionCard}">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+                <h3 style="${S.sectionTitle};margin:0;">⏳ Pending Approvals (${pending.length})</h3>
+                <button id="adm-sub-revoke-expired" style="${S.redBtn}">Revoke All Expired</button>
+              </div>
+              ${pending.length === 0
+                ? `<p style="color:var(--text-dim);font-size:0.88rem;">No pending requests.</p>`
+                : `<div style="${S.tableWrap}">
+                  <table style="${S.table}">
+                    <thead><tr>
+                      <th style="${S.th}">Username</th>
+                      <th style="${S.th}">Patreon</th>
+                      <th style="${S.th}">Registered</th>
+                      <th style="${S.th}">Tier</th>
+                      <th style="${S.th}">Days</th>
+                      <th style="${S.th}">Approve</th>
+                    </tr></thead>
+                    <tbody>
+                      ${pending.map(u => `
+                        <tr>
+                          <td style="${S.td};font-weight:700;color:var(--accent-2);">${u.username}</td>
+                          <td style="${S.td};font-style:italic;color:var(--text-dim);">${u.patreonUsername || "—"}</td>
+                          <td style="${S.td};color:var(--text-dim);">${fmtDate(u.createdAt)}</td>
+                          <td style="${S.td};">
+                            <select class="adm-sub-tier" data-id="${u.id}" style="${S.rankSelect}">
+                              ${Object.entries(PATREON_TIER_INFO).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join("")}
+                            </select>
+                          </td>
+                          <td style="${S.td};">
+                            <input class="adm-sub-days" data-id="${u.id}" type="number" value="31" min="1" max="365"
+                              style="${S.rankSelect};width:60px;" />
+                          </td>
+                          <td style="${S.td};">
+                            <button class="adm-sub-approve" data-id="${u.id}" style="${S.greenBtn}">✅ Approve</button>
+                          </td>
+                        </tr>`).join("")}
+                    </tbody>
+                  </table>
+                </div>`}
+            </div>
+
+            <div style="${S.sectionCard}">
+              <h3 style="${S.sectionTitle}">🔑 All Subscriptions</h3>
+              <div style="${S.tableWrap}">
+                <table style="${S.table}">
+                  <thead><tr>
+                    <th style="${S.th}">Username</th>
+                    <th style="${S.th}">Patreon</th>
+                    <th style="${S.th}">Tier</th>
+                    <th style="${S.th}">Status</th>
+                    <th style="${S.th}">Expires</th>
+                    <th style="${S.th}">Actions</th>
+                  </tr></thead>
+                  <tbody>
+                    ${all.map(u => `
+                      <tr>
+                        <td style="${S.td};font-weight:700;color:var(--accent-2);">${u.username}</td>
+                        <td style="${S.td};color:var(--text-dim);">${u.patreonUsername || "—"}</td>
+                        <td style="${S.td};">${tierBadge(u.patreonTier)}</td>
+                        <td style="${S.td};">${approvalStatus(u)}</td>
+                        <td style="${S.td};color:var(--text-dim);">${u.approvedUntil ? new Date(u.approvedUntil).toLocaleDateString() : "—"}</td>
+                        <td style="${S.td};">
+                          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            ${!u.isApproved
+                              ? `<button class="adm-sub-approve-quick" data-id="${u.id}" style="${S.greenBtn}">Approve 31d</button>`
+                              : `<button class="adm-sub-extend" data-id="${u.id}" style="${S.smallBtn}">+31d</button>`}
+                            ${u.isApproved
+                              ? `<button class="adm-sub-revoke" data-id="${u.id}" style="${S.redBtn}">Revoke</button>`
+                              : ""}
+                          </div>
+                        </td>
+                      </tr>`).join("")}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
+
+          // Approve pending user
+          pane.querySelectorAll(".adm-sub-approve").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              const id = btn.dataset.id;
+              const tier = pane.querySelector(`.adm-sub-tier[data-id="${id}"]`).value;
+              const days = Number(pane.querySelector(`.adm-sub-days[data-id="${id}"]`).value) || 31;
+              btn.disabled = true; btn.textContent = "…";
+              try {
+                await Api.post(`/admin/subscriptions/${id}/approve`, { patreonTier: tier, daysValid: days });
+                UI.toast("User approved!", "win");
+                render();
+              } catch (err) {
+                UI.toast(err.message || "Failed.", "loss");
+                btn.disabled = false; btn.textContent = "✅ Approve";
+              }
+            });
+          });
+
+          // Quick approve (31d default bronze)
+          pane.querySelectorAll(".adm-sub-approve-quick").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              btn.disabled = true; btn.textContent = "…";
+              try {
+                await Api.post(`/admin/subscriptions/${btn.dataset.id}/approve`, { patreonTier: "bronze_patron", daysValid: 31 });
+                UI.toast("Approved for 31 days!", "win");
+                render();
+              } catch (err) {
+                UI.toast(err.message || "Failed.", "loss");
+                btn.disabled = false; btn.textContent = "Approve 31d";
+              }
+            });
+          });
+
+          // Extend subscription
+          pane.querySelectorAll(".adm-sub-extend").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              btn.disabled = true; btn.textContent = "…";
+              try {
+                await Api.post(`/admin/subscriptions/${btn.dataset.id}/approve`, { patreonTier: "bronze_patron", daysValid: 31 });
+                UI.toast("Extended by 31 days!", "win");
+                render();
+              } catch (err) {
+                UI.toast(err.message || "Failed.", "loss");
+                btn.disabled = false; btn.textContent = "+31d";
+              }
+            });
+          });
+
+          // Revoke subscription
+          pane.querySelectorAll(".adm-sub-revoke").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              if (!confirm("Revoke this user's subscription?")) return;
+              btn.disabled = true; btn.textContent = "…";
+              try {
+                await Api.post(`/admin/subscriptions/${btn.dataset.id}/revoke`, {});
+                UI.toast("Subscription revoked.", "info");
+                render();
+              } catch (err) {
+                UI.toast(err.message || "Failed.", "loss");
+                btn.disabled = false; btn.textContent = "Revoke";
+              }
+            });
+          });
+
+          // Revoke all expired
+          const revokeExpiredBtn = pane.querySelector("#adm-sub-revoke-expired");
+          if (revokeExpiredBtn) {
+            revokeExpiredBtn.addEventListener("click", async () => {
+              if (!confirm("Revoke all expired subscriptions?")) return;
+              revokeExpiredBtn.disabled = true; revokeExpiredBtn.textContent = "Working…";
+              try {
+                const r = await Api.post("/admin/subscriptions/revoke-expired", {});
+                UI.toast(`Revoked ${r.revoked} expired subscriptions.`, "info");
+                render();
+              } catch (err) {
+                UI.toast(err.message || "Failed.", "loss");
+                revokeExpiredBtn.disabled = false; revokeExpiredBtn.textContent = "Revoke All Expired";
+              }
+            });
+          }
+        } catch (err) {
+          pane.innerHTML = `<div style="color:var(--loss);padding:20px;">${err.message}</div>`;
+        }
+      }
+
+      render();
     }
 
     buildSkeleton();

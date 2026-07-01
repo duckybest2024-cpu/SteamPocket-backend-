@@ -16,6 +16,8 @@ const CrashGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <div class="bet-panel">
+          ${GameThemes.renderPicker("crash", GameThemes.getSaved("crash"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="crash-tab-manual">Manual</button>
             <button class="bp-tab" id="crash-tab-auto">Auto</button>
@@ -62,6 +64,7 @@ const CrashGame = (() => {
 
       </div></div>
     `;
+    HowToPlay.addButton(container, "crash");
 
     const els = {
       multiplier: container.querySelector("#crash-multiplier"),
@@ -80,8 +83,8 @@ const CrashGame = (() => {
     };
 
     // ½ and 2× quick buttons
-    els.half.addEventListener("click", () => { els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 0.5)); });
-    els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 2); });
+    els.half.addEventListener("click", () => { els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 50) / 100); });
+    els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100; });
 
     // Manual/Auto tabs (visual only)
     container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
@@ -344,6 +347,8 @@ const CrashGame = (() => {
         // Success path is reflected via the broadcast `cash_out` event everyone receives.
       });
     });
+
+    GameThemes.init(container, "crash");
 
     return () => {
       stopCountdown();

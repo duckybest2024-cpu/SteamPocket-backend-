@@ -16,6 +16,17 @@ const CheckersGame = (() => {
 
   function inBounds(r, c) { return r >= 0 && r < 8 && c >= 0 && c < 8; }
 
+  // Convert backend gameState to frontend format.
+  // Backend turn: 0 (player 0 = red) | 1 (player 1 = black)
+  // Frontend turn: 'red' | 'black'
+  function normalizeCheckersState(gs) {
+    if (!gs) return {};
+    let turn = gs.turn;
+    if (turn === 0) turn = 'red';
+    else if (turn === 1) turn = 'black';
+    return { ...gs, turn };
+  }
+
   // Returns { moves: [[r,c]], jumps: [[r,c]] }  for a single piece
   function getPieceMoves(board, r, c) {
     const piece = board[r][c];
@@ -116,7 +127,7 @@ const CheckersGame = (() => {
       style.id = STYLE_ID;
       style.textContent = `
         .ck-wrap {
-          max-width: 560px;
+          max-width: 580px;
           margin: 0 auto;
           padding: 0 8px;
           font-family: inherit;
@@ -134,20 +145,23 @@ const CheckersGame = (() => {
           font-size: 1.2rem;
           font-weight: 700;
           margin: 0;
+          color: #f0c244;
+          text-shadow: 0 0 8px rgba(240,194,68,0.4);
         }
         .ck-turn-badge {
           font-size: 0.82rem;
           padding: 4px 12px;
           border-radius: 20px;
           font-weight: 600;
-          background: var(--bg-elev);
-          border: 1px solid var(--border);
-          color: var(--text);
+          background: rgba(0,0,0,0.5);
+          border: 1px solid rgba(255,255,255,0.15);
+          color: #b0bec5;
         }
         .ck-turn-badge.my-turn {
-          background: var(--accent);
+          background: #2e7d32;
           color: #fff;
-          border-color: var(--accent);
+          border-color: #4ade80;
+          box-shadow: 0 0 10px rgba(74,222,128,0.4);
           animation: ck-pulse 1.4s ease-in-out infinite;
         }
         @keyframes ck-pulse {
@@ -162,32 +176,52 @@ const CheckersGame = (() => {
         }
         .ck-player-card {
           flex: 1;
-          background: var(--bg-elev);
-          border: 1px solid var(--border);
-          border-radius: 8px;
+          background: rgba(0,0,0,0.45);
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 10px;
           padding: 6px 10px;
           font-size: 0.82rem;
           display: flex;
+          flex-direction: column;
+          gap: 3px;
+          min-width: 0;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .ck-player-card .ck-player-top {
+          display: flex;
           align-items: center;
           gap: 6px;
-          min-width: 0;
         }
         .ck-player-card.active-player {
-          border-color: var(--accent);
-          background: rgba(99,102,241,0.08);
+          border-color: #4ade80;
+          background: rgba(74,222,128,0.08);
+          box-shadow: 0 0 12px rgba(74,222,128,0.25);
         }
         .ck-color-swatch {
           width: 14px;
           height: 14px;
           border-radius: 50%;
           flex-shrink: 0;
-          border: 1.5px solid rgba(0,0,0,0.3);
+          border: 1.5px solid rgba(255,255,255,0.2);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        /* Casino table wrapper for the board */
+        .ck-board-table {
+          background: radial-gradient(ellipse at center, #1a6b3a 0%, #0d4a27 60%, #083318 100%);
+          border: 8px solid #5c3a1e;
+          border-radius: 12px;
+          box-shadow:
+            inset 0 0 40px rgba(0,0,0,0.4),
+            0 8px 32px rgba(0,0,0,0.6),
+            0 0 0 2px #3d2510;
+          padding: 10px;
+          margin-bottom: 10px;
         }
         .ck-board-outer {
           position: relative;
           width: 100%;
           padding-bottom: 100%;
-          margin: 0 auto 8px;
+          margin: 0 auto;
         }
         .ck-board-inner {
           position: absolute;
@@ -195,10 +229,12 @@ const CheckersGame = (() => {
           display: grid;
           grid-template-columns: repeat(8, 1fr);
           grid-template-rows: repeat(8, 1fr);
-          border: 2px solid var(--border);
+          border: 3px solid #3d2510;
           border-radius: 4px;
           overflow: hidden;
-          box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+          box-shadow:
+            0 0 0 1px #8b6914,
+            0 6px 32px rgba(0,0,0,0.5);
         }
         .ck-cell {
           display: flex;
@@ -210,7 +246,7 @@ const CheckersGame = (() => {
         }
         .ck-cell.light { background: #f0d9b5; }
         .ck-cell.dark  {
-          background: #5d4037;
+          background: #8B4513;
           cursor: pointer;
           transition: filter 0.1s;
         }
@@ -221,7 +257,7 @@ const CheckersGame = (() => {
           width: 32%;
           height: 32%;
           border-radius: 50%;
-          background: rgba(255,255,255,0.32);
+          background: rgba(255,255,255,0.35);
           pointer-events: none;
           z-index: 1;
         }
@@ -231,7 +267,7 @@ const CheckersGame = (() => {
           width: 32%;
           height: 32%;
           border-radius: 50%;
-          background: rgba(245,158,11,0.55);
+          background: rgba(239,68,68,0.65);
           pointer-events: none;
           z-index: 1;
         }
@@ -252,50 +288,69 @@ const CheckersGame = (() => {
         }
         .ck-piece.red-piece {
           background: radial-gradient(circle at 35% 35%, #ef5350, #b71c1c);
-          border: 2px solid #7f0000;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.45), inset 0 1px 2px rgba(255,255,255,0.2);
+          border: 3px solid #7f0000;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 3px rgba(255,255,255,0.25);
           color: rgba(255,255,255,0.9);
         }
         .ck-piece.black-piece {
-          background: radial-gradient(circle at 35% 35%, #424242, #1a1a1a);
-          border: 2px solid #000;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.55), inset 0 1px 2px rgba(255,255,255,0.1);
+          background: radial-gradient(circle at 35% 35%, #546e7a, #263238);
+          border: 3px solid #000;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 3px rgba(255,255,255,0.12);
           color: rgba(255,255,255,0.85);
         }
+        .ck-piece.is-king {
+          font-size: clamp(10px, 2.2vw, 18px);
+          text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+        }
+        .ck-piece.red-piece.is-king {
+          box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 3px rgba(255,255,255,0.25), 0 0 0 2px #f0c244;
+        }
+        .ck-piece.black-piece.is-king {
+          box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 3px rgba(255,255,255,0.12), 0 0 0 2px #f0c244;
+        }
         .ck-cell.selected .ck-piece {
-          transform: scale(1.14);
-          box-shadow: 0 0 0 3px var(--accent), 0 4px 10px rgba(0,0,0,0.5);
+          transform: scale(1.16);
+          box-shadow: 0 0 0 3px #f0c244, 0 0 12px rgba(240,194,68,0.5), 0 4px 10px rgba(0,0,0,0.5);
         }
         .ck-cell.must-jump .ck-piece {
-          box-shadow: 0 0 0 2px var(--gold), 0 2px 6px rgba(0,0,0,0.45);
+          box-shadow: 0 0 0 3px #ef4444, 0 0 10px rgba(239,68,68,0.5), 0 2px 6px rgba(0,0,0,0.45);
+          animation: ck-must-jump 1.2s ease-in-out infinite;
+        }
+        @keyframes ck-must-jump {
+          0%, 100% { box-shadow: 0 0 0 3px #ef4444, 0 0 10px rgba(239,68,68,0.5), 0 2px 6px rgba(0,0,0,0.45); }
+          50% { box-shadow: 0 0 0 4px #ef4444, 0 0 18px rgba(239,68,68,0.7), 0 2px 6px rgba(0,0,0,0.45); }
         }
         .ck-status {
           text-align: center;
-          font-size: 0.88rem;
-          color: var(--text-dim);
-          padding: 6px 0 2px;
+          font-size: 0.85rem;
+          color: #78909c;
+          background: rgba(0,0,0,0.35);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 8px;
+          padding: 6px 12px;
         }
         .ck-status.finished {
           font-size: 1.05rem;
           font-weight: 700;
-          color: var(--gold);
+          color: #f0c244;
           padding: 10px;
-          background: var(--bg-elev);
-          border: 1px solid var(--border);
+          background: rgba(0,0,0,0.45);
+          border: 1px solid rgba(240,194,68,0.4);
           border-radius: 8px;
           margin-top: 6px;
+          text-shadow: 0 0 8px rgba(240,194,68,0.5);
         }
         .ck-counts {
           display: flex;
           justify-content: space-between;
           font-size: 0.8rem;
-          color: var(--text-dim);
+          color: #78909c;
           margin-bottom: 6px;
           padding: 0 2px;
         }
         .ck-count-val {
           font-weight: 700;
-          color: var(--text);
+          color: #e8e0d0;
         }
       `;
       document.head.appendChild(style);
@@ -303,7 +358,7 @@ const CheckersGame = (() => {
 
     // Determine my color: room creator plays red (index 0)
     const myColor = room.players[0] && room.players[0].userId === myUserId ? 'red' : 'black';
-    let state = room.state || {};
+    let state = normalizeCheckersState(room.gameState || room.state);
     let board = state.board ? state.board.map(r => r.slice()) : buildInitialBoard();
     let turn  = state.turn || 'red';
     let gameStatus = state.status || 'playing';
@@ -320,13 +375,15 @@ const CheckersGame = (() => {
 
     wrap.innerHTML = `
       <div class="ck-header">
-        <h2 class="ck-title">Checkers</h2>
+        <h2 class="ck-title">🔴 Checkers</h2>
         <div class="ck-turn-badge" id="ck-turn-badge">Loading…</div>
       </div>
       <div class="ck-players" id="ck-players"></div>
       <div class="ck-counts" id="ck-counts"></div>
-      <div class="ck-board-outer">
-        <div class="ck-board-inner" id="ck-board"></div>
+      <div class="ck-board-table">
+        <div class="ck-board-outer">
+          <div class="ck-board-inner" id="ck-board"></div>
+        </div>
       </div>
       <div class="ck-status" id="ck-status"></div>
     `;
@@ -377,7 +434,8 @@ const CheckersGame = (() => {
           if (val === EMPTY) continue;
 
           const piece = document.createElement('div');
-          piece.className = 'ck-piece ' + (isRed(val) ? 'red-piece' : 'black-piece');
+          const kingClass = isKing(val) ? ' is-king' : '';
+          piece.className = 'ck-piece ' + (isRed(val) ? 'red-piece' : 'black-piece') + kingClass;
           if (isKing(val)) piece.textContent = '♛';
           cell.appendChild(piece);
         }
@@ -434,15 +492,21 @@ const CheckersGame = (() => {
       const bActive = turn === 'black' && gameStatus === 'playing';
       playersEl.innerHTML = `
         <div class="ck-player-card${rActive ? ' active-player' : ''}">
-          <div class="ck-color-swatch" style="background:#b71c1c"></div>
-          <span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${red ? red.username : 'Waiting…'}</span>
-          ${red && red.userId === myUserId ? '<span style="font-size:0.75rem;color:var(--text-dim)">(you)</span>' : ''}
+          <div class="ck-player-top">
+            <div class="ck-color-swatch" style="background:radial-gradient(circle at 35% 35%,#ef5350,#b71c1c)"></div>
+            <span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e8e0d0">${red ? red.username : 'Waiting…'}</span>
+            ${red && red.userId === myUserId ? '<span style="font-size:0.7rem;color:#78909c">(you)</span>' : ''}
+            ${rActive ? '<span style="margin-left:auto;font-size:0.7rem;color:#4ade80;font-weight:700">▶ turn</span>' : ''}
+          </div>
         </div>
-        <div style="align-self:center;font-size:0.85rem;color:var(--text-dim);flex-shrink:0">vs</div>
+        <div style="align-self:center;font-size:0.8rem;color:#546e7a;flex-shrink:0;font-weight:700">VS</div>
         <div class="ck-player-card${bActive ? ' active-player' : ''}">
-          <div class="ck-color-swatch" style="background:#1a1a1a;border-color:#555"></div>
-          <span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${black ? black.username : 'Waiting…'}</span>
-          ${black && black.userId === myUserId ? '<span style="font-size:0.75rem;color:var(--text-dim)">(you)</span>' : ''}
+          <div class="ck-player-top">
+            <div class="ck-color-swatch" style="background:radial-gradient(circle at 35% 35%,#546e7a,#263238)"></div>
+            <span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e8e0d0">${black ? black.username : 'Waiting…'}</span>
+            ${black && black.userId === myUserId ? '<span style="font-size:0.7rem;color:#78909c">(you)</span>' : ''}
+            ${bActive ? '<span style="margin-left:auto;font-size:0.7rem;color:#4ade80;font-weight:700">▶ turn</span>' : ''}
+          </div>
         </div>
       `;
     }
@@ -502,7 +566,7 @@ const CheckersGame = (() => {
     function handleCellClick(r, c) {
       if (gameStatus !== 'playing') return;
       if (turn !== myColor) {
-        showToast("It's not your turn", 'error');
+        UI.toast("It's not your turn", 'loss');
         return;
       }
 
@@ -557,7 +621,7 @@ const CheckersGame = (() => {
       if (mustJumpPieces.length > 0) {
         const isMustJump = mustJumpPieces.some(([mr, mc]) => mr === r && mc === c);
         if (!isMustJump) {
-          showToast('You must jump with a different piece!', 'error');
+          UI.toast('You must jump with a different piece!', 'loss');
           return;
         }
       }
@@ -644,7 +708,7 @@ const CheckersGame = (() => {
     // Socket events
     socket.on('bg:room-update', (updatedRoom) => {
       if (updatedRoom.id !== room.id) return;
-      const s = updatedRoom.state || {};
+      const s = normalizeCheckersState(updatedRoom.gameState || updatedRoom.state);
       if (s.board) board = s.board.map(r => r.slice());
       if (s.turn !== undefined) turn = s.turn;
       if (s.status) gameStatus = s.status;
@@ -657,7 +721,7 @@ const CheckersGame = (() => {
     });
 
     socket.on('bg:error', (msg) => {
-      showToast(msg || 'Move error', 'error');
+      UI.toast(msg || 'Move error', 'loss');
       selected = null;
       legalDests = [];
       jumpDests = [];

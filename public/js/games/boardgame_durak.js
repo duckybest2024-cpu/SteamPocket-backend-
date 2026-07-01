@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Durak Card Game — Casino Aurelius
+   Durak Card Game — GrilledCoin
    Exported global: DurakGame
    Entry point:     DurakGame.renderBoard(container, socket, room, myUserId)
 
@@ -409,6 +409,62 @@ const DurakGame = (() => {
     return a && b && a.rank === b.rank && a.suit === b.suit;
   }
 
+  /** Convert a parsed card object back to a backend card string like "A♠" */
+  function cardToStr(card) {
+    return card ? `${card.rank}${card.suit}` : "";
+  }
+
+  // ── Parse a card string like "A♠" → { rank: "A", suit: "♠" } ──
+  function parseCard(cardStr) {
+    if (!cardStr || cardStr === "??") return { rank: "?", suit: "?" };
+    // Suit is the last character (unicode suit symbol)
+    const suit = cardStr.slice(-1);
+    const rank = cardStr.slice(0, -1);
+    return { rank, suit };
+  }
+
+  // ── Translate backend gameState → UI state ──
+  // Backend: hands[userId] = string[], table=[{attack:str, defend?:str}],
+  //          trump=suit char, attackerId, defenderId, deck=[...], players=[userId,...]
+  // UI:      hand=[{rank,suit}], table=[{attack:{rank,suit}, defend?:{rank,suit}}],
+  //          trump=suit char, attacker=userId, defender=userId, deckCount=n,
+  //          players=[{id,username,cardCount}]
+  function translateGameState(gs, roomPlayers, myUserId) {
+    if (!gs) return null;
+
+    const myHand = (gs.hands && gs.hands[myUserId]) || [];
+    const hand = myHand.map(parseCard);
+
+    const table = (gs.table || []).map(pair => ({
+      attack: parseCard(pair.attack),
+      defend: pair.defend ? parseCard(pair.defend) : null,
+    }));
+
+    // Build player info list with usernames from room.players
+    const usernameMap = {};
+    (roomPlayers || []).forEach(p => { usernameMap[p.userId] = p.username || p.userId; });
+
+    const players = (gs.players || []).map(uid => ({
+      id:        uid,
+      userId:    uid,
+      username:  usernameMap[uid] || uid,
+      cardCount: (gs.hands && gs.hands[uid]) ? gs.hands[uid].length : 0,
+    }));
+
+    return {
+      hand,
+      table,
+      trump:      gs.trump || "",
+      attacker:   gs.attackerId || "",
+      defender:   gs.defenderId || "",
+      deckCount:  Array.isArray(gs.deck) ? gs.deck.length : 0,
+      players,
+      status:     gs.status || "playing",
+      winner:     gs.winner || null,
+      turn:       gs.turn || "attack",
+    };
+  }
+
   // ── Main renderBoard ──────────────────────────────────────────
   function renderBoard(container, socket, room, myUserId) {
     injectStyles();
@@ -416,7 +472,8 @@ const DurakGame = (() => {
     // Local state
     let selectedHandIdx  = -1;   // index in hand[] of selected card
     let selectedPairIdx  = -1;   // index in table[] of selected attack pair
-    let currentState     = (room && room.state) ? { ...room.state } : {};
+    const rawInitState = room && (room.gameState || room.state);
+    let currentState = rawInitState ? (translateGameState(rawInitState, room.players, myUserId) || {}) : {};
 
     // ── Build HTML shell ──
     container.innerHTML = `
@@ -709,10 +766,10 @@ const DurakGame = (() => {
     btnAttack.addEventListener("click", () => {
       const hand = currentState.hand || [];
       if (selectedHandIdx < 0 || selectedHandIdx >= hand.length) {
-        showToast("Select a card from your hand to attack with", "loss");
+        UI.toast("Select a card from your hand to attack with", "loss");
         return;
       }
-      const card = hand[selectedHandIdx];
+      const card = cardToStr(hand[selectedHandIdx]);
       socket.emit("bg:move", {
         roomId: room.id,
         move: { type: "attack", card },
@@ -724,15 +781,15 @@ const DurakGame = (() => {
       const hand  = currentState.hand  || [];
       const table = currentState.table || [];
       if (selectedHandIdx < 0 || selectedHandIdx >= hand.length) {
-        showToast("Select a card from your hand to defend with", "loss");
+        UI.toast("Select a card from your hand to defend with", "loss");
         return;
       }
       if (selectedPairIdx < 0 || selectedPairIdx >= table.length) {
-        showToast("Select an attack card on the table to defend against", "loss");
+        UI.toast("Select an attack card on the table to defend against", "loss");
         return;
       }
-      const defendCard = hand[selectedHandIdx];
-      const attackCard = table[selectedPairIdx].attack;
+      const defendCard = cardToStr(hand[selectedHandIdx]);
+      const attackCard = cardToStr(table[selectedPairIdx].attack);
       socket.emit("bg:move", {
         roomId: room.id,
         move: { type: "defend", attackCard, defendCard },
@@ -759,33 +816,14 @@ const DurakGame = (() => {
     });
 
     // ── Socket events ──
-    socket.on("bg:state", ({ roomId, state: newState }) => {
-      if (roomId !== room.id) return;
-      renderAll(newState);
+    socket.on("bg:room-update", (updatedRoom) => {
+      const newState = updatedRoom.gameState;
+      if (!newState) return;
+      renderAll(translateGameState(newState, updatedRoom.players || room.players, myUserId));
     });
 
-    socket.on("bg:over", ({ roomId, loser, winner, payout }) => {
-      if (roomId !== room.id) return;
-      const iAmLoser  = loser  === myUserId;
-      const iAmWinner = winner === myUserId;
-      resultEl.className = iAmWinner ? "dk-result win" : iAmLoser ? "dk-result loss" : "dk-result neutral";
-      if (iAmWinner) {
-        resultEl.textContent = `You win! Your opponent is the Durak! +${((payout || 0) / 100).toLocaleString()} chips`;
-        if (typeof updateBalance === "function") updateBalance();
-      } else if (iAmLoser) {
-        resultEl.textContent = "You are the Durak! Better luck next time.";
-      } else {
-        resultEl.textContent = "Game over!";
-      }
-      btnAttack.disabled = true;
-      btnDefend.disabled = true;
-      btnTake.disabled   = true;
-      btnDone.disabled   = true;
-    });
-
-    socket.on("bg:error", ({ roomId, message }) => {
-      if (roomId !== room.id) return;
-      showToast(message || "Invalid move", "loss");
+    socket.on("bg:error", ({ message }) => {
+      UI.toast(message || "Invalid move", "loss");
       // Re-render to restore valid state
       renderAll(currentState);
     });

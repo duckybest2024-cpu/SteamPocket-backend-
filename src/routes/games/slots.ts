@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth, AuthedRequest } from "../../middleware/auth";
+import { requireAuth, requireApproved, AuthedRequest } from "../../middleware/auth";
 import { placeBet, BadBetInputError } from "../../lib/betting";
 import { InsufficientFundsError } from "../../lib/wallet";
 import { evaluateSpin, spinGrid, validateSlotsBet, MAX_LINES, MIN_LINES } from "../../games/slots";
@@ -13,7 +13,7 @@ const spinSchema = z.object({
   spinSalt: z.string().max(32).optional(), // client-supplied per-spin entropy that breaks sequential patterns
 });
 
-slotsRouter.post("/spin", requireAuth, async (req: AuthedRequest, res) => {
+slotsRouter.post("/spin", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = spinSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
@@ -35,7 +35,7 @@ slotsRouter.post("/spin", requireAuth, async (req: AuthedRequest, res) => {
       return {
         payout,
         multiplier: totalStake > 0 ? Number((payout / totalStake).toFixed(4)) : 0,
-        result: payout > totalStake ? "win" : "loss",
+        result: payout >= totalStake ? "win" : "loss",
         state: {
           grid: spin.grid,
           lineBet,

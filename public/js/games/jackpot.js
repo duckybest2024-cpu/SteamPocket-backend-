@@ -4,53 +4,80 @@ const JackpotGame = (() => {
     let countdown = null;
 
     container.innerHTML = `
-      <div class="game-panel" style="max-width:700px">
-        <h2 style="margin:0 0 4px">🏆 Jackpot</h2>
-        <p style="margin:0 0 18px;color:var(--text-dim);font-size:0.88rem">Drop chips in the pot — one winner takes it all, weighted by contribution.</p>
+      <div class="game-layout">
+        <aside class="bet-panel">
+          ${GameThemes.renderPicker("jackpot", GameThemes.getSaved("jackpot"))}
 
-        <div style="display:flex;gap:12px;margin-bottom:18px">
-          <div style="flex:1;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
-            <div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em">Total Pot</div>
-            <div id="jp-pot" style="font-size:1.8rem;font-weight:800;color:var(--gold)">0 🪙</div>
+          <div class="bp-tabs">
+            <button class="bp-tab active">Manual</button>
+            <button class="bp-tab">Auto</button>
           </div>
-          <div style="flex:1;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
-            <div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em">Players</div>
-            <div id="jp-players" style="font-size:1.8rem;font-weight:800">0</div>
+          <div>
+            <div class="bp-label">Entry Amount (min 1 chip)</div>
+            <div class="bp-input-row">
+              <input id="jp-amount" type="number" value="1000" min="100" step="100" />
+              <button id="jp-half" class="quick-btn">&frac12;</button>
+              <button id="jp-dbl" class="quick-btn">2&times;</button>
+            </div>
           </div>
-          <div style="flex:1;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
-            <div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em">Spin In</div>
-            <div id="jp-countdown" style="font-size:1.8rem;font-weight:800;color:var(--accent)">—</div>
+          <div style="font-size:0.82rem;color:var(--text-dim);line-height:1.5">
+            Drop chips in the pot — one winner takes it all, weighted by contribution.
           </div>
-        </div>
-
-        <div id="jp-entries" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;min-height:80px;max-height:200px;overflow-y:auto"></div>
-
-        <div style="display:flex;gap:8px;margin-bottom:14px">
-          <input id="jp-amount" type="number" value="1000" min="100" step="100" style="flex:1" placeholder="Chips to enter" />
-          <button id="jp-enter" class="primary-btn">Enter Jackpot</button>
-        </div>
-
-        <div id="jp-result" class="result-banner"></div>
-
-        <div style="margin-top:18px">
-          <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Recent Winners</div>
-          <div id="jp-history" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <hr class="bp-divider" />
+          <button id="jp-enter" class="play-btn">Enter Jackpot</button>
+          <div id="jp-result" class="result-banner"></div>
+        </aside>
+        <div class="game-canvas">
+          <div class="stat-boxes">
+            <div class="stat-box">
+              <span class="sb-label">Total Pot</span>
+              <span class="sb-value" id="jp-pot" style="color:var(--gold)">0 🪙</span>
+            </div>
+            <div class="stat-box">
+              <span class="sb-label">Players</span>
+              <span class="sb-value" id="jp-players">0</span>
+            </div>
+            <div class="stat-box">
+              <span class="sb-label">Spin In</span>
+              <span class="sb-value" id="jp-countdown" style="color:var(--accent)">—</span>
+            </div>
+          </div>
+          <div id="jp-entries" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:14px;flex:1;overflow-y:auto;min-height:80px;max-height:300px"></div>
+          <div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Recent Winners</div>
+            <div id="jp-history" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          </div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "jackpot");
 
-    const potEl = document.getElementById("jp-pot");
-    const playersEl = document.getElementById("jp-players");
-    const cdEl = document.getElementById("jp-countdown");
-    const entriesEl = document.getElementById("jp-entries");
-    const resultEl = document.getElementById("jp-result");
-    const historyEl = document.getElementById("jp-history");
-    const amountEl = document.getElementById("jp-amount");
-    const enterBtn = document.getElementById("jp-enter");
+    const potEl = container.querySelector("#jp-pot");
+    const playersEl = container.querySelector("#jp-players");
+    const cdEl = container.querySelector("#jp-countdown");
+    const entriesEl = container.querySelector("#jp-entries");
+    const resultEl = container.querySelector("#jp-result");
+    const historyEl = container.querySelector("#jp-history");
+    const amountEl = container.querySelector("#jp-amount");
+    const enterBtn = container.querySelector("#jp-enter");
 
-    socket = io("/jackpot", { auth: { token: Api.getToken() } });
+    container.querySelector("#jp-half").addEventListener("click", () => {
+      amountEl.value = Math.max(100, Math.floor(Number(amountEl.value) * 0.5));
+    });
+    container.querySelector("#jp-dbl").addEventListener("click", () => {
+      amountEl.value = Math.floor(Number(amountEl.value) * 2);
+    });
+    container.querySelectorAll(".bp-tab").forEach(t =>
+      t.addEventListener("click", function() {
+        container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
+        this.classList.add("active");
+      })
+    );
 
     function renderEntries(entries, totalPot) {
-      if (!entries.length) { entriesEl.innerHTML = '<div style="color:var(--text-dim);font-size:0.88rem;text-align:center;padding:20px">No entries yet — be the first!</div>'; return; }
+      if (!entries.length) {
+        entriesEl.innerHTML = '<div style="color:var(--text-dim);font-size:0.88rem;text-align:center;padding:20px">No entries yet — be the first!</div>';
+        return;
+      }
       entriesEl.innerHTML = entries.map((e) => {
         const pct = totalPot > 0 ? ((e.amount / totalPot) * 100).toFixed(1) : "0";
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
@@ -60,6 +87,8 @@ const JackpotGame = (() => {
         </div>`;
       }).join("");
     }
+
+    socket = io("/jackpot", { auth: { token: Api.getToken() } });
 
     socket.on("state", ({ entries, totalPot, spinning, history }) => {
       potEl.textContent = (totalPot / 100).toLocaleString() + " 🪙";
@@ -113,6 +142,8 @@ const JackpotGame = (() => {
       socket.emit("enter", { amount });
       setTimeout(() => { enterBtn.disabled = false; }, 1500);
     });
+
+    GameThemes.init(container, "jackpot");
 
     return () => { if (socket) socket.disconnect(); if (countdown) clearInterval(countdown); };
   }

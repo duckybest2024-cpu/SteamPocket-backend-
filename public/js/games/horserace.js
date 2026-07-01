@@ -17,44 +17,71 @@ const HorseRaceGame = (() => {
     let phaseEnd = 0;
 
     container.innerHTML = `
-      <div class="game-panel" style="max-width:740px">
-        <h2 style="margin:0 0 4px">🏇 Horse Racing</h2>
-        <p style="margin:0 0 14px;color:var(--text-dim);font-size:0.88rem">Pick your horse and bet before the gates open!</p>
+      <div class="game-layout">
+        <aside class="bet-panel">
+          ${GameThemes.renderPicker("horserace", GameThemes.getSaved("horserace"))}
 
-        <div id="hr-track" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px"></div>
-
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px" id="hr-horse-btns"></div>
-
-        <div style="display:flex;gap:8px;margin-bottom:12px">
-          <input id="hr-amount" type="number" value="100" min="1" step="1" style="flex:1" placeholder="Bet amount (chips)" />
-          <button id="hr-bet" class="primary-btn">Place Bet</button>
+          <div class="bp-tabs">
+            <button class="bp-tab active">Manual</button>
+            <button class="bp-tab">Auto</button>
+          </div>
+          <div>
+            <div class="bp-label">Bet Amount</div>
+            <div class="bp-input-row">
+              <input id="hr-amount" type="number" value="100" min="1" step="1" />
+              <button id="hr-half" class="quick-btn">&frac12;</button>
+              <button id="hr-dbl" class="quick-btn">2&times;</button>
+            </div>
+          </div>
+          <hr class="bp-divider" />
+          <div>
+            <div class="bp-label">Pick Your Horse</div>
+            <div id="hr-horse-btns" style="display:flex;flex-direction:column;gap:5px"></div>
+          </div>
+          <button id="hr-bet" class="play-btn">Place Bet</button>
+        </aside>
+        <div class="game-canvas">
+          <div id="hr-track" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:12px;padding:16px"></div>
+          <div id="hr-phase" style="font-size:0.88rem;color:var(--text-dim)">Waiting for phase…</div>
+          <div id="hr-history" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <div id="hr-result" class="result-banner" style="margin-top:auto"></div>
         </div>
-
-        <div id="hr-phase" style="font-size:0.88rem;color:var(--text-dim);margin-bottom:8px">Waiting for phase…</div>
-        <div id="hr-result" class="result-banner"></div>
-
-        <div id="hr-history" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px"></div>
       </div>`;
+    HowToPlay.addButton(container, "horserace");
 
-    const trackEl = document.getElementById("hr-track");
-    const horseBtns = document.getElementById("hr-horse-btns");
-    const amountEl = document.getElementById("hr-amount");
-    const betBtn = document.getElementById("hr-bet");
-    const phaseEl = document.getElementById("hr-phase");
-    const resultEl = document.getElementById("hr-result");
-    const historyEl = document.getElementById("hr-history");
+    const trackEl = container.querySelector("#hr-track");
+    const horseBtns = container.querySelector("#hr-horse-btns");
+    const amountEl = container.querySelector("#hr-amount");
+    const betBtn = container.querySelector("#hr-bet");
+    const phaseEl = container.querySelector("#hr-phase");
+    const resultEl = container.querySelector("#hr-result");
+    const historyEl = container.querySelector("#hr-history");
 
-    // Build horse buttons
+    container.querySelector("#hr-half").addEventListener("click", () => {
+      amountEl.value = Math.max(1, Math.floor(Number(amountEl.value) * 0.5));
+    });
+    container.querySelector("#hr-dbl").addEventListener("click", () => {
+      amountEl.value = Math.floor(Number(amountEl.value) * 2);
+    });
+    container.querySelectorAll(".bp-tab").forEach(t =>
+      t.addEventListener("click", function() {
+        container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
+        this.classList.add("active");
+      })
+    );
+
     for (const h of HORSES) {
       const btn = document.createElement("button");
-      btn.className = "secondary-btn";
-      btn.style.cssText = `border-color:${h.color};flex:1;min-width:90px;font-size:0.82rem`;
-      btn.innerHTML = `${h.emoji} ${h.name}<br><span style="color:${h.color};font-weight:700">${h.odds}x</span>`;
+      btn.className = "quick-btn";
+      btn.style.cssText = `border-color:${h.color};display:flex;justify-content:space-between;align-items:center;padding:8px 10px`;
+      btn.innerHTML = `<span>${h.emoji} ${h.name}</span><span style="color:${h.color};font-weight:700">${h.odds}×</span>`;
       btn.dataset.id = h.id;
       btn.addEventListener("click", () => {
         selectedHorse = h.id;
         horseBtns.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
+        btn.style.borderColor = h.color;
+        btn.style.color = "var(--text)";
       });
       horseBtns.appendChild(btn);
     }
@@ -114,8 +141,15 @@ const HorseRaceGame = (() => {
       phaseEl.textContent += ` — You bet on ${HORSES[horseId].emoji} ${HORSES[horseId].name}!`;
     });
 
-    socket.on("bets_update", (bets) => {
-      // show count
+    socket.on("bets_update", (bets) => {});
+
+    socket.on("result", ({ horseId, username, payout }) => {
+      const isWinner = username === state.username;
+      resultEl.className = "result-banner " + (isWinner ? "win" : "loss");
+      resultEl.textContent = isWinner
+        ? `🏆 ${HORSES[horseId].emoji} ${HORSES[horseId].name} wins — +${(payout/100).toLocaleString()} chips!`
+        : `${HORSES[horseId].emoji} ${HORSES[horseId].name} wins!`;
+      if (isWinner) App.refreshAccount();
     });
 
     socket.on("error", (msg) => UI.toast(msg, "loss"));
@@ -135,6 +169,7 @@ const HorseRaceGame = (() => {
     }
 
     renderTrack(positions);
+    GameThemes.init(container, "horserace");
 
     return () => { if (socket) socket.disconnect(); if (phaseTimer) clearInterval(phaseTimer); };
   }

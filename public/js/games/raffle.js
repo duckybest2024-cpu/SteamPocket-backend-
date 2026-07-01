@@ -3,54 +3,80 @@ const RaffleGame = (() => {
     let socket = null;
     let nextDrawAt = Date.now() + 300_000;
     let timerInterval = null;
+    let myTickets = [];
 
     container.innerHTML = `
-      <div class="game-panel" style="max-width:560px">
-        <h2 style="margin:0 0 4px">🎟️ Raffle</h2>
-        <p style="margin:0 0 14px;color:var(--text-dim);font-size:0.88rem">Buy tickets — every 5 minutes a winner is drawn. More tickets = better odds!</p>
+      <div class="game-layout">
+        <aside class="bet-panel">
+          ${GameThemes.renderPicker("raffle", GameThemes.getSaved("raffle"))}
 
-        <div style="display:flex;gap:10px;margin-bottom:14px">
-          <div style="flex:1;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase">Ticket Price</div>
-            <div id="rf-price" style="font-size:1.4rem;font-weight:800;color:var(--gold)">10 🪙</div>
+          <div class="bp-tabs">
+            <button class="bp-tab active">Manual</button>
+            <button class="bp-tab">Auto</button>
           </div>
-          <div style="flex:1;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase">Tickets Sold</div>
-            <div id="rf-total" style="font-size:1.4rem;font-weight:800">0</div>
+          <div>
+            <div class="bp-label">Number of Tickets</div>
+            <div class="bp-input-row">
+              <input id="rf-count" type="number" value="5" min="1" max="100" />
+              <button id="rf-less" class="quick-btn">−5</button>
+              <button id="rf-more" class="quick-btn">+5</button>
+            </div>
           </div>
-          <div style="flex:1;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase">Draw In</div>
-            <div id="rf-countdown" style="font-size:1.4rem;font-weight:800;color:var(--accent)">—</div>
+          <div style="font-size:0.82rem;color:var(--text-dim);line-height:1.5">
+            Buy tickets — every 5 minutes a winner is drawn. More tickets = better odds!
           </div>
-        </div>
-
-        <div style="display:flex;gap:8px;margin-bottom:14px">
-          <input id="rf-count" type="number" value="5" min="1" max="100" style="flex:1" placeholder="Number of tickets" />
-          <button id="rf-buy" class="primary-btn">Buy Tickets (10 🪙 each)</button>
-        </div>
-
-        <div id="rf-my-tickets" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:10px;font-size:0.85rem;color:var(--text-dim)">
-          You have no tickets this round yet.
-        </div>
-
-        <div id="rf-result" class="result-banner"></div>
-
-        <div style="margin-top:14px">
-          <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Recent Winners</div>
-          <div id="rf-history" style="display:flex;flex-direction:column;gap:4px"></div>
+          <hr class="bp-divider" />
+          <button id="rf-buy" class="play-btn">Buy Tickets (<span id="rf-price-label">10 🪙</span> each)</button>
+          <div id="rf-result" class="result-banner"></div>
+        </aside>
+        <div class="game-canvas">
+          <div class="stat-boxes">
+            <div class="stat-box">
+              <span class="sb-label">Ticket Price</span>
+              <span class="sb-value" id="rf-price" style="color:var(--gold)">10 🪙</span>
+            </div>
+            <div class="stat-box">
+              <span class="sb-label">Tickets Sold</span>
+              <span class="sb-value" id="rf-total">0</span>
+            </div>
+            <div class="stat-box">
+              <span class="sb-label">Draw In</span>
+              <span class="sb-value" id="rf-countdown" style="color:var(--accent)">—</span>
+            </div>
+          </div>
+          <div id="rf-my-tickets" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:0.85rem;color:var(--text-dim)">
+            You have no tickets this round yet.
+          </div>
+          <div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Recent Winners</div>
+            <div id="rf-history" style="display:flex;flex-direction:column;gap:4px"></div>
+          </div>
         </div>
       </div>`;
+    HowToPlay.addButton(container, "raffle");
 
-    const priceEl = document.getElementById("rf-price");
-    const totalEl = document.getElementById("rf-total");
-    const cdEl = document.getElementById("rf-countdown");
-    const countEl = document.getElementById("rf-count");
-    const buyBtn = document.getElementById("rf-buy");
-    const myTicketsEl = document.getElementById("rf-my-tickets");
-    const resultEl = document.getElementById("rf-result");
-    const historyEl = document.getElementById("rf-history");
+    const priceEl = container.querySelector("#rf-price");
+    const priceLabelEl = container.querySelector("#rf-price-label");
+    const totalEl = container.querySelector("#rf-total");
+    const cdEl = container.querySelector("#rf-countdown");
+    const countEl = container.querySelector("#rf-count");
+    const buyBtn = container.querySelector("#rf-buy");
+    const myTicketsEl = container.querySelector("#rf-my-tickets");
+    const resultEl = container.querySelector("#rf-result");
+    const historyEl = container.querySelector("#rf-history");
 
-    let myTickets = [];
+    container.querySelector("#rf-less").addEventListener("click", () => {
+      countEl.value = Math.max(1, Number(countEl.value) - 5);
+    });
+    container.querySelector("#rf-more").addEventListener("click", () => {
+      countEl.value = Math.min(100, Number(countEl.value) + 5);
+    });
+    container.querySelectorAll(".bp-tab").forEach(t =>
+      t.addEventListener("click", function() {
+        container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
+        this.classList.add("active");
+      })
+    );
 
     function startTimer() {
       if (timerInterval) clearInterval(timerInterval);
@@ -68,8 +94,9 @@ const RaffleGame = (() => {
     socket.on("state", ({ tickets, nextDrawAt: nda, ticketPrice, history }) => {
       nextDrawAt = nda;
       totalEl.textContent = tickets;
-      priceEl.textContent = (ticketPrice / 100) + " 🪙";
-      buyBtn.textContent = `Buy Tickets (${(ticketPrice / 100)} 🪙 each)`;
+      const priceChips = ticketPrice / 100;
+      priceEl.textContent = priceChips + " 🪙";
+      priceLabelEl.textContent = priceChips + " 🪙";
       startTimer();
       renderHistory(history);
     });
@@ -85,11 +112,11 @@ const RaffleGame = (() => {
       const isWinner = winner === state.username;
       resultEl.className = "result-banner " + (isWinner ? "win" : "loss");
       resultEl.innerHTML = isWinner
-        ? `🎟️ YOUR ticket #${winnerTicket} was drawn! +${(prize/100).toLocaleString()} chips 🏆`
-        : `🎟️ Ticket #${winnerTicket} (${winner}) wins ${(prize/100).toLocaleString()} chips from ${totalTickets} tickets`;
+        ? `🏟️ YOUR ticket #${winnerTicket} was drawn! +${(prize/100).toLocaleString()} chips 🏆`
+        : `🏟️ Ticket #${winnerTicket} (${winner}) wins ${(prize/100).toLocaleString()} chips from ${totalTickets} tickets`;
       if (isWinner) App.refreshAccount();
       myTickets = [];
-      myTicketsEl.innerHTML = "You have no tickets this round yet.";
+      myTicketsEl.textContent = "You have no tickets this round yet.";
     });
 
     socket.on("error", (msg) => { UI.toast(msg, "loss"); buyBtn.disabled = false; });
@@ -110,6 +137,8 @@ const RaffleGame = (() => {
         </div>`
       ).join("");
     }
+
+    GameThemes.init(container, "raffle");
 
     return () => { if (socket) socket.disconnect(); if (timerInterval) clearInterval(timerInterval); };
   }

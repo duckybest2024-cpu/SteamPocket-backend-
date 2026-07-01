@@ -1,68 +1,165 @@
 import nodemailer from "nodemailer";
+import { getSiteConfig } from "./siteConfig";
 
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = Number(process.env.SMTP_PORT ?? 587);
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const SMTP_FROM = process.env.SMTP_FROM ?? "Casino Aurelius <noreply@casino-aurelius.app>";
+// SMTP settings can come from the Admin Panel (Email Settings, stored in SiteConfig)
+// or from environment variables — the DB value wins when both are set.
+async function getSmtpSettings() {
+  const [host, port, user, pass, from] = await Promise.all([
+    getSiteConfig("smtp_host"),
+    getSiteConfig("smtp_port"),
+    getSiteConfig("smtp_user"),
+    getSiteConfig("smtp_pass"),
+    getSiteConfig("smtp_from"),
+  ]);
+  return {
+    host: host || process.env.SMTP_HOST || "",
+    port: Number(port || process.env.SMTP_PORT || 587),
+    user: user || process.env.SMTP_USER || "",
+    pass: pass || process.env.SMTP_PASS || "",
+    from: from || process.env.SMTP_FROM || "GrilledCoin <noreply@grilledcoin.app>",
+  };
+}
 
-function getTransporter() {
-  if (!SMTP_HOST) return null;
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    auth: SMTP_USER ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
+async function getTransporter() {
+  const settings = await getSmtpSettings();
+  if (!settings.host) return { transporter: null, from: settings.from };
+  const transporter = nodemailer.createTransport({
+    host: settings.host,
+    port: settings.port,
+    secure: settings.port === 465,
+    auth: settings.user ? { user: settings.user, pass: settings.pass } : undefined,
+    // Many PaaS hosts (Railway included) block outbound SMTP ports — fail fast
+    // instead of hanging the request for nodemailer's 2-minute default.
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 10_000,
   });
+  return { transporter, from: settings.from };
+}
+
+// SendGrid's SMTP relay (port 587/465) is frequently blocked outbound by cloud
+// hosts, while its HTTPS API (port 443) never is — so when SendGrid creds are
+// detected, send over that API instead of SMTP.
+function isSendGrid(settings: { host: string; user: string }): boolean {
+  return settings.host.toLowerCase().includes("sendgrid") || settings.user.toLowerCase() === "apikey";
+}
+
+function splitFrom(from: string): { email: string; name?: string } {
+  const match = from.match(/^(.*?)<(.+)>$/);
+  if (!match) return { email: from.trim() };
+  return { name: match[1].trim() || undefined, email: match[2].trim() };
+}
+
+async function sendViaSendGridApi(
+  apiKey: string,
+  from: string,
+  to: string,
+  subject: string,
+  text: string,
+  html: string
+): Promise<void> {
+  const resp = await fetch("https://api.sendgrid.com/v3/mail/send", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: to }] }],
+      from: splitFrom(from),
+      subject,
+      content: [
+        { type: "text/plain", value: text },
+        { type: "text/html", value: html },
+      ],
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new Error(`SendGrid rejected the email (${resp.status}): ${body.slice(0, 300) || "no details"}`);
+  }
 }
 
 /**
- * Send an email verification link.
- * If SMTP is not configured, the link is printed to stdout so it can be found in Railway logs.
+ * Send a 6-digit email verification code.
+ * If SMTP is not configured, the code is printed to stdout (dev/Railway logs) and
+ * the caller is told so it can surface the code directly in the app as a fallback —
+ * otherwise the user would be locked out with no way to ever receive it.
+ * Returns true if the code was actually emailed, false if it only hit the logs.
  */
-export async function sendVerificationEmail(
+export async function sendVerificationCode(
   to: string,
   username: string,
-  verificationUrl: string
-): Promise<void> {
-  const transporter = getTransporter();
-
-  if (!transporter) {
+  code: string
+): Promise<boolean> {
+  const settings = await getSmtpSettings();
+  if (!settings.host) {
     console.log(`\n[EMAIL VERIFICATION — no SMTP configured]`);
     console.log(`  To:   ${username} <${to}>`);
-    console.log(`  Link: ${verificationUrl}\n`);
+    console.log(`  Code: ${code}\n`);
+    return false;
+  }
+
+  const subject = `${code} — Verify your GrilledCoin email`;
+  const text = [
+    `Hi ${username},`,
+    ``,
+    `Your GrilledCoin verification code is: ${code}`,
+    ``,
+    `Enter this code in the app to verify your email.`,
+    `This code expires in 15 minutes.`,
+    `If you didn't create this account, you can ignore this email.`,
+  ].join("\n");
+  const html = `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+        <h2 style="color:#6f5cf2">🍖 GrilledCoin</h2>
+        <p>Hi <strong>${username}</strong>,</p>
+        <p>Enter this code in the app to verify your email address:</p>
+        <p style="margin:24px 0;text-align:center">
+          <span style="display:inline-block;background:#6f5cf2;color:white;padding:14px 28px;border-radius:8px;font-weight:700;font-size:1.6rem;letter-spacing:4px">
+            ${code}
+          </span>
+        </p>
+        <p style="color:#888;font-size:0.85em">This code expires in 15 minutes.</p>
+      </div>`;
+
+  if (isSendGrid(settings)) {
+    await sendViaSendGridApi(settings.pass, settings.from, to, subject, text, html);
+    return true;
+  }
+
+  const { transporter, from } = await getTransporter();
+  if (!transporter) return false;
+  await transporter.sendMail({ from, to, subject, text, html });
+  return true;
+}
+
+/**
+ * Send a one-off test email using the currently configured SMTP settings.
+ * Throws if SMTP isn't configured at all, so the Admin Panel can surface a clear error.
+ */
+export async function sendTestEmail(to: string, username: string): Promise<void> {
+  const settings = await getSmtpSettings();
+  if (!settings.host) {
+    throw new Error("SMTP isn't configured yet — fill in the fields above and save first.");
+  }
+
+  const subject = "GrilledCoin — Test Email";
+  const text = `Hi ${username},\n\nThis is a test email from your GrilledCoin Admin Panel. If you received this, your SMTP settings are working correctly.`;
+  const html = `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+        <h2 style="color:#6f5cf2">🍖 GrilledCoin</h2>
+        <p>Hi <strong>${username}</strong>,</p>
+        <p>This is a test email from your GrilledCoin Admin Panel.</p>
+        <p>If you received this, your SMTP settings are working correctly.</p>
+      </div>`;
+
+  if (isSendGrid(settings)) {
+    await sendViaSendGridApi(settings.pass, settings.from, to, subject, text, html);
     return;
   }
 
-  await transporter.sendMail({
-    from: SMTP_FROM,
-    to,
-    subject: "Verify your Casino Aurelius email",
-    text: [
-      `Hi ${username},`,
-      ``,
-      `Please verify your email address by clicking the link below:`,
-      `${verificationUrl}`,
-      ``,
-      `This link expires in 24 hours.`,
-      `If you didn't create this account, you can ignore this email.`,
-    ].join("\n"),
-    html: `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-        <h2 style="color:#6f5cf2">🎰 Casino Aurelius</h2>
-        <p>Hi <strong>${username}</strong>,</p>
-        <p>Please verify your email address to finish creating your account.</p>
-        <p style="margin:24px 0">
-          <a href="${verificationUrl}"
-             style="background:#6f5cf2;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700">
-            Verify my email
-          </a>
-        </p>
-        <p style="color:#888;font-size:0.85em">
-          Or copy this URL into your browser:<br/>
-          <a href="${verificationUrl}" style="color:#6f5cf2">${verificationUrl}</a>
-        </p>
-        <p style="color:#888;font-size:0.85em">This link expires in 24 hours.</p>
-      </div>`,
-  });
+  const { transporter, from } = await getTransporter();
+  if (!transporter) throw new Error("SMTP isn't configured yet — fill in the fields above and save first.");
+  await transporter.sendMail({ from, to, subject, text, html });
 }

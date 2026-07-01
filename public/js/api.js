@@ -1,11 +1,11 @@
 /* Thin REST client — wraps fetch, attaches the JWT, normalises errors. */
 const Api = (() => {
-  let token = localStorage.getItem("casino_aurelius_token") || null;
+  let token = localStorage.getItem("grilledcoin_token") || null;
 
   function setToken(t) {
     token = t;
-    if (t) localStorage.setItem("casino_aurelius_token", t);
-    else localStorage.removeItem("casino_aurelius_token");
+    if (t) localStorage.setItem("grilledcoin_token", t);
+    else localStorage.removeItem("grilledcoin_token");
   }
 
   function getToken() {
@@ -45,6 +45,7 @@ const Api = (() => {
   const get = (path) => request("GET", path);
   const post = (path, body) => request("POST", path, body);
   const patch = (path, body) => request("PATCH", path, body);
+  const del = (path) => request("DELETE", path);
 
   return {
     setToken,
@@ -52,6 +53,7 @@ const Api = (() => {
     get,
     post,
     patch,
+    delete: del,
     // Convenience wrappers used throughout the app:
     register: (payload) => post("/auth/register", payload),
     login: (payload) => post("/auth/login", payload),

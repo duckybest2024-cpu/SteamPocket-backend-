@@ -1,9 +1,11 @@
+import { isOwner } from "../lib/owner";
 import { Server, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
 import { config } from "../lib/config";
 import { applyLedgerEntry, levelFromXp, xpForWager, InsufficientFundsError } from "../lib/wallet";
 import { generateCrashRound, multiplierAtElapsed } from "../games/crash";
+import { makeBot, botStakeCents, randInt } from "./botFiller";
 
 const BETTING_DURATION_MS = 8_000;
 const CRASHED_PAUSE_MS = 4_000;
@@ -19,10 +21,11 @@ interface RoundBet {
   autoCashout?: number; // optional — cash out automatically once the multiplier clears this
   cashedOutAt: number | null; // multiplier at which the player locked in, or null if still riding
   payout: number;
+  isBot?: boolean; // synthetic filler — never settled against the chip ledger
 }
 
 interface AuthedSocket extends Socket {
-  data: { userId?: string; username?: string };
+  data: { userId?: string; username?: string; isApproved?: boolean };
 }
 
 /**
@@ -57,10 +60,11 @@ export class CrashEngine {
       if (token) {
         try {
           const payload = jwt.verify(token, config.jwtSecret) as { sub: string };
-          const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, username: true } });
+          const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, username: true, isApproved: true, approvedUntil: true, isAdmin: true } });
           if (user) {
             socket.data.userId = user.id;
             socket.data.username = user.username;
+            socket.data.isApproved = isOwner(user.username) || !!user.isAdmin || (user.isApproved && (!user.approvedUntil || user.approvedUntil > new Date()));
           }
         } catch {
           // Invalid token -> connect anonymously (spectators can still watch the feed).
@@ -106,7 +110,44 @@ export class CrashEngine {
       bettingEndsAt: this.phaseEndsAt,
     });
 
+    this.spawnBots();
+
     setTimeout(() => void this.startRunningPhase(), BETTING_DURATION_MS);
+  }
+
+  /**
+   * Drop a handful of synthetic players into the betting window so the live
+   * feed never looks empty. They trickle in over the betting window (like real
+   * players would), each with a random auto-cashout target. Bots are purely
+   * cosmetic — never deducted, never paid (see lockInCashout / crash).
+   */
+  private spawnBots() {
+    const count = randInt(2, 7);
+    const round = this.roundId;
+    const names = new Set([...this.bets.values()].map((b) => b.username));
+    for (let i = 0; i < count; i++) {
+      const delay = randInt(200, BETTING_DURATION_MS - 800);
+      setTimeout(() => {
+        if (this.phase !== "betting" || this.roundId !== round) return;
+        const bot = makeBot(names);
+        const amount = botStakeCents(1, 500);
+        // ~75% of bots set a modest auto-cashout; the rest ride and usually bust.
+        const target = Math.random() < 0.75
+          ? Math.round((1.2 + Math.random() * 3.3) * 100) / 100
+          : Math.round((3 + Math.random() * 12) * 100) / 100;
+        const bet: RoundBet = {
+          userId: bot.id,
+          username: bot.username,
+          amount,
+          autoCashout: target,
+          cashedOutAt: null,
+          payout: 0,
+          isBot: true,
+        };
+        this.bets.set(bot.id, bet);
+        this.broadcast("bet_placed", { roundId: this.roundId, username: bot.username, amount, autoCashout: target });
+      }, delay);
+    }
   }
 
   private async startRunningPhase() {
@@ -161,7 +202,10 @@ export class CrashEngine {
     for (const bet of this.bets.values()) {
       const finalMultiplier = bet.cashedOutAt ?? 0;
       const payout = bet.cashedOutAt ? bet.payout : 0;
-      await this.persistBet(bet, finalMultiplier, payout).catch((err) => console.error("crash bet persist failed", err));
+      // Bots show up in the settlement feed but never hit the ledger/history.
+      if (!bet.isBot) {
+        await this.persistBet(bet, finalMultiplier, payout).catch((err) => console.error("crash bet persist failed", err));
+      }
       settlements.push({ userId: bet.userId, username: bet.username, amount: bet.amount, payout, multiplier: finalMultiplier });
     }
 
@@ -194,6 +238,7 @@ export class CrashEngine {
     const reply = (resp: unknown) => ack?.(resp);
     const userId = socket.data.userId;
     if (!userId) return reply({ error: "Authentication required to place bets" });
+    if (!socket.data.isApproved) return reply({ error: "Active subscription required to play." });
     if (this.phase !== "betting") return reply({ error: "Betting is closed for this round" });
     if (this.bets.has(userId)) return reply({ error: "You already have a bet in this round" });
 
@@ -255,7 +300,10 @@ export class CrashEngine {
     bet.cashedOutAt = multiplier;
     bet.payout = Math.floor(bet.amount * multiplier);
 
-    const updated = await applyLedgerEntry(prisma, bet.userId, "payout", bet.payout, undefined).catch(() => null);
+    // Bots cash out cosmetically only — no chips move.
+    const updated = bet.isBot
+      ? null
+      : await applyLedgerEntry(prisma, bet.userId, "payout", bet.payout, undefined).catch(() => null);
     this.broadcast("cash_out", {
       roundId: this.roundId,
       username: bet.username,

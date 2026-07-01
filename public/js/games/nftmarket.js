@@ -73,6 +73,11 @@ const NFTMarketGame = (() => {
       jackpot_entry: "🎰",
       free_spin: "🎡",
       multiplier_boost: "✖️",
+      cashback: "🔄",
+      bank_bonus: "🏦",
+      double_chips: "2️⃣",
+      lucky_draw: "🎲",
+      vip_chips: "👑",
     };
     return `<span style="
       display:inline-flex;

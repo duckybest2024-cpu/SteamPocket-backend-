@@ -27,13 +27,15 @@ const VideoPokerGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <div class="bet-panel">
+          ${GameThemes.renderPicker("videopoker", GameThemes.getSaved("videopoker"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="vp-tab-manual">Manual</button>
             <button class="bp-tab" id="vp-tab-auto">Auto</button>
           </div>
 
           <div class="bp-field">
-            <div class="bp-label">Bet Amount ($)</div>
+            <div class="bp-label">Bet Amount (chips)</div>
             <div class="bp-input-row">
               <input type="number" id="vp-amount" value="1.00" min="0.01" step="0.01" />
               <button class="quick-btn" id="vp-half">½</button>
@@ -62,6 +64,8 @@ const VideoPokerGame = (() => {
       </div></div>
     `;
 
+    HowToPlay.addButton(container, "videopoker");
+
     const els = {
       hand: container.querySelector("#vp-hand"),
       amount: container.querySelector("#vp-amount"),
@@ -79,8 +83,8 @@ const VideoPokerGame = (() => {
     els.paytable.innerHTML = PAY_TABLE.map(([h, m]) => `<div class="vpt-row"><span>${h}</span><span>${m}x</span></div>`).join("");
 
     // ½ and 2× quick buttons
-    els.half.addEventListener("click", () => { els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 0.5)); });
-    els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 2); });
+    els.half.addEventListener("click", () => { els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 50) / 100); });
+    els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100; });
 
     // Manual/Auto tabs (visual only)
     container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
@@ -96,9 +100,9 @@ const VideoPokerGame = (() => {
         const wrap = document.createElement("div");
         wrap.className = `vp-card-wrap${isHighlight ? " vp-highlight" : ""}`;
 
-        const red = card.suit === "♥" || card.suit === "♦";
+        const suitLetter = {"♠":"S","♥":"H","♦":"D","♣":"C"}[card.suit] || "S";
         wrap.innerHTML = `
-          <div class="card ${red ? "red-suit" : ""}" style="${isHighlight ? "box-shadow:0 0 0 3px var(--gold)" : ""}">${card.rank}<span>${card.suit}</span></div>
+          <img class="card-svg vp-card-img${isHighlight ? " vp-highlight-card" : ""}" src="/images/cards/${card.rank}${suitLetter}.svg" alt="${card.rank}${card.suit}" />
           <div class="vp-hold-badge${isHeld ? " active" : ""}">${isHeld ? "HELD" : "HOLD"}</div>
         `;
 
@@ -192,6 +196,8 @@ const VideoPokerGame = (() => {
         // No active hand
       }
     })();
+
+    GameThemes.init(container, "videopoker");
   }
 
   return { render };

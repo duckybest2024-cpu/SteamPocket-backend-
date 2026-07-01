@@ -7,13 +7,15 @@ const BaccaratGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <div class="bet-panel">
+          ${GameThemes.renderPicker("baccarat", GameThemes.getSaved("baccarat"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="bacc-tab-manual">Manual</button>
             <button class="bp-tab" id="bacc-tab-auto">Auto</button>
           </div>
 
           <div class="bp-field">
-            <div class="bp-label">Bet Amount ($)</div>
+            <div class="bp-label">Bet Amount (chips)</div>
             <div class="bp-input-row">
               <input type="number" id="bacc-amount" value="5.00" min="0.01" step="0.01" />
               <button class="quick-btn" id="bacc-half">½</button>
@@ -45,6 +47,8 @@ const BaccaratGame = (() => {
       </div></div>
     `;
 
+    HowToPlay.addButton(container, "baccarat");
+
     const els = {
       table: container.querySelector("#bacc-table"),
       amount: container.querySelector("#bacc-amount"),
@@ -56,8 +60,8 @@ const BaccaratGame = (() => {
     };
 
     // ½ and 2× quick buttons
-    els.half.addEventListener("click", () => { els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 0.5)); });
-    els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 2); });
+    els.half.addEventListener("click", () => { els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 50) / 100); });
+    els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100; });
 
     // Manual/Auto tabs (visual only)
     container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
@@ -138,6 +142,8 @@ const BaccaratGame = (() => {
         els.deal.disabled = false;
       }
     });
+
+    GameThemes.init(container, "baccarat");
   }
 
   return { render };

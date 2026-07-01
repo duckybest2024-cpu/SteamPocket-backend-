@@ -28,6 +28,7 @@ const ArcadeGame = (() => {
 
   function render(container, accountState) {
     renderLobby(container, accountState);
+    HowToPlay.addButton(container, "arcade");
     return () => {};
   }
 

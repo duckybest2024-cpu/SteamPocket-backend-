@@ -8,13 +8,15 @@ const HiloGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <div class="bet-panel">
+          ${GameThemes.renderPicker("hilo", GameThemes.getSaved("hilo"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="hilo-tab-manual">Manual</button>
             <button class="bp-tab" id="hilo-tab-auto">Auto</button>
           </div>
 
           <div class="bp-field">
-            <div class="bp-label">Bet ($)</div>
+            <div class="bp-label">Bet (chips)</div>
             <div class="bp-input-row">
               <input type="number" id="hilo-amount" value="5.00" min="0.01" step="0.01" style="flex:1;" />
               <button class="quick-btn" id="hilo-half">½</button>
@@ -35,9 +37,11 @@ const HiloGame = (() => {
         </div>
 
         <div class="game-canvas">
-          <div class="hilo-stage" style="justify-content:center; flex:1;">
-            <div class="hilo-card-wrap" style="transform:scale(1.3);">
-              <div class="hilo-card-slot" id="hilo-card">🂠</div>
+          <div class="hilo-stage">
+            <div class="hilo-card-wrap">
+              <div class="hilo-card-slot" id="hilo-card">
+                <img class="card-svg hilo-card-img" src="/images/card-back.png" alt="Card" />
+              </div>
             </div>
           </div>
 
@@ -55,6 +59,7 @@ const HiloGame = (() => {
 
       </div></div>
     `;
+    HowToPlay.addButton(container, "hilo");
 
     const els = {
       card: container.querySelector("#hilo-card"),
@@ -83,9 +88,10 @@ const HiloGame = (() => {
       this.classList.add("active");
     }));
 
+    const SUIT_LETTER = {"♠":"S","♥":"H","♦":"D","♣":"C"};
     function renderCard(card) {
-      const red = card.suit === "♥" || card.suit === "♦";
-      return `<div class="hilo-card ${red ? "red-suit" : ""}">${card.rank}<span style="font-size:0.75em">${card.suit}</span></div>`;
+      const letter = SUIT_LETTER[card.suit] || "S";
+      return `<img class="card-svg hilo-card-img" src="/images/cards/${card.rank}${letter}.svg" alt="${card.rank}${card.suit}" />`;
     }
 
     function updateChances(higher, lower) {
@@ -112,7 +118,7 @@ const HiloGame = (() => {
       els.actionRow.classList.add("hidden");
       els.startRow.classList.remove("hidden");
       els.amount.disabled = false;
-      els.card.innerHTML = "🂠";
+      els.card.innerHTML = `<img class="card-svg hilo-card-img" src="/images/card-back.png" alt="Card" />`;
       els.chances.innerHTML = "";
       setMultiplier(1);
     }
@@ -195,6 +201,8 @@ const HiloGame = (() => {
         // No active round — that's fine
       }
     })();
+
+    GameThemes.init(container, "hilo");
   }
 
   return { render };

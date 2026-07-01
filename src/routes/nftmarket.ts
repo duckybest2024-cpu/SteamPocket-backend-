@@ -40,7 +40,7 @@ nftMarketRouter.get("/catalog", async (_req, res: Response) => {
     const supplyRecords = await prisma.nftSupply.findMany({
       where: { templateId: { in: limitedIds } },
     });
-    const supplyMap = new Map(supplyRecords.map((r) => [r.templateId, r.minted]));
+    const supplyMap = new Map<string, number>(supplyRecords.map((r) => [r.templateId, r.minted]));
 
     const withRemaining = buildTemplateWithRemaining(NFT_CATALOG, supplyMap);
     const sorted = sortTemplates(withRemaining);
@@ -66,7 +66,7 @@ nftMarketRouter.get("/catalog/:collectionId", async (req, res: Response) => {
     const supplyRecords = await prisma.nftSupply.findMany({
       where: { templateId: { in: limitedIds } },
     });
-    const supplyMap = new Map(supplyRecords.map((r) => [r.templateId, r.minted]));
+    const supplyMap = new Map<string, number>(supplyRecords.map((r) => [r.templateId, r.minted]));
 
     const withRemaining = buildTemplateWithRemaining(filtered, supplyMap);
     const sorted = sortTemplates(withRemaining);
@@ -207,10 +207,15 @@ nftMarketRouter.post("/use/:nftId", requireAuth, async (req: AuthedRequest, res:
     let effectDescription = "";
     let balance: number | undefined;
 
+    // Chip-granting powers were wildly overpowered (10k–180k chips each), so
+    // owning the catalog let a player mint millions. Scale + cap to a sane,
+    // still-rewarding bonus.
+    const chipReward = Math.min(Math.max(Math.round(power.value * 0.08), 25), 2000);
+
     // Apply power effect
     switch (power.type) {
       case "chips_bonus": {
-        await applyLedgerEntry(prisma, userId, "nft_power", power.value * 100, nftId);
+        await applyLedgerEntry(prisma, userId, "nft_power", chipReward * 100, nftId);
         const user = await prisma.user.findUnique({ where: { id: userId } });
         balance = (user?.balance ?? 0) / 100;
         effectDescription = `+${power.value} chips awarded`;
@@ -248,7 +253,7 @@ nftMarketRouter.post("/use/:nftId", requireAuth, async (req: AuthedRequest, res:
       }
 
       case "free_spin": {
-        await applyLedgerEntry(prisma, userId, "nft_power", power.value * 100, nftId);
+        await applyLedgerEntry(prisma, userId, "nft_power", chipReward * 100, nftId);
         const user = await prisma.user.findUnique({ where: { id: userId } });
         balance = (user?.balance ?? 0) / 100;
         effectDescription = `Free spin bonus: +${power.value} chips`;
@@ -256,10 +261,55 @@ nftMarketRouter.post("/use/:nftId", requireAuth, async (req: AuthedRequest, res:
       }
 
       case "multiplier_boost": {
-        await applyLedgerEntry(prisma, userId, "nft_power", power.value * 100, nftId);
+        await applyLedgerEntry(prisma, userId, "nft_power", chipReward * 100, nftId);
         const user = await prisma.user.findUnique({ where: { id: userId } });
         balance = (user?.balance ?? 0) / 100;
         effectDescription = `Multiplier boost applied: +${power.value} chips`;
+        break;
+      }
+
+      case "cashback": {
+        await applyLedgerEntry(prisma, userId, "nft_power", chipReward * 100, nftId);
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        balance = (user?.balance ?? 0) / 100;
+        effectDescription = `Cashback activated: +${power.value} chips refunded`;
+        break;
+      }
+
+      case "bank_bonus": {
+        await prisma.user.update({ where: { id: userId }, data: { bank: { increment: chipReward * 100 } } });
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        balance = (user?.balance ?? 0) / 100;
+        effectDescription = `Bank bonus: +${power.value} chips added to your bank`;
+        break;
+      }
+
+      case "double_chips": {
+        const userBefore = await prisma.user.findUnique({ where: { id: userId } });
+        const boost = chipReward * 100;
+        await applyLedgerEntry(prisma, userId, "nft_power", boost, nftId);
+        const userAfter = await prisma.user.findUnique({ where: { id: userId } });
+        balance = (userAfter?.balance ?? 0) / 100;
+        effectDescription = `Double chips boost: +${power.value} chips`;
+        break;
+      }
+
+      case "lucky_draw": {
+        const min = Math.floor(chipReward / 2);
+        const max = chipReward * 2;
+        const prize = min + Math.floor(Math.random() * (max - min + 1));
+        await applyLedgerEntry(prisma, userId, "nft_power", prize * 100, nftId);
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        balance = (user?.balance ?? 0) / 100;
+        effectDescription = `Lucky draw! You won ${prize} chips (range: ${min}–${max})`;
+        break;
+      }
+
+      case "vip_chips": {
+        await applyLedgerEntry(prisma, userId, "nft_power", chipReward * 100, nftId);
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        balance = (user?.balance ?? 0) / 100;
+        effectDescription = `VIP reward: +${power.value} chips added`;
         break;
       }
 
@@ -335,7 +385,7 @@ nftMarketRouter.get("/search", async (req, res: Response) => {
     const supplyRecords = limitedIds.length
       ? await prisma.nftSupply.findMany({ where: { templateId: { in: limitedIds } } })
       : [];
-    const supplyMap = new Map(supplyRecords.map((r) => [r.templateId, r.minted]));
+    const supplyMap = new Map<string, number>(supplyRecords.map((r) => [r.templateId, r.minted]));
 
     const withRemaining = buildTemplateWithRemaining(results, supplyMap);
     const sorted = sortTemplates(withRemaining);
@@ -410,7 +460,7 @@ nftMarketRouter.get("/listings", async (_req, res: Response) => {
     const nfts = nftIds.length
       ? await prisma.nft.findMany({ where: { id: { in: nftIds } } })
       : [];
-    const nftMap = new Map(nfts.map((n) => [n.id, n]));
+    const nftMap = new Map<string, any>(nfts.map((n) => [n.id, n]));
 
     const result = listings.map((l: any) => ({
       ...l,

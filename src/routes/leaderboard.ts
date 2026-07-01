@@ -27,7 +27,7 @@ leaderboardRouter.get("/", async (req, res) => {
         select: { id: true, username: true, nickname: true, rank: true, level: true },
       });
 
-      const userMap = new Map(users.map((u) => [u.id, u]));
+      const userMap = new Map<string, any>(users.map((u) => [u.id, u]));
       leaderboard = grouped
         .filter((g) => userMap.has(g.userId))
         .map((g, i) => {
@@ -56,7 +56,7 @@ leaderboardRouter.get("/", async (req, res) => {
         }),
       ]);
 
-      const winMap = new Map(winGroups.map((g) => [g.userId, g._count.id]));
+      const winMap = new Map<string, number>(winGroups.map((g) => [g.userId, g._count.id]));
 
       const scored = users
         .map((u) => {
@@ -133,7 +133,7 @@ leaderboardRouter.get("/me", requireAuth as any, async (req: AuthedRequest, res)
         prisma.user.findMany({ where: { isBanned: false }, select: { id: true, balance: true, bank: true, level: true } }),
         prisma.bet.groupBy({ by: ["userId"], where: { result: "win" }, _count: { id: true } }),
       ]);
-      const winMap = new Map(winGroups.map((g) => [g.userId, g._count.id]));
+      const winMap = new Map<string, number>(winGroups.map((g) => [g.userId, g._count.id]));
       const scored = allUsers
         .map((u) => ({
           id: u.id,

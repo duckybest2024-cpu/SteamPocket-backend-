@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth, AuthedRequest } from "../../middleware/auth";
+import { requireAuth, requireApproved, AuthedRequest } from "../../middleware/auth";
 import { prisma } from "../../lib/prisma";
 import { applyLedgerEntry, InsufficientFundsError, levelFromXp, xpForWager } from "../../lib/wallet";
 import { videoPokerRounds, VideoPokerActiveRound } from "../../lib/activeRounds";
@@ -15,7 +15,7 @@ export const videoPokerRouter = Router();
 
 const dealSchema = z.object({ amount: z.number().int().positive() });
 
-videoPokerRouter.post("/deal", requireAuth, async (req: AuthedRequest, res) => {
+videoPokerRouter.post("/deal", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = dealSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
@@ -70,7 +70,7 @@ const drawSchema = z.object({
   hold: z.array(z.boolean()).length(5),
 });
 
-videoPokerRouter.post("/draw", requireAuth, async (req: AuthedRequest, res) => {
+videoPokerRouter.post("/draw", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const userId = req.userId!;
   const round = videoPokerRounds.get(userId);
   if (!round) return res.status(404).json({ error: "No active Video Poker hand — deal first" });
@@ -107,7 +107,7 @@ videoPokerRouter.post("/draw", requireAuth, async (req: AuthedRequest, res) => {
   });
 });
 
-videoPokerRouter.get("/active", requireAuth, async (req: AuthedRequest, res) => {
+videoPokerRouter.get("/active", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const round = videoPokerRounds.get(req.userId!);
   if (!round) return res.status(404).json({ error: "No active Video Poker hand" });
 

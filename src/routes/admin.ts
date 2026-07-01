@@ -2,7 +2,11 @@ import { RequestHandler, Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireAuth, AuthedRequest } from "../middleware/auth";
-import { isOwner } from "../lib/owner";
+import { isOwner, setOwner, getOwner } from "../lib/owner";
+import { sendTestEmail } from "../lib/mailer";
+import { sendPaypalPayout, isPaypalConfigured } from "../lib/paypal";
+import { setHouseEdgePercent, getHouseEdgePercent, setOwnerLucky, setWinBiasPercent, getWinBiasPercent, getRealMoneyMode, getCasinoLicense, setCasinoLicense, setRealMoneyMode } from "../lib/gameOdds";
+import { NFT_CATALOG } from "../lib/nftCatalog";
 
 export const adminRouter = Router();
 
@@ -13,6 +17,9 @@ const adminOnly: RequestHandler[] = [
   requireAuth as RequestHandler,
   async (req: AuthedRequest, res, next) => {
     const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    // The real admin panel is OWNER-ONLY. Netherite Patrons used to get
+    // isAdmin=true and thus full admin — that's closed here; they get the
+    // limited /vip lounge instead (see vip.ts).
     if (!user || !isOwner(user.username)) {
       return res.status(403).json({ error: "Admin only" });
     }
@@ -56,7 +63,14 @@ adminRouter.get("/users", async (req, res) => {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
     const search = typeof req.query.search === "string" && req.query.search.trim() ? req.query.search.trim() : undefined;
 
-    const where = search ? { username: { contains: search } } : {};
+    const where = search
+      ? {
+          OR: [
+            { username: { contains: search, mode: "insensitive" as const } },
+            { email: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
+      : {};
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
@@ -260,13 +274,27 @@ adminRouter.post("/bank/adjust", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// PATCH /users/:userId/rank — set a user's rank
+// Owner-only middleware (only the hardcoded owner username can change ranks)
+// ---------------------------------------------------------------------------
+const ownerOnly: RequestHandler[] = [
+  requireAuth as RequestHandler,
+  async (req: AuthedRequest, res, next) => {
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user || !isOwner(user.username)) {
+      return res.status(403).json({ error: "Only the owner can change ranks" });
+    }
+    next();
+  },
+];
+
+// ---------------------------------------------------------------------------
+// PATCH /users/:userId/rank — set a user's rank (owner only)
 // ---------------------------------------------------------------------------
 const rankSchema = z.object({
-  rank: z.enum(["bronze", "silver", "gold", "platinum", "diamond"]),
+  rank: z.enum(["newcomer","beginner","amateur","apprentice","bronze","silver","gold","platinum","diamond","emerald","sapphire","ruby","jade","crystal","elite","master","grandmaster","legend","titan","owner"]),
 });
 
-adminRouter.patch("/users/:userId/rank", async (req, res) => {
+adminRouter.patch("/users/:userId/rank", ownerOnly, async (req: AuthedRequest, res: import("express").Response) => {
   const parsed = rankSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
@@ -358,6 +386,107 @@ adminRouter.get("/users/:id/detail", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
 
+// ── Real-money payouts (jackpot/event winnings) ─────────────────────────────
+
+adminRouter.get("/users/:id/payouts", async (req, res) => {
+  try {
+    const records = await prisma.payoutRecord.findMany({
+      where: { userId: req.params.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+    res.json({ records, paypalConfigured: await isPaypalConfigured() });
+  } catch (err) {
+    console.error("GET payouts error:", err);
+    res.status(500).json({ error: "Failed to load payout history" });
+  }
+});
+
+const sendPayoutSchema = z.object({
+  amountCents: z.number().int().positive(),
+  note: z.string().max(300).optional(),
+  // "auto" sends via the PayPal Payouts API to the user's saved PayPal email.
+  // "manual" just logs that the admin paid them some other way (Venmo, cheque,
+  // in person, etc) — no money actually moves through this app for that path.
+  mode: z.enum(["auto", "manual"]),
+});
+
+adminRouter.post("/users/:id/payout", async (req: AuthedRequest, res) => {
+  const parsed = sendPayoutSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  const { amountCents, note, mode } = parsed.data;
+
+  try {
+    const [admin, user] = await Promise.all([
+      prisma.user.findUnique({ where: { id: req.userId } }),
+      prisma.user.findUnique({ where: { id: req.params.id } }),
+    ]);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const amountUsd = amountCents / 100;
+
+    if (mode === "auto") {
+      if (user.payoutMethod !== "paypal" || !user.payoutPaypalEmail) {
+        return res.status(400).json({ error: "This user hasn't set up PayPal as their payout method" });
+      }
+      const senderBatchId = `gc_${user.id}_${req.params.id}_${Date.now()}`;
+      try {
+        const batchId = await sendPaypalPayout(user.payoutPaypalEmail, amountUsd, note || "Prize payout", senderBatchId);
+        const record = await prisma.payoutRecord.create({
+          data: {
+            userId: user.id,
+            amountCents,
+            method: "paypal",
+            destination: user.payoutPaypalEmail,
+            status: "sent",
+            reference: batchId,
+            note: note || null,
+            adminUsername: admin?.username || "unknown",
+          },
+        });
+        return res.json({ record });
+      } catch (err: any) {
+        const record = await prisma.payoutRecord.create({
+          data: {
+            userId: user.id,
+            amountCents,
+            method: "paypal",
+            destination: user.payoutPaypalEmail,
+            status: "failed",
+            note: note || null,
+            adminUsername: admin?.username || "unknown",
+          },
+        });
+        return res.status(502).json({ error: err?.message || "PayPal payout failed", record });
+      }
+    }
+
+    // Manual: just record that the admin paid them outside the app.
+    const destination =
+      user.payoutMethod === "paypal"
+        ? user.payoutPaypalEmail || "—"
+        : user.payoutMethod === "card"
+        ? `${user.stripeCardBrand || "card"} •••• ${user.stripeCardLast4 || "????"}`
+        : user.payoutNote || "—";
+
+    const record = await prisma.payoutRecord.create({
+      data: {
+        userId: user.id,
+        amountCents,
+        method: "manual",
+        destination,
+        status: "sent",
+        note: note || null,
+        adminUsername: admin?.username || "unknown",
+      },
+    });
+    res.json({ record });
+  } catch (err) {
+    console.error("POST payout error:", err);
+    res.status(500).json({ error: "Failed to record payout" });
+  }
+});
+
 // ── Feature 5: zero balance ─────────────────────────────────────────────────
 
 adminRouter.post("/users/:id/zero-balance", async (req, res) => {
@@ -424,7 +553,7 @@ adminRouter.get("/top-players", async (_req, res) => {
       where: { id: { in: grouped.map((g) => g.userId) } },
       select: { id: true, username: true, level: true },
     });
-    const userMap = new Map(userList.map((u) => [u.id, u]));
+    const userMap = new Map<string, any>(userList.map((u) => [u.id, u]));
     res.json({
       players: grouped.map((g) => ({
         username: userMap.get(g.userId)?.username ?? "unknown",
@@ -501,11 +630,41 @@ adminRouter.get("/config", async (_req, res) => {
   const configs = await prisma.siteConfig.findMany();
   const obj: Record<string, string> = {};
   for (const c of configs) obj[c.key] = c.value;
+  obj.owner_username = getOwner(); // always reflect the live owner
+  obj.real_money_mode = String(getRealMoneyMode()); // live gate state
+  obj.casino_license = getCasinoLicense();
   res.json(obj);
 });
 
 adminRouter.post("/config", async (req, res) => {
   const updates = req.body as Record<string, string>;
+
+  // ── Real-money "real casino mode" gate ──────────────────────────────────────
+  // Real mode is locked behind a casino licence AND is mutually exclusive with
+  // the odds-tampering controls (a rigged real-money casino is fraud). Validate
+  // this BEFORE persisting anything so rejected requests change nothing.
+  if (updates.casino_license !== undefined) {
+    setCasinoLicense(String(updates.casino_license));
+  }
+  let realModeActive = getRealMoneyMode();
+  if (Object.prototype.hasOwnProperty.call(updates, "real_money_mode")) {
+    const want = String(updates.real_money_mode) === "true";
+    const result = setRealMoneyMode(want);
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    realModeActive = want;
+  }
+  // While real mode is on, refuse any attempt to enable rigging.
+  if (realModeActive) {
+    const triesToRig =
+      (Object.prototype.hasOwnProperty.call(updates, "owner_lucky") && String(updates.owner_lucky) === "true") ||
+      (Object.prototype.hasOwnProperty.call(updates, "win_bias") && Number(updates.win_bias) !== 0);
+    if (triesToRig) {
+      return res.status(400).json({ error: "Odds controls are disabled in real-money mode — a licensed casino must run fair games." });
+    }
+    // Force rigging keys to neutral so the generic persist loop can't smuggle them in.
+    if (Object.prototype.hasOwnProperty.call(updates, "owner_lucky")) updates.owner_lucky = "false";
+    if (Object.prototype.hasOwnProperty.call(updates, "win_bias")) updates.win_bias = "0";
+  }
   for (const [key, value] of Object.entries(updates)) {
     await prisma.siteConfig.upsert({
       where: { key },
@@ -513,7 +672,61 @@ adminRouter.post("/config", async (req, res) => {
       update: { value: String(value) },
     });
   }
+  // House edge changes take effect immediately for the engine-driven games
+  // (Dice, Crash, Limbo, Mines, Hi-Lo). Supports both the Controls "Game Odds"
+  // field (house_edge) and the Config tab's "House Edge % Override" field
+  // (houseEdgeOverride). Blank = reset to the 1% default. We always persist a
+  // canonical "house_edge" key so it reloads correctly on restart.
+  let edgePercent: number | undefined;
+  if (updates.house_edge !== undefined) {
+    edgePercent = updates.house_edge === "" ? 1 : Number(updates.house_edge);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "houseEdgeOverride")) {
+    const v = (updates as Record<string, unknown>).houseEdgeOverride;
+    edgePercent = v === null || v === "" || v === "null" ? 1 : Number(v);
+  }
+  if (edgePercent !== undefined && Number.isFinite(edgePercent)) {
+    setHouseEdgePercent(edgePercent);
+    const canonical = String(getHouseEdgePercent());
+    await prisma.siteConfig.upsert({
+      where: { key: "house_edge" },
+      create: { key: "house_edge", value: canonical },
+      update: { value: canonical },
+    });
+  }
+  // Owner-only lucky mode toggle (applies live).
+  if (Object.prototype.hasOwnProperty.call(updates, "owner_lucky")) {
+    setOwnerLucky(String(updates.owner_lucky) === "true");
+  }
+  // Transfer ownership (e.g. when selling the site). Only the current owner can
+  // reach this route (adminRouter is owner-gated), so this is a deliberate
+  // hand-off. Applied live + persisted.
+  if (updates.owner_username !== undefined && String(updates.owner_username).trim() !== "") {
+    const newOwner = String(updates.owner_username).trim();
+    setOwner(newOwner);
+    await prisma.siteConfig.upsert({ where: { key: "owner_username" }, create: { key: "owner_username", value: newOwner }, update: { value: newOwner } });
+  }
+  // Global win-chance bias (applies live).
+  if (updates.win_bias !== undefined) {
+    const pct = updates.win_bias === "" ? 0 : Number(updates.win_bias);
+    if (Number.isFinite(pct)) {
+      setWinBiasPercent(pct);
+      const canonical = String(getWinBiasPercent());
+      await prisma.siteConfig.upsert({ where: { key: "win_bias" }, create: { key: "win_bias", value: canonical }, update: { value: canonical } });
+    }
+  }
   res.json({ ok: true });
+});
+
+adminRouter.post("/test-email", async (req: AuthedRequest, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    await sendTestEmail(user.email, user.username);
+    res.json({ ok: true, to: user.email });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to send test email" });
+  }
 });
 
 // ── Feature 17: bulk chip giveaway ──────────────────────────────────────────
@@ -569,6 +782,44 @@ adminRouter.delete("/nft/:id", async (req, res) => {
   } catch { res.status(404).json({ error: "Not found" }); }
 });
 
+// ── NFT store supply / restock ──────────────────────────────────────────────
+// Every catalog NFT with how many have been minted vs its supply cap, so the
+// admin can see what's sold out and restock it.
+adminRouter.get("/nft-store", async (_req, res) => {
+  try {
+    const records = await prisma.nftSupply.findMany();
+    const mintedMap = new Map<string, number>(records.map((r: { templateId: string; minted: number }) => [r.templateId, r.minted]));
+    const items = NFT_CATALOG.map((t) => {
+      const minted = mintedMap.get(t.id) ?? 0;
+      const remaining = t.supply === -1 ? -1 : Math.max(0, t.supply - minted);
+      return {
+        id: t.id, name: t.name, emoji: t.emoji, rarity: t.rarity,
+        priceChips: t.priceChips, supply: t.supply, minted, remaining,
+        soldOut: t.supply !== -1 && remaining === 0,
+      };
+    });
+    res.json({ items });
+  } catch { res.status(500).json({ error: "Failed to load store" }); }
+});
+
+// Restock a limited NFT: set how many are considered "minted" (default 0 =
+// fully back in stock). Unlimited NFTs never need restocking.
+adminRouter.post("/nft-store/:templateId/restock", async (req, res) => {
+  const template = NFT_CATALOG.find((t) => t.id === req.params.templateId);
+  if (!template) return res.status(404).json({ error: "NFT not found in catalog" });
+  if (template.supply === -1) return res.status(400).json({ error: "This NFT has unlimited supply — no restock needed" });
+  const raw = (req.body as { minted?: number }).minted;
+  const minted = Number.isInteger(raw) ? Math.max(0, Math.min(Number(raw), template.supply)) : 0;
+  try {
+    await prisma.nftSupply.upsert({
+      where: { templateId: template.id },
+      create: { templateId: template.id, minted },
+      update: { minted },
+    });
+    res.json({ ok: true, minted, remaining: template.supply - minted });
+  } catch { res.status(500).json({ error: "Restock failed" }); }
+});
+
 // ──────────────────────────────────────────────────────────────────────────────
 // ANTI-CHEAT — flag management
 // ──────────────────────────────────────────────────────────────────────────────
@@ -586,7 +837,7 @@ adminRouter.get("/flags", async (_req, res) => {
     const users = userIds.length
       ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, username: true, balance: true, flagged: true, flagReason: true, flaggedAt: true, isBanned: true } })
       : [];
-    const userMap = new Map(users.map((u) => [u.id, u]));
+    const userMap = new Map<string, any>(users.map((u) => [u.id, u]));
 
     res.json({
       events: events.map((e: any) => ({
@@ -669,6 +920,436 @@ adminRouter.post("/flags/user/:userId/ban", async (req: AuthedRequest, res) => {
       data: { isBanned: true, flagReason: "banned_by_admin" },
     });
     res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ===========================================================================
+// 1. MAINTENANCE MODE
+// ===========================================================================
+let maintenanceMode = false;
+
+adminRouter.get("/maintenance", (_req, res) => {
+  res.json({ enabled: maintenanceMode });
+});
+
+adminRouter.post("/maintenance/toggle", (_req, res) => {
+  maintenanceMode = !maintenanceMode;
+  res.json({ enabled: maintenanceMode });
+});
+
+// ===========================================================================
+// 2. SITE CONFIG — handled by the DB-backed GET/POST /config above. (A second
+// in-memory siteConfig GET/POST used to live here but was dead code: Express
+// runs the earlier handlers first, so these never executed.)
+// ===========================================================================
+
+// ===========================================================================
+// 3. IP BLOCKS
+// ===========================================================================
+const ipBlockList: Array<{ ip: string; reason: string; addedAt: string }> = [];
+
+adminRouter.get("/ip-blocks", (_req, res) => {
+  res.json({ blocks: ipBlockList });
+});
+
+adminRouter.post("/ip-blocks", (req, res) => {
+  const { ip, reason } = req.body as { ip?: string; reason?: string };
+  if (!ip) return res.status(400).json({ error: "IP required" });
+  if (ipBlockList.find(b => b.ip === ip))
+    return res.status(409).json({ error: "IP already blocked" });
+  ipBlockList.push({ ip, reason: reason || "", addedAt: new Date().toISOString() });
+  res.json({ ok: true, blocks: ipBlockList });
+});
+
+adminRouter.delete("/ip-blocks/:ip", (req, res) => {
+  const ip = decodeURIComponent(req.params.ip);
+  const idx = ipBlockList.findIndex(b => b.ip === ip);
+  if (idx === -1) return res.status(404).json({ error: "IP not found" });
+  ipBlockList.splice(idx, 1);
+  res.json({ ok: true, blocks: ipBlockList });
+});
+
+// ===========================================================================
+// 4. REPORTS — suspicious users
+// ===========================================================================
+// Player-submitted reports
+adminRouter.get("/reports/user", async (_req, res) => {
+  const reports = await prisma.report.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
+  res.json({ reports });
+});
+
+adminRouter.post("/reports/:id/resolve", async (req, res) => {
+  try {
+    await prisma.report.update({ where: { id: req.params.id }, data: { status: "resolved" } });
+    res.json({ ok: true });
+  } catch { res.status(404).json({ error: "Not found" }); }
+});
+
+adminRouter.get("/reports/suspicious", async (_req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: { balance: { gt: 0 } },
+      select: {
+        id: true,
+        username: true,
+        balance: true,
+        _count: { select: { bets: true } },
+      },
+      orderBy: { balance: "desc" },
+      take: 50,
+    });
+    const result = users
+      .filter((u) => u._count.bets > 0)
+      .map((u) => ({ id: u.id, username: u.username, balance: u.balance, betCount: u._count.bets }));
+    res.json({ users: result });
+  } catch (err) {
+    console.error("GET /admin/reports/suspicious error:", err);
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ===========================================================================
+// 5. ANALYTICS
+// ===========================================================================
+adminRouter.get("/analytics", async (_req, res) => {
+  try {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const [recentUsers, bets] = await Promise.all([
+      prisma.user.findMany({
+        where: { createdAt: { gte: sevenDaysAgo } },
+        select: { createdAt: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.bet.findMany({
+        select: { game: true, amount: true, payout: true },
+      }),
+    ]);
+
+    // Daily signups: last 7 days
+    const dailyMap: Record<string, number> = {};
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      dailyMap[key] = 0;
+    }
+    for (const u of recentUsers) {
+      const key = new Date(u.createdAt).toISOString().slice(0, 10);
+      if (key in dailyMap) dailyMap[key]++;
+    }
+    const dailySignups = Object.entries(dailyMap).map(([date, count]) => ({ date, count }));
+
+    // Bets per game
+    const gameMap: Record<string, { count: number; wagered: number; paidOut: number }> = {};
+    for (const bet of bets) {
+      const g = bet.game || "unknown";
+      if (!gameMap[g]) gameMap[g] = { count: 0, wagered: 0, paidOut: 0 };
+      gameMap[g].count++;
+      gameMap[g].wagered += bet.amount;
+      gameMap[g].paidOut += bet.payout ?? 0;
+    }
+    const betsPerGame = Object.entries(gameMap)
+      .map(([game, stats]) => ({ game, ...stats }))
+      .sort((a, b) => b.count - a.count);
+
+    // Win/loss ratio
+    const totalBets = bets.length;
+    const wins = bets.filter(b => (b.payout ?? 0) > b.amount).length;
+    const winLossRatio = totalBets > 0 ? ((wins / totalBets) * 100).toFixed(1) : "0.0";
+
+    res.json({ dailySignups, betsPerGame, winLossRatio, totalBets });
+  } catch (err) {
+    console.error("GET /admin/analytics error:", err);
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ===========================================================================
+// 6. REFERRALS
+// ===========================================================================
+adminRouter.get("/referrals", async (_req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: { id: true, username: true },
+      orderBy: { username: "asc" },
+      take: 100,
+    });
+    const referrals = users.map(u => ({
+      id: u.id,
+      username: u.username,
+      referralCode: u.username.toLowerCase().replace(/[^a-z0-9]/g, "") + Math.abs(u.id.charCodeAt(0) ^ u.id.charCodeAt(u.id.length - 1)),
+      referredCount: 0,
+      bonusEarned: 0,
+    }));
+    res.json({ referrals });
+  } catch (err) {
+    console.error("GET /admin/referrals error:", err);
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ===========================================================================
+// 7. LEADERBOARD
+// ===========================================================================
+adminRouter.get("/leaderboard", async (_req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: { id: true, username: true, xp: true, level: true, balance: true, _count: { select: { bets: true } } },
+      orderBy: { xp: "desc" },
+      take: 20,
+    });
+    res.json({ users: users.map((u) => ({ ...u, betCount: u._count.bets })) });
+  } catch (err) {
+    console.error("GET /admin/leaderboard error:", err);
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+adminRouter.post("/leaderboard/reset", async (_req, res) => {
+  try {
+    await prisma.user.updateMany({ data: { xp: 0 } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("POST /admin/leaderboard/reset error:", err);
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ===========================================================================
+// 8. CHAT MODERATION
+// ===========================================================================
+const chatMutedUsers = new Set<string>();
+
+adminRouter.get("/chat/messages", (_req, res) => {
+  res.json({ messages: [], mutedUsers: Array.from(chatMutedUsers) });
+});
+
+adminRouter.post("/chat/mute", (req, res) => {
+  const { username } = req.body as { username?: string };
+  if (!username) return res.status(400).json({ error: "Username required" });
+  chatMutedUsers.add(username.toLowerCase());
+  res.json({ ok: true, mutedUsers: Array.from(chatMutedUsers) });
+});
+
+adminRouter.post("/chat/unmute", (req, res) => {
+  const { username } = req.body as { username?: string };
+  if (!username) return res.status(400).json({ error: "Username required" });
+  chatMutedUsers.delete(username.toLowerCase());
+  res.json({ ok: true, mutedUsers: Array.from(chatMutedUsers) });
+});
+
+// ===========================================================================
+// 9. SCRATCH TICKET STATS
+// ===========================================================================
+adminRouter.get("/scratch/stats", async (_req, res) => {
+  try {
+    const agg = await prisma.bet.aggregate({
+      where: { game: "scratch" },
+      _count: { id: true },
+      _sum: { amount: true, payout: true },
+    });
+    const totalSold = agg._count.id ?? 0;
+    const totalWagered = agg._sum.amount ?? 0;
+    const totalPaidOut = agg._sum.payout ?? 0;
+    const revenue = totalWagered - totalPaidOut;
+    res.json({ totalSold, totalWagered, totalPaidOut, revenue });
+  } catch (err) {
+    console.error("GET /admin/scratch/stats error:", err);
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ===========================================================================
+// 10. PRIZE DRAWS
+// ===========================================================================
+interface Prize {
+  id: string;
+  name: string;
+  chipAmount: number;
+  createdAt: string;
+  winner: { id: string; username: string } | null;
+  drawnAt: string | null;
+}
+const prizeList: Prize[] = [];
+let prizeCounter = 1;
+
+adminRouter.get("/prizes", (_req, res) => {
+  res.json({ prizes: prizeList });
+});
+
+adminRouter.post("/prizes/create", (req, res) => {
+  const { name, chipAmount } = req.body as { name?: string; chipAmount?: number };
+  if (!name) return res.status(400).json({ error: "Name required" });
+  const prize: Prize = {
+    id: String(prizeCounter++),
+    name,
+    chipAmount: Number(chipAmount) || 0,
+    createdAt: new Date().toISOString(),
+    winner: null,
+    drawnAt: null,
+  };
+  prizeList.push(prize);
+  res.json({ ok: true, prize });
+});
+
+adminRouter.post("/prizes/:id/draw", async (req, res) => {
+  const prize = prizeList.find(p => p.id === req.params.id);
+  if (!prize) return res.status(404).json({ error: "Prize not found" });
+  if (prize.winner) return res.status(409).json({ error: "Winner already drawn" });
+
+  try {
+    const totalUsers = await prisma.user.count({ where: { isBanned: false } });
+    if (totalUsers === 0) return res.status(400).json({ error: "No eligible users" });
+
+    const skip = Math.floor(Math.random() * totalUsers);
+    const [winner] = await prisma.user.findMany({
+      where: { isBanned: false },
+      select: { id: true, username: true },
+      skip,
+      take: 1,
+    });
+
+    if (!winner) return res.status(400).json({ error: "No eligible users" });
+
+    // Award chips
+    if (prize.chipAmount > 0) {
+      await prisma.user.update({
+        where: { id: winner.id },
+        data: { balance: { increment: prize.chipAmount * 100 } },
+      });
+    }
+
+    prize.winner = { id: winner.id, username: winner.username };
+    prize.drawnAt = new Date().toISOString();
+
+    res.json({ ok: true, prize });
+  } catch (err) {
+    console.error("POST /admin/prizes/:id/draw error:", err);
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ===========================================================================
+// 11. PATREON SUBSCRIPTION MANAGEMENT
+// ===========================================================================
+
+// GET /admin/subscriptions/pending — users awaiting approval
+adminRouter.get("/subscriptions/pending", async (_req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: { isApproved: false },
+      select: { id: true, username: true, email: true, patreonUsername: true, patreonTier: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ users });
+  } catch (err) {
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// GET /admin/subscriptions — all subscription statuses
+adminRouter.get("/subscriptions", async (_req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: { id: true, username: true, email: true, patreonUsername: true, patreonTier: true, isApproved: true, approvedUntil: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+    res.json({ users });
+  } catch (err) {
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+const approveSchema = z.object({
+  patreonTier: z.enum(["bronze_patron","silver_patron","gold_patron","platinum_patron","diamond_patron","netherite_patron"]).optional(),
+  daysValid: z.number().int().min(1).max(365).optional(),
+});
+
+// POST /admin/subscriptions/:userId/approve — approve a user's subscription
+adminRouter.post("/subscriptions/:userId/approve", async (req, res) => {
+  const parsed = approveSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+
+  const { userId } = req.params;
+  const { patreonTier = "bronze_patron", daysValid = 31 } = parsed.data;
+
+  try {
+    const approvedUntil = new Date(Date.now() + daysValid * 24 * 60 * 60 * 1000);
+    // Netherite Patron ($75/mo) is the top tier and gets the VIP "Netherite
+    // Lounge" (see vip.ts) — but NOT real admin powers. Subscriptions never
+    // grant isAdmin; the owner is the only admin. Strip any stale admin flag
+    // from non-owners on (re)approval to clean up previously-granted access.
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+    const data: { isApproved: boolean; approvedUntil: Date; patreonTier: string; isAdmin?: boolean } = {
+      isApproved: true,
+      approvedUntil,
+      patreonTier,
+    };
+    if (target && !isOwner(target.username)) data.isAdmin = false;
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data,
+      select: { id: true, username: true, isApproved: true, approvedUntil: true, patreonTier: true, isAdmin: true },
+    });
+    res.json({ ok: true, user });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to approve user" });
+  }
+});
+
+// POST /admin/subscriptions/:userId/revoke — revoke a user's subscription
+adminRouter.post("/subscriptions/:userId/revoke", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    // If they held the Netherite (admin) tier, their admin powers came from the
+    // subscription — strip them too. Owners keep admin via isOwner() regardless.
+    const existing = await prisma.user.findUnique({ where: { id: userId }, select: { patreonTier: true } });
+    const stripAdmin = existing?.patreonTier === "netherite_patron";
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { isApproved: false, approvedUntil: null, patreonTier: null, ...(stripAdmin ? { isAdmin: false } : {}) },
+      select: { id: true, username: true, isApproved: true },
+    });
+    res.json({ ok: true, user });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to revoke subscription" });
+  }
+});
+
+// POST /admin/subscriptions/revoke-expired — revoke all expired subscriptions
+adminRouter.post("/subscriptions/revoke-expired", async (_req, res) => {
+  try {
+    const now = new Date();
+    // Strip admin from expired Netherite patrons before clearing their tier.
+    await prisma.user.updateMany({
+      where: { isApproved: true, approvedUntil: { lt: now }, patreonTier: "netherite_patron" },
+      data: { isAdmin: false },
+    });
+    const result = await prisma.user.updateMany({
+      where: { isApproved: true, approvedUntil: { lt: now } },
+      data: { isApproved: false, patreonTier: null },
+    });
+    res.json({ ok: true, revoked: result.count });
+  } catch (err) {
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// PATCH /admin/users/:userId/admin — toggle isAdmin flag
+adminRouter.patch("/users/:userId/admin", async (req, res) => {
+  const { userId } = req.params;
+  const { isAdmin } = req.body as { isAdmin?: boolean };
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    if (isOwner(user.username)) return res.status(400).json({ error: "Cannot change owner admin status" });
+    const updated = await prisma.user.update({ where: { id: userId }, data: { isAdmin: isAdmin ?? !user.isAdmin } });
+    res.json({ isAdmin: updated.isAdmin });
   } catch (err) {
     res.status(500).json({ error: "Failed" });
   }

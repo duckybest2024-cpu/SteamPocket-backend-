@@ -5,10 +5,11 @@ const PlinkoGame = (() => {
     let busy = false;
 
     container.innerHTML = `
-      <div class="game-panel">
-        <div class="game-layout">
+      <div class="game-layout">
 
           <div class="bet-panel">
+            ${GameThemes.renderPicker("plinko", GameThemes.getSaved("plinko"))}
+
             <div class="bp-tabs">
               <button class="bp-tab active" id="plinko-tab-manual">Manual</button>
               <button class="bp-tab" id="plinko-tab-auto">Auto</button>
@@ -56,8 +57,8 @@ const PlinkoGame = (() => {
           </div>
 
         </div>
-      </div>
     `;
+    HowToPlay.addButton(container, "plinko");
 
     const els = {
       board: container.querySelector("#plinko-board"),
@@ -183,16 +184,12 @@ const PlinkoGame = (() => {
       els.amount.value = Math.floor(Number(els.amount.value) * 2);
     });
 
-    container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
-      container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
-      this.classList.add("active");
-    }));
-
     let resizeTimer;
-    window.addEventListener("resize", () => {
+    const onResize = () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(refreshLayout, 100);
-    });
+    };
+    window.addEventListener("resize", onResize);
 
     function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
@@ -224,10 +221,9 @@ const PlinkoGame = (() => {
       }
     }
 
-    els.drop.addEventListener("click", async () => {
-      if (busy) return;
+    async function play() {
       const chips = Number(els.amount.value);
-      if (!chips || chips <= 0) return UI.toast("Enter a bet amount.", "loss");
+      if (!chips || chips <= 0) { UI.toast("Enter a bet amount.", "loss"); throw new Error("bad amount"); }
       const amount = Math.round(chips * 100); // chips → cents
 
       busy = true;
@@ -256,14 +252,19 @@ const PlinkoGame = (() => {
         UI.toast(isWin ? `Won ${UI.money(res.result.payout)} on Plinko!` : `Plinko: ${UI.money(res.result.payout)} back.`, isWin ? "win" : "info");
       } catch (err) {
         UI.toast(err.message, "loss");
+        throw err;
       } finally {
         busy = false;
         els.drop.disabled = false;
       }
-    });
+    }
+
+    GameAuto.setup(container, { playBtn: els.drop, play });
 
     // Defer layout so the board has rendered dimensions
     requestAnimationFrame(() => refreshLayout());
+    GameThemes.init(container, "plinko");
+    return () => window.removeEventListener("resize", onResize);
   }
 
   return { render };

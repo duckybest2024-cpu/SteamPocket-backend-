@@ -10,52 +10,70 @@ const PokerGame = (() => {
     let inHand = false;
 
     container.innerHTML = `
-      <div class="game-panel" style="max-width:680px">
-        <h2 style="margin:0 0 4px">♠️ Poker (5-Card Draw)</h2>
-        <p style="margin:0 0 14px;color:var(--text-dim);font-size:0.88rem">Up to 6 players · Place buy-in to join · Click cards to discard · Best hand wins the pot.</p>
-
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-          ${TABLES.map((t) => `<button class="secondary-btn table-btn" data-table="${t}" style="flex:1">${t}</button>`).join("")}
-        </div>
-
-        <div style="display:flex;gap:8px;margin-bottom:12px">
-          <input id="pk-buyin" type="number" value="500" min="1" style="flex:1;max-width:160px" placeholder="Buy-in (chips)" />
-          <button id="pk-join" class="primary-btn">Join Table</button>
-        </div>
-
-        <div id="pk-table-info" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:12px;font-size:0.85rem;color:var(--text-dim)">Select a table and set your buy-in to join.</div>
-
-        <div id="pk-hand-wrap" style="display:none;margin-bottom:14px">
-          <div style="font-size:0.78rem;color:var(--text-dim);margin-bottom:6px">Your hand — click cards to discard, then click Draw:</div>
-          <div id="pk-hand" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px"></div>
-          <div style="display:flex;gap:8px">
-            <button id="pk-draw" class="primary-btn" style="flex:1">Draw Cards</button>
-            <button id="pk-fold" class="secondary-btn" style="flex:1">Fold</button>
+      <div class="game-layout">
+        <aside class="bet-panel">
+          ${GameThemes.renderPicker("poker", GameThemes.getSaved("poker"))}
+          <div>
+            <div class="bp-label">Select Table</div>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              ${TABLES.map((t) => `<button class="quick-btn table-btn" data-table="${t}" style="text-align:left;padding:9px 12px">${t}</button>`).join("")}
+            </div>
+          </div>
+          <div>
+            <div class="bp-label">Buy-in Amount</div>
+            <div class="bp-input-row">
+              <input id="pk-buyin" type="number" value="500" min="1" step="100" />
+              <button id="pk-half" class="quick-btn">½</button>
+              <button id="pk-dbl" class="quick-btn">2×</button>
+            </div>
+          </div>
+          <div style="font-size:0.82rem;color:var(--text-dim);line-height:1.5">
+            Up to 6 players · Best hand wins the pot · Click cards to discard, then Draw.
+          </div>
+          <hr class="bp-divider" />
+          <button id="pk-join" class="play-btn">Join Table</button>
+          <div id="pk-actions" style="display:none;flex-direction:column;gap:6px">
+            <button id="pk-draw" class="play-btn">Draw Cards</button>
+            <button id="pk-fold" class="play-btn secondary-play">Fold</button>
+          </div>
+        </aside>
+        <div class="game-canvas">
+          <div id="pk-table-info" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:0.85rem;color:var(--text-dim)">Select a table and set your buy-in to join.</div>
+          <div id="pk-hand-wrap" style="display:none">
+            <div style="font-size:0.78rem;color:var(--text-dim);margin-bottom:8px">Your hand — click cards to discard:</div>
+            <div id="pk-hand" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"></div>
+          </div>
+          <div id="pk-result" class="result-banner"></div>
+          <div id="pk-showdown" style="display:none">
+            <div style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Showdown</div>
+            <div id="pk-showdown-hands" style="display:flex;flex-direction:column;gap:6px"></div>
           </div>
         </div>
-
-        <div id="pk-result" class="result-banner"></div>
-
-        <div id="pk-showdown" style="display:none;margin-top:14px">
-          <div style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Showdown</div>
-          <div id="pk-showdown-hands" style="display:flex;flex-direction:column;gap:6px"></div>
-        </div>
       </div>`;
+    HowToPlay.addButton(container, "poker");
 
-    const buyinEl = document.getElementById("pk-buyin");
-    const joinBtn = document.getElementById("pk-join");
-    const tableInfoEl = document.getElementById("pk-table-info");
-    const handWrap = document.getElementById("pk-hand-wrap");
-    const handEl = document.getElementById("pk-hand");
-    const drawBtn = document.getElementById("pk-draw");
-    const foldBtn = document.getElementById("pk-fold");
-    const resultEl = document.getElementById("pk-result");
-    const showdownEl = document.getElementById("pk-showdown");
-    const showdownHandsEl = document.getElementById("pk-showdown-hands");
+    const buyinEl = container.querySelector("#pk-buyin");
+    const joinBtn = container.querySelector("#pk-join");
+    const tableInfoEl = container.querySelector("#pk-table-info");
+    const handWrap = container.querySelector("#pk-hand-wrap");
+    const handEl = container.querySelector("#pk-hand");
+    const drawBtn = container.querySelector("#pk-draw");
+    const foldBtn = container.querySelector("#pk-fold");
+    const actionsEl = container.querySelector("#pk-actions");
+    const resultEl = container.querySelector("#pk-result");
+    const showdownEl = container.querySelector("#pk-showdown");
+    const showdownHandsEl = container.querySelector("#pk-showdown-hands");
 
-    document.querySelectorAll(".table-btn").forEach((btn) => {
+    container.querySelector("#pk-half").addEventListener("click", () => {
+      buyinEl.value = Math.max(1, Math.floor(Number(buyinEl.value) * 0.5));
+    });
+    container.querySelector("#pk-dbl").addEventListener("click", () => {
+      buyinEl.value = Math.floor(Number(buyinEl.value) * 2);
+    });
+
+    container.querySelectorAll(".table-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        document.querySelectorAll(".table-btn").forEach((b) => b.classList.remove("active"));
+        container.querySelectorAll(".table-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         currentTable = btn.dataset.table;
       });
@@ -96,6 +114,7 @@ const PokerGame = (() => {
     socket.on("table_phase", ({ phase, players }) => {
       if (phase === "drawing") {
         handWrap.style.display = "";
+        actionsEl.style.display = "flex";
         showdownEl.style.display = "none";
         discardSet = new Set();
         inHand = true;
@@ -111,6 +130,7 @@ const PokerGame = (() => {
     socket.on("showdown", ({ hands, winners, prize }) => {
       inHand = false;
       handWrap.style.display = "none";
+      actionsEl.style.display = "none";
       showdownEl.style.display = "";
       showdownHandsEl.innerHTML = hands.map((h) => {
         const isWinner = winners.includes(h.username);
@@ -150,9 +170,11 @@ const PokerGame = (() => {
       if (!currentTable) return;
       socket.emit("fold", { tableId: currentTable });
       handWrap.style.display = "none";
+      actionsEl.style.display = "none";
       inHand = false;
     });
 
+    GameThemes.init(container, "poker");
     return () => { if (socket) socket.disconnect(); };
   }
 

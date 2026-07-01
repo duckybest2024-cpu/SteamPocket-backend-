@@ -7,35 +7,32 @@ export interface WheelSegment {
   weight: number;
 }
 
+// Weights/multipliers are tuned so each risk level pays out UNDER 100% on
+// average (a house edge), instead of the old values that returned 180–814%
+// and let players mint chips. RTP per level: low ~0.97, medium ~0.97, high ~0.94.
 const SEGMENTS: Record<WheelRisk, WheelSegment[]> = {
   low: [
-    { multiplier: 0,    weight: 5  },
-    { multiplier: 1.2,  weight: 30 },
-    { multiplier: 1.5,  weight: 20 },
-    { multiplier: 2,    weight: 12 },
-    { multiplier: 3,    weight: 8  },
-    { multiplier: 5,    weight: 4  },
-    { multiplier: 10,   weight: 1  },
+    { multiplier: 0,    weight: 33 },
+    { multiplier: 1.2,  weight: 35 },
+    { multiplier: 1.5,  weight: 22 },
+    { multiplier: 2,    weight: 8  },
+    { multiplier: 3,    weight: 2  },
   ],
   medium: [
-    { multiplier: 0,    weight: 20 },
-    { multiplier: 1.5,  weight: 20 },
-    { multiplier: 2,    weight: 15 },
-    { multiplier: 3,    weight: 10 },
-    { multiplier: 5,    weight: 8  },
-    { multiplier: 10,   weight: 4  },
-    { multiplier: 20,   weight: 2  },
-    { multiplier: 50,   weight: 1  },
+    { multiplier: 0,    weight: 57 },
+    { multiplier: 1.5,  weight: 22 },
+    { multiplier: 2,    weight: 12 },
+    { multiplier: 3,    weight: 5  },
+    { multiplier: 5,    weight: 3  },
+    { multiplier: 10,   weight: 1  },
   ],
   high: [
-    { multiplier: 0,    weight: 40 },
-    { multiplier: 2,    weight: 10 },
-    { multiplier: 5,    weight: 8  },
-    { multiplier: 10,   weight: 5  },
-    { multiplier: 20,   weight: 3  },
-    { multiplier: 50,   weight: 2  },
-    { multiplier: 100,  weight: 1  },
-    { multiplier: 200,  weight: 1  },
+    { multiplier: 0,    weight: 880 },
+    { multiplier: 2,    weight: 65  },
+    { multiplier: 5,    weight: 30  },
+    { multiplier: 10,   weight: 15  },
+    { multiplier: 30,   weight: 7   },
+    { multiplier: 100,  weight: 3   },
   ],
 };
 

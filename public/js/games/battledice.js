@@ -6,37 +6,63 @@ const BattleDiceGame = (() => {
     let currentRoom = "";
 
     container.innerHTML = `
-      <div class="game-panel" style="max-width:660px">
-        <h2 style="margin:0 0 4px">🎲 Battle Dice</h2>
-        <p style="margin:0 0 14px;color:var(--text-dim);font-size:0.88rem">Join a room, place your bet, then everyone rolls — highest number wins the pot!</p>
+      <div class="game-layout">
+        <aside class="bet-panel">
+          ${GameThemes.renderPicker("battledice", GameThemes.getSaved("battledice"))}
 
-        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-          ${ROOMS.map((r) => `<button class="secondary-btn room-btn" data-room="${r}" style="flex:1;min-width:110px">${r}</button>`).join("")}
+          <div class="bp-tabs">
+            <button class="bp-tab active">Manual</button>
+            <button class="bp-tab">Auto</button>
+          </div>
+          <div>
+            <div class="bp-label">Bet Amount</div>
+            <div class="bp-input-row">
+              <input id="bd-amount" type="number" value="100" min="1" step="1" />
+              <button id="bd-half" class="quick-btn">&frac12;</button>
+              <button id="bd-dbl" class="quick-btn">2&times;</button>
+            </div>
+          </div>
+          <hr class="bp-divider" />
+          <div>
+            <div class="bp-label">Select Room</div>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              ${ROOMS.map((r) => `<button class="quick-btn room-btn" data-room="${r}" style="text-align:left;padding:8px 10px">${r}</button>`).join("")}
+            </div>
+          </div>
+          <button id="bd-join" class="play-btn">Join Room</button>
+        </aside>
+        <div class="game-canvas">
+          <div id="bd-players" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:12px;min-height:60px">
+            <div style="color:var(--text-dim);font-size:0.85rem">Select a room to see players…</div>
+          </div>
+          <div id="bd-dice" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;min-height:80px;align-items:center"></div>
+          <div id="bd-result" class="result-banner" style="margin-top:auto"></div>
         </div>
-
-        <div style="display:flex;gap:8px;margin-bottom:14px">
-          <input id="bd-amount" type="number" value="100" min="1" step="1" style="flex:1" />
-          <button id="bd-join" class="primary-btn">Join Room</button>
-        </div>
-
-        <div id="bd-players" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px;min-height:60px">
-          <div style="color:var(--text-dim);font-size:0.85rem">Select a room to see players…</div>
-        </div>
-
-        <div id="bd-dice" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;min-height:80px;align-items:center;margin-bottom:12px"></div>
-
-        <div id="bd-result" class="result-banner"></div>
       </div>`;
+    HowToPlay.addButton(container, "battledice");
 
-    const amountEl = document.getElementById("bd-amount");
-    const joinBtn = document.getElementById("bd-join");
-    const playersEl = document.getElementById("bd-players");
-    const diceEl = document.getElementById("bd-dice");
-    const resultEl = document.getElementById("bd-result");
+    const amountEl = container.querySelector("#bd-amount");
+    const joinBtn = container.querySelector("#bd-join");
+    const playersEl = container.querySelector("#bd-players");
+    const diceEl = container.querySelector("#bd-dice");
+    const resultEl = container.querySelector("#bd-result");
 
-    document.querySelectorAll(".room-btn").forEach((btn) => {
+    container.querySelector("#bd-half").addEventListener("click", () => {
+      amountEl.value = Math.max(1, Math.floor(Number(amountEl.value) * 0.5));
+    });
+    container.querySelector("#bd-dbl").addEventListener("click", () => {
+      amountEl.value = Math.floor(Number(amountEl.value) * 2);
+    });
+    container.querySelectorAll(".bp-tab").forEach(t =>
+      t.addEventListener("click", function() {
+        container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
+        this.classList.add("active");
+      })
+    );
+
+    container.querySelectorAll(".room-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        document.querySelectorAll(".room-btn").forEach((b) => b.classList.remove("active"));
+        container.querySelectorAll(".room-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         currentRoom = btn.dataset.room;
         if (socket) socket.emit("leave_room", currentRoom);
@@ -96,6 +122,8 @@ const BattleDiceGame = (() => {
       joinBtn.disabled = true;
       socket.emit("join_room", { roomId: currentRoom, amount });
     });
+
+    GameThemes.init(container, "battledice");
 
     return () => { if (socket) socket.disconnect(); };
   }

@@ -1,9 +1,7 @@
-import { PrismaClient } from "@prisma/client";
-
 // Called after every winning bet. Checks suspicious patterns and creates AnticheatEvent + flags user.
 // Silent on normal activity — only acts when thresholds are crossed.
 export async function checkForSuspiciousActivity(
-  prisma: PrismaClient,
+  prisma: any,
   userId: string,
   currentBet: { game: string; amount: number; payout: number; multiplier: number }
 ): Promise<void> {

@@ -1,23 +1,43 @@
 const BoardPokerGame = (() => {
   /* ── Card helpers ────────────────────────────────────────────── */
-  const RED_SUITS  = new Set(["♥", "♦"]);
+  // Card format: "AS"=Ace Spades, "KH"=King Hearts, "2D"=2 Diamonds, "TC"=10 Clubs
+  const RANK_MAP = { A:"A", K:"K", Q:"Q", J:"J", T:"10" };
+  const SUIT_MAP = { S:"♠", H:"♥", D:"♦", C:"♣" };
+  const RED_SUITS = new Set(["♥", "♦"]);
 
-  function suitColor(suit) { return RED_SUITS.has(suit) ? "#ef4444" : "#1a1a2e"; }
+  function parseCard(str) {
+    if (!str || str === "??" || str === "??") return null;
+    if (str.length < 2) return null;
+    const suitChar = str[str.length - 1];
+    const rankChars = str.slice(0, -1);
+    const suit = SUIT_MAP[suitChar] || suitChar;
+    const rank = RANK_MAP[rankChars] || rankChars;
+    return { rank, suit, raw: str };
+  }
 
-  function cardHTML(card, opts = {}) {
+  function suitColor(suit) { return RED_SUITS.has(suit) ? "#ef4444" : "#e2e8f0"; }
+
+  function cardHTML(cardStr, opts = {}) {
     const { small = false, hidden = false } = opts;
     const w = small ? 36 : 56;
     const h = small ? 52 : 78;
     const fs = small ? "0.75rem" : "1.1rem";
     const rankFs = small ? "0.65rem" : "0.75rem";
 
-    if (!card || hidden) {
+    if (!cardStr || hidden || cardStr === "??") {
       return `<div style="
         width:${w}px;height:${h}px;border-radius:7px;
         background:linear-gradient(135deg,#1e3a5f 25%,#152d48 75%);
         border:2px solid #2d4a5a;
         display:flex;align-items:center;justify-content:center;
         color:#4d7fa8;font-size:${fs};flex-shrink:0;">🂠</div>`;
+    }
+
+    const card = parseCard(cardStr);
+    if (!card) {
+      return `<div style="width:${w}px;height:${h}px;border-radius:7px;background:#374151;
+        border:2px solid #4b5563;display:flex;align-items:center;justify-content:center;
+        color:#9ca3af;font-size:0.65rem;flex-shrink:0;">?</div>`;
     }
 
     const fg = suitColor(card.suit);
@@ -35,7 +55,6 @@ const BoardPokerGame = (() => {
   }
 
   /* ── Seat position layout (up to 6 seats around the table) ───── */
-  /* Positions as [bottom%, left%] in the oval table coordinate space */
   const SEAT_POSITIONS = [
     { bottom: "4%",  left: "50%",  transform: "translateX(-50%)" },  /* 0: bottom-center (hero) */
     { bottom: "12%", left: "14%",  transform: "none" },               /* 1: bottom-left */
@@ -115,9 +134,38 @@ const BoardPokerGame = (() => {
       document.head.appendChild(style);
     }
 
-    /* State */
-    let state = room.state || {};
+    /* State — populated from room.gameState on bg:room-update */
+    let state = room.gameState || {};
     let raiseAmount = 0;
+
+    /* Resolve username from userId using room.players */
+    function getUsername(userId) {
+      const rp = (room.players || []).find(p => (p.userId || p.id || p._id) === userId);
+      return rp ? (rp.username || rp.name || userId) : userId;
+    }
+
+    /* Helper: chips display (state values are in cents/chips, display as-is) */
+    function chips(n) {
+      const v = n || 0;
+      return v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+
+    /* Helper: is it my turn? */
+    function isMyTurn() { return state.currentTurn === myUserId; }
+
+    /* Helper: is userId folded? state.folded can be a Set or array */
+    function isFolded(userId) {
+      if (!state.folded) return false;
+      if (state.folded instanceof Set) return state.folded.has(userId);
+      if (Array.isArray(state.folded)) return state.folded.includes(userId);
+      return false;
+    }
+
+    /* Helper: my hole cards from state.hands */
+    function myHand() {
+      const hands = state.hands || {};
+      return hands[myUserId] || [];
+    }
 
     /* Root markup */
     container.innerHTML = `<div class="bp-root" id="bp-root">
@@ -150,20 +198,14 @@ const BoardPokerGame = (() => {
     const actionsEl   = document.getElementById("bp-actions");
     const showdownEl  = document.getElementById("bp-showdown");
 
-    function chips(n) { return (n / 100).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2}); }
-
-    function isMyTurn() { return state.turn === myUserId; }
-
     /* ── Community cards ─────────────────────────────────────────── */
     function renderCommunity() {
       const cc = state.communityCards || [];
-      /* Always render 5 slots: filled cards + face-down placeholders */
       const phase = state.phase || "preflop";
       const revealed = phase === "preflop" ? 0 : phase === "flop" ? 3 : phase === "turn" ? 4 : 5;
-      communityEl.innerHTML = Array.from({length: 5}, (_, i) => {
-        if (i < cc.length) return cardHTML(cc[i], {small: false});
-        if (i < revealed)  return cardHTML(null, {hidden: true});
-        /* Placeholder slot */
+      communityEl.innerHTML = Array.from({ length: 5 }, (_, i) => {
+        if (i < cc.length) return cardHTML(cc[i], { small: false });
+        if (i < revealed)  return cardHTML(null, { hidden: true });
         return `<div style="width:56px;height:78px;border-radius:7px;border:2px dashed rgba(255,255,255,0.15);flex-shrink:0;"></div>`;
       }).join("");
     }
@@ -175,105 +217,113 @@ const BoardPokerGame = (() => {
 
     /* ── Phase label ─────────────────────────────────────────────── */
     function renderPhase() {
-      const p = (state.phase || "").toUpperCase();
+      const p = (state.phase || "").replace(/-/g, " ").toUpperCase();
       phaseLabel.textContent = p;
       phaseBadge.textContent = p;
     }
 
     /* ── Hero hole cards ─────────────────────────────────────────── */
     function renderHeroCards() {
-      const hand = state.myHand || [];
+      const hand = myHand();
       heroCardsEl.innerHTML = hand.length
         ? hand.map(c => cardHTML(c)).join("")
-        : [0,1].map(() => cardHTML(null, {hidden:true})).join("");
+        : [0, 1].map(() => cardHTML(null, { hidden: true })).join("");
     }
 
     /* ── Seats around table ─────────────────────────────────────── */
     function renderSeats() {
-      const players = state.players || [];
+      const playerIds = state.players || [];
+      const stacks    = state.stacks  || {};
+      const bets      = state.bets    || {};
+
       /* Map myUserId to seat 0, rest fill 1..N in order */
-      const myIdx = players.findIndex(p => p.userId === myUserId);
+      const myIdx = playerIds.indexOf(myUserId);
       const ordered = myIdx >= 0
-        ? [...players.slice(myIdx), ...players.slice(0, myIdx)]
-        : players;
+        ? [...playerIds.slice(myIdx), ...playerIds.slice(0, myIdx)]
+        : playerIds;
 
-      seatsEl.innerHTML = ordered.slice(0, 6).map((p, seatIdx) => {
-        const pos = SEAT_POSITIONS[seatIdx] || SEAT_POSITIONS[0];
-        const isHero = p.userId === myUserId;
-        const isActive = p.userId === state.turn;
-        const isFolded = p.folded;
-        const isAllIn = p.allIn;
-
-        const badges = [
-          p.isDealer ? `<span class="bp-seat-badge bp-dealer-btn">D</span>` : "",
-          p.isSB     ? `<span class="bp-seat-badge bp-sb-btn">SB</span>` : "",
-          p.isBB     ? `<span class="bp-seat-badge bp-bb-btn">BB</span>` : "",
-          isAllIn    ? `<span class="bp-seat-badge" style="background:#f59e0b;color:#000">ALL-IN</span>` : "",
-          isFolded   ? `<span class="bp-seat-badge" style="background:#ef4444;color:#fff">FOLD</span>` : "",
-        ].join("");
+      seatsEl.innerHTML = ordered.slice(0, 6).map((uid, seatIdx) => {
+        const pos      = SEAT_POSITIONS[seatIdx] || SEAT_POSITIONS[0];
+        const isHero   = uid === myUserId;
+        const isActive = uid === state.currentTurn;
+        const folded   = isFolded(uid);
+        const stack    = stacks[uid] || 0;
+        const bet      = bets[uid] || 0;
+        const name     = isHero ? "You" : getUsername(uid);
 
         const boxClasses = [
           "bp-seat-box",
-          isActive && !isFolded ? "active-seat" : "",
-          isFolded ? "folded-seat" : "",
-          isAllIn ? "allin-seat" : "",
+          isActive && !folded ? "active-seat" : "",
+          folded ? "folded-seat" : "",
         ].filter(Boolean).join(" ");
 
-        const turnAnim = isActive && !isFolded ? "class='bp-turn-pulse'" : "";
+        const turnAnim = isActive && !folded ? `class="bp-turn-pulse"` : "";
+
+        const foldBadge = folded
+          ? `<span class="bp-seat-badge" style="background:#ef4444;color:#fff">FOLD</span>` : "";
 
         return `<div class="bp-seat" style="position:absolute;bottom:${pos.bottom};left:${pos.left};transform:${pos.transform};z-index:2;">
-          ${isHero ? "" /* hero cards rendered separately */ : ""}
           <div class="${boxClasses}">
-            ${badges ? `<div style="margin-bottom:3px">${badges}</div>` : ""}
-            <div class="bp-seat-name" ${turnAnim}>${isHero ? "You" : p.username}</div>
-            <div class="bp-seat-chips">🪙 ${chips(p.chips || 0)}</div>
-            ${p.bet ? `<div class="bp-seat-bet">Bet: ${chips(p.bet)}</div>` : ""}
+            ${foldBadge ? `<div style="margin-bottom:3px">${foldBadge}</div>` : ""}
+            <div class="bp-seat-name" ${turnAnim}>${name}</div>
+            <div class="bp-seat-chips">🪙 ${chips(stack)}</div>
+            ${bet ? `<div class="bp-seat-bet">Bet: ${chips(bet)}</div>` : ""}
           </div>
-          ${isHero ? `<div style="display:flex;gap:4px;margin-top:4px">${(state.myHand||[]).map(c=>cardHTML(c,{small:true})).join("")}</div>` : ""}
+          ${isHero
+            ? `<div style="display:flex;gap:4px;margin-top:4px">${myHand().map(c => cardHTML(c, { small: true })).join("")}</div>`
+            : `<div style="display:flex;gap:4px;margin-top:4px">${cardHTML("??", { small: true })}${cardHTML("??", { small: true })}</div>`
+          }
         </div>`;
       }).join("");
     }
 
     /* ── Info row ────────────────────────────────────────────────── */
     function renderInfoRow() {
-      const myPlayer = (state.players || []).find(p => p.userId === myUserId);
-      const myChips = myPlayer ? myPlayer.chips : 0;
-      const toCall = Math.max(0, (state.currentBet || 0) - (myPlayer?.bet || 0));
+      const stacks = state.stacks || {};
+      const bets   = state.bets   || {};
+      const myStack = stacks[myUserId] || 0;
+      const myBet   = bets[myUserId]   || 0;
+      /* Compute current max bet to derive toCall */
+      const allBets = Object.values(bets);
+      const maxBet  = allBets.length ? Math.max(...allBets) : 0;
+      const toCall  = Math.max(0, maxBet - myBet);
 
       infoRow.innerHTML = `
-        <div class="bp-info-chip">🪙 Your Stack: <strong>${chips(myChips)}</strong></div>
+        <div class="bp-info-chip">🪙 Your Stack: <strong>${chips(myStack)}</strong></div>
         ${toCall > 0 ? `<div class="bp-info-chip" style="border-color:var(--accent);color:var(--accent)">To Call: <strong>${chips(toCall)}</strong></div>` : ""}
-        ${state.currentBet ? `<div class="bp-info-chip">Current Bet: <strong>${chips(state.currentBet)}</strong></div>` : ""}
-        ${state.minRaise ? `<div class="bp-info-chip">Min Raise: <strong>${chips(state.minRaise)}</strong></div>` : ""}`;
+        ${maxBet > 0 ? `<div class="bp-info-chip">Current Bet: <strong>${chips(maxBet)}</strong></div>` : ""}`;
     }
 
     /* ── Action buttons ──────────────────────────────────────────── */
     function renderActions() {
-      const myPlayer = (state.players || []).find(p => p.userId === myUserId);
-      const phase = state.phase || "";
+      const phase    = state.phase || "";
       const isActive = isMyTurn();
-      const isFolded = myPlayer?.folded;
-      const isAllIn  = myPlayer?.allIn;
-      const myBet    = myPlayer?.bet || 0;
-      const toCall   = Math.max(0, (state.currentBet || 0) - myBet);
-      const canCheck  = toCall === 0;
-      const minRaise  = state.minRaise || (state.currentBet || 0) * 2 || 100;
-      const myChips   = myPlayer?.chips || 0;
+      const folded   = isFolded(myUserId);
+      const stacks   = state.stacks || {};
+      const bets     = state.bets   || {};
+      const myStack  = stacks[myUserId] || 0;
+      const myBet    = bets[myUserId]   || 0;
+      const allBets  = Object.values(bets);
+      const maxBet   = allBets.length ? Math.max(...allBets) : 0;
+      const toCall   = Math.max(0, maxBet - myBet);
+      const canCheck = toCall === 0;
+      const minRaise = maxBet > 0 ? maxBet * 2 : 100;
+      const maxStack = myStack + myBet;
 
-      if (phase === "showdown" || isFolded || isAllIn || !myPlayer) {
+      if (phase === "showdown" || folded || !state.players || !state.players.includes(myUserId)) {
         actionsEl.style.display = "none";
         return;
       }
 
       actionsEl.style.display = "";
       if (!isActive) {
-        raiseAmount = minRaise;
+        raiseAmount = Math.max(minRaise, raiseAmount || minRaise);
         actionsEl.innerHTML = `<div style="color:var(--text-dim);font-size:0.85rem;text-align:center;padding:4px">Waiting for your turn…</div>`;
         return;
       }
 
-      raiseAmount = Math.max(minRaise, raiseAmount);
-      const maxRaise = myChips + myBet; /* can't raise more than stack */
+      raiseAmount = Math.max(minRaise, raiseAmount || minRaise);
+      const maxRaise = maxStack;
 
       actionsEl.innerHTML = `
         <div class="bp-action-row">
@@ -292,39 +342,30 @@ const BoardPokerGame = (() => {
             min="${minRaise}" max="${maxRaise}" step="100" value="${raiseAmount}" />
         </div>`;
 
-      const foldBtn   = document.getElementById("bp-fold");
-      const callBtn   = document.getElementById("bp-call");
-      const checkBtn  = document.getElementById("bp-check");
-      const raiseBtn  = document.getElementById("bp-raise");
-      const allinBtn  = document.getElementById("bp-allin");
-      const slider    = document.getElementById("bp-raise-slider");
-      const input     = document.getElementById("bp-raise-input");
+      const foldBtn  = document.getElementById("bp-fold");
+      const callBtn  = document.getElementById("bp-call");
+      const checkBtn = document.getElementById("bp-check");
+      const raiseBtn = document.getElementById("bp-raise");
+      const allinBtn = document.getElementById("bp-allin");
+      const slider   = document.getElementById("bp-raise-slider");
+      const input    = document.getElementById("bp-raise-input");
 
-      /* Sync slider <-> input */
       function syncRaise(val) {
         raiseAmount = Math.max(minRaise, Math.min(maxRaise, Math.round(val / 100) * 100));
         if (slider) slider.value = raiseAmount;
         if (input)  input.value  = raiseAmount;
       }
       slider?.addEventListener("input", () => syncRaise(Number(slider.value)));
-      input?.addEventListener("input", () => syncRaise(Number(input.value)));
+      input?.addEventListener("input",  () => syncRaise(Number(input.value)));
 
-      foldBtn?.addEventListener("click", () => {
-        sendMove({ type: "fold" });
-      });
-      checkBtn?.addEventListener("click", () => {
-        sendMove({ type: "check" });
-      });
-      callBtn?.addEventListener("click", () => {
-        sendMove({ type: "call" });
-      });
+      foldBtn?.addEventListener("click",  () => sendMove({ type: "fold" }));
+      checkBtn?.addEventListener("click", () => sendMove({ type: "check" }));
+      callBtn?.addEventListener("click",  () => sendMove({ type: "call" }));
       raiseBtn?.addEventListener("click", () => {
         syncRaise(raiseAmount);
         sendMove({ type: "raise", amount: raiseAmount });
       });
-      allinBtn?.addEventListener("click", () => {
-        sendMove({ type: "allin" });
-      });
+      allinBtn?.addEventListener("click", () => sendMove({ type: "allin" }));
     }
 
     /* ── Showdown ────────────────────────────────────────────────── */
@@ -335,40 +376,56 @@ const BoardPokerGame = (() => {
         return;
       }
 
-      const players = state.players || [];
+      const playerIds = state.players || [];
+      const hands     = state.hands   || {};
+      const winner    = state.winner;
+
       showdownEl.style.display = "";
       showdownEl.innerHTML = `
         <div style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Showdown</div>
-        ${players.filter(p => !p.folded).map(p => {
-          const isMe = p.userId === myUserId;
-          const hand = isMe ? (state.myHand || []) : (p.hand || []);
+        ${playerIds.filter(uid => !isFolded(uid)).map(uid => {
+          const isMe   = uid === myUserId;
+          const hand   = hands[uid] || [];
+          const isWin  = uid === winner;
+          const name   = isMe ? "You" : getUsername(uid);
           return `<div class="bp-showdown-row">
             <div style="min-width:70px;font-weight:700;color:${isMe ? "var(--accent)" : "var(--text)"}">
-              ${isMe ? "You" : p.username}
+              ${name}
             </div>
-            <div style="display:flex;gap:4px">${hand.map(c => cardHTML(c, {small:true})).join("")}</div>
-            ${p.handName ? `<div style="font-size:0.78rem;color:var(--text-dim);margin-left:auto">${p.handName}</div>` : ""}
-            ${p.isWinner ? `<div style="font-size:0.78rem;color:var(--win);font-weight:700;margin-left:auto">🏆 Winner</div>` : ""}
+            <div style="display:flex;gap:4px">${hand.map(c => cardHTML(c, { small: true })).join("")}</div>
+            ${isWin ? `<div style="font-size:0.78rem;color:var(--win);font-weight:700;margin-left:auto">🏆 Winner</div>` : ""}
           </div>`;
         }).join("")}`;
     }
 
     /* ── Status bar ──────────────────────────────────────────────── */
     function renderStatusBar() {
-      const players = state.players || [];
-      const active = players.find(p => p.userId === state.turn);
-      if (!active) {
+      const currentTurn = state.currentTurn;
+      if (!currentTurn) {
         statusText.textContent = "Waiting…";
         return;
       }
-      if (active.userId === myUserId) {
+      if (currentTurn === myUserId) {
         statusText.innerHTML = `<span style="color:var(--accent);font-weight:700">Your turn!</span>`;
       } else {
-        statusText.textContent = `${active.username}'s turn`;
+        statusText.textContent = `${getUsername(currentTurn)}'s turn`;
       }
     }
 
     /* ── Full render ─────────────────────────────────────────────── */
+    function refreshPokerUI(newState) {
+      state = newState;
+      renderPhase();
+      renderPot();
+      renderCommunity();
+      renderHeroCards();
+      renderSeats();
+      renderInfoRow();
+      renderActions();
+      renderShowdown();
+      renderStatusBar();
+    }
+
     function fullRender() {
       renderPhase();
       renderPot();
@@ -387,43 +444,17 @@ const BoardPokerGame = (() => {
     }
 
     /* ── Socket events ───────────────────────────────────────────── */
-    socket.on("bg:state", (newState) => {
-      state = newState;
-      fullRender();
-    });
-
-    socket.on("bg:update", (partial) => {
-      Object.assign(state, partial);
-      fullRender();
-    });
-
-    socket.on("bg:move_result", ({ success, error, state: newState }) => {
-      if (!success && error) {
-        showToast(error, "loss");
-      }
-      if (newState) {
-        state = newState;
-        fullRender();
-      }
+    socket.on("bg:room-update", (updatedRoom) => {
+      /* Keep room reference fresh for player name lookups */
+      if (updatedRoom.players) room.players = updatedRoom.players;
+      const newState = updatedRoom.gameState;
+      if (!newState) return;
+      refreshPokerUI(newState);
     });
 
     socket.on("bg:error", (msg) => {
-      showToast(typeof msg === "string" ? msg : (msg?.message || "Move error"), "loss");
-    });
-
-    socket.on("bg:game_over", ({ winners, pot, winnerNames }) => {
-      const isWinner = Array.isArray(winners)
-        ? winners.includes(myUserId)
-        : winners === myUserId;
-      const names = winnerNames
-        ? (Array.isArray(winnerNames) ? winnerNames.join(", ") : winnerNames)
-        : "Someone";
-      if (isWinner) {
-        showToast(`You won the pot of ${chips(pot || 0)} chips!`, "win");
-        if (typeof updateBalance === "function") updateBalance(pot);
-      } else {
-        showToast(`${names} won the pot of ${chips(pot || 0)} chips`, "info");
-      }
+      const text = typeof msg === "string" ? msg : (msg?.message || "Move error");
+      UI.toast(text, "loss");
     });
 
     /* Initial render */

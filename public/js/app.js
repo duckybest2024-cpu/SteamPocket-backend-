@@ -1,26 +1,42 @@
-/* Casino Aurelius — App shell with Stake-inspired sidebar layout */
+/* GrilledCoin — App shell with Stake-inspired sidebar layout */
 const App = (() => {
-  const state = { id: null, username: null, nickname: null, rank: "bronze", balance: 0, bank: 0, level: 1, xp: 0, fairness: null };
-  let _lowBalanceToastShown = false;
+  const state = { id: null, username: null, nickname: null, rank: "free", balance: 0, bank: 0, fairness: null, isAdmin: false, isVip: false, isApproved: false, patreonUsername: null, patreonTier: null, payoutMethod: null, payoutPaypalEmail: null, payoutNote: null, stripeCardBrand: null, stripeCardLast4: null };
 
   const NAV = [
     {
-      section: "Casino",
+      section: "Home",
+      items: [
+        { key: "lobby",       icon: "🏠", label: "Lobby",         mod: () => LobbyGame },
+        { key: "store",       icon: "💰", label: "Buy Chips",     mod: () => StoreGame },
+      ],
+    },
+    {
+      section: "Originals",
       items: [
         { key: "crash",       icon: "🚀", label: "Crash",        mod: () => CrashGame },
         { key: "dice",        icon: "🎲", label: "Dice",          mod: () => DiceGame },
         { key: "limbo",       icon: "📈", label: "Limbo",         mod: () => LimboGame },
         { key: "mines",       icon: "💣", label: "Mines",         mod: () => MinesGame },
         { key: "plinko",      icon: "🔵", label: "Plinko",        mod: () => PlinkoGame },
+        { key: "wheel",       icon: "🎡", label: "Wheel",         mod: () => WheelGame },
+        { key: "keno",        icon: "🎯", label: "Keno",          mod: () => KenoGame },
+        { key: "hilo",        icon: "↕️",  label: "Hi-Lo",         mod: () => HiloGame },
+        { key: "tower",       icon: "🗼", label: "Tower",         mod: () => TowerGame },
+      ],
+    },
+    {
+      section: "Table Games",
+      items: [
         { key: "roulette",    icon: "🎡", label: "Roulette",      mod: () => RouletteGame },
         { key: "blackjack",   icon: "🃏", label: "Blackjack",     mod: () => BlackjackGame },
-        { key: "slots",       icon: "🎰", label: "Slots",         mod: () => SlotsGame },
-        { key: "keno",        icon: "🎯", label: "Keno",          mod: () => KenoGame },
-        { key: "wheel",       icon: "🎡", label: "Wheel",         mod: () => WheelGame },
         { key: "baccarat",    icon: "🎴", label: "Baccarat",      mod: () => BaccaratGame },
-        { key: "hilo",        icon: "↕️",  label: "Hi-Lo",         mod: () => HiloGame },
         { key: "videopoker",  icon: "🃏", label: "Video Poker",   mod: () => VideoPokerGame },
-        { key: "tower",       icon: "🗼", label: "Tower",         mod: () => TowerGame },
+      ],
+    },
+    {
+      section: "Slots",
+      items: [
+        { key: "slots",       icon: "🎰", label: "Slots",         mod: () => SlotsGame },
       ],
     },
     {
@@ -50,12 +66,29 @@ const App = (() => {
       ],
     },
     {
-      section: "Account",
+      section: "Events",
       items: [
-        { key: "nfts",        icon: "🖼️", label: "NFT Collection",   mod: () => NFTsGame },
+        { key: "events", icon: "🎪", label: "Events", mod: () => EventsGame },
+      ],
+    },
+    {
+      section: "Community",
+      items: [
+        { key: "scratch",  icon: "🎟️", label: "Scratch Cards", mod: () => ScratchGame },
+      ],
+    },
+    {
+      section: "NFT & Trading",
+      items: [
+        { key: "nfts",        icon: "🖼️", label: "NFTs & Trading",    mod: () => NFTsGame },
         { key: "nftmarket",   icon: "🏪", label: "NFT Marketplace",  mod: () => NFTMarketGame },
         { key: "cases",       icon: "📦", label: "Cases",             mod: () => CasesGame },
-        { key: "chipshop",    icon: "🏦", label: "Chip Shop",         mod: () => ChipShopGame },
+      ],
+    },
+    {
+      section: "Account",
+      items: [
+        { key: "stats",       icon: "📊", label: "My Stats",          mod: () => StatsGame },
         { key: "leaderboard", icon: "🏆", label: "Leaderboard",       mod: () => LeaderboardGame },
         { key: "friends",     icon: "👥", label: "Friends",           mod: () => FriendsGame },
         { key: "settings",    icon: "⚙️", label: "Settings",          mod: () => SettingsGame },
@@ -64,7 +97,23 @@ const App = (() => {
   ];
 
   const ADMIN_ITEM = { key: "admin", icon: "🔧", label: "Admin Panel", mod: () => AdminGame };
+  const VIP_ITEM = { key: "vip", icon: "💎", label: "VIP Lounge", mod: () => VipGame };
   let allItems = NAV.flatMap((s) => s.items);
+
+  // Brand-kit gold/ember SVG icons (sprite embedded in index.html). Keys not
+  // listed here keep their emoji — the kit only replaced the menu/account set.
+  const NAV_ICONS = {
+    store: "ic-chip", coinflip: "ic-coinflip", jackpot: "ic-jackpot", horserace: "ic-horse",
+    battledice: "ic-battle", rps: "ic-rps", raffle: "ic-raffle", bingo: "ic-bingo",
+    multiroulette: "ic-roulette", poker: "ic-poker", arcade: "ic-arcade", boardgames: "ic-board",
+    nfts: "ic-nft-art", nftmarket: "ic-nft-shop", cases: "ic-cases", leaderboard: "ic-leader",
+    friends: "ic-friends", settings: "ic-settings", admin: "ic-admin",
+  };
+  function iconHtml(item) {
+    const sym = NAV_ICONS[item.key];
+    if (sym) return `<svg class="nav-svg-icon" aria-hidden="true"><use href="#${sym}"/></svg>`;
+    return item.icon;
+  }
 
   let activeCleanup = null;
   let activeKey = null;
@@ -76,10 +125,18 @@ const App = (() => {
     nav.innerHTML = "";
 
     const sections = [...NAV];
-    if ((state.username || "").toLowerCase() === "ditol21") {
+    if (state.isAdmin || state.rank === "owner") {
       const acct = sections.find((s) => s.section === "Account");
       if (acct && !acct.items.find((i) => i.key === "admin")) {
         acct.items.unshift(ADMIN_ITEM);
+      }
+    }
+    // VIPs get the cosmetic VIP lounge (the owner has the full
+    // Admin Panel already, so don't double it up for them).
+    if (state.isVip && state.rank !== "owner") {
+      const acct = sections.find((s) => s.section === "Account");
+      if (acct && !acct.items.find((i) => i.key === "vip")) {
+        acct.items.unshift(VIP_ITEM);
       }
     }
 
@@ -98,7 +155,7 @@ const App = (() => {
         const btn = document.createElement("button");
         btn.className = "nav-item" + (item.key === activeKey ? " active" : "");
         btn.dataset.key = item.key;
-        btn.innerHTML = `<span class="nav-item-icon">${item.icon}</span><span class="nav-item-label">${item.label}</span>`;
+        btn.innerHTML = `<span class="nav-item-icon">${iconHtml(item)}</span><span class="nav-item-label">${item.label}</span>`;
         btn.addEventListener("click", () => { mount(item.key); closeSidebar(); });
         sec.appendChild(btn);
       }
@@ -153,9 +210,11 @@ const App = (() => {
 
     // Update topbar breadcrumb
     const item = allItems.find((i) => i.key === key);
-    const label = item ? `${item.icon} ${item.label}` : key;
     const bc = document.getElementById("topbar-breadcrumb");
-    if (bc) bc.textContent = label;
+    if (bc) {
+      if (item) bc.innerHTML = `${iconHtml(item)} <span>${item.label}</span>`;
+      else bc.textContent = key;
+    }
 
     const container = document.getElementById("game-area");
     container.innerHTML = "";
@@ -168,6 +227,8 @@ const App = (() => {
       console.error("Mount error:", err);
       container.innerHTML = `<div class="game-panel"><p style="color:var(--loss)">Failed to load ${label}</p></div>`;
     }
+
+    if (_adsCfg) renderAdSlots(_adsCfg);
   }
 
   // ── Account sync ───────────────────────────────────────────
@@ -177,34 +238,43 @@ const App = (() => {
     state.id = user.id;
     state.username = user.username;
     state.nickname = user.nickname ?? null;
-    state.rank = user.rank ?? "bronze";
+    state.rank = user.rank ?? "newcomer";
     state.balance = user.balance;
     state.bank = user.bank ?? 0;
-    state.level = user.level;
-    state.xp = user.xp;
     state.fairness = user.fairness;
+    state.isAdmin = user.isAdmin ?? false;
+    state.isVip = user.isVip ?? false;
+    state.isApproved = user.isApproved ?? true;
+    state.patreonUsername = user.patreonUsername ?? null;
+    state.patreonTier = user.patreonTier ?? null;
+    state.payoutMethod = user.payoutMethod ?? null;
+    state.payoutPaypalEmail = user.payoutPaypalEmail ?? null;
+    state.payoutNote = user.payoutNote ?? null;
+    state.stripeCardBrand = user.stripeCardBrand ?? null;
+    state.stripeCardLast4 = user.stripeCardLast4 ?? null;
 
     // Sidebar balance
     const balEl = document.getElementById("balance-amount");
-    if (balEl) balEl.textContent = Math.floor(state.balance / 100).toLocaleString() + " 🪙";
+    if (balEl) balEl.innerHTML = `${Math.floor(state.balance / 100).toLocaleString()} <svg class="coin-i" aria-hidden="true"><use href="#ic-chip"/></svg>`;
 
     // Topbar balance
     const tbEl = document.getElementById("topbar-balance");
     if (tbEl) tbEl.textContent = Math.floor(state.balance / 100).toLocaleString();
 
-    // Level / XP
-    const lvlEl = document.getElementById("user-level-label");
-    if (lvlEl) lvlEl.textContent = `Level ${state.level}`;
-    const xpFill = document.getElementById("xp-fill");
-    if (xpFill) {
-      const xpForNext = state.level * 100;
-      const xpPct = Math.min(100, Math.round((state.xp / xpForNext) * 100));
-      xpFill.style.width = xpPct + "%";
-    }
-
-    if (state.balance <= 1000 && !_lowBalanceToastShown) {
-      _lowBalanceToastShown = true;
-      setTimeout(() => UI.toast("⚡ Low balance — visit 🏦 Chip Shop to buy more chips!", "info"), 800);
+    // Subscription tier badge
+    const tierEl = document.getElementById("sb-tier-row");
+    if (tierEl) {
+      const TIER_LABELS = {
+        bronze_patron: "🥉 Bronze",
+        silver_patron: "🥈 Silver",
+        gold_patron: "🥇 Gold",
+        platinum_patron: "💠 Platinum",
+        diamond_patron: "💎 Diamond",
+        netherite_patron: "👑 VIP",
+      };
+      tierEl.textContent = state.patreonTier
+        ? (TIER_LABELS[state.patreonTier] || state.patreonTier)
+        : (state.isApproved ? "✅ Active" : "🔒 No Subscription");
     }
 
     return user;
@@ -214,46 +284,83 @@ const App = (() => {
 
   function showScreen(name) {
     document.getElementById("auth-screen").classList.toggle("hidden", name !== "auth");
+    document.getElementById("pending-screen").classList.toggle("hidden", name !== "pending");
     document.getElementById("app-screen").classList.toggle("hidden", name !== "app");
   }
 
-  function showVerifyEmailUI(email, verificationLink) {
+  function showPendingApproval(user) {
+    const el = document.getElementById("pending-patreon-name");
+    if (el) el.textContent = user.patreonUsername || "Not provided";
+    showScreen("pending");
+  }
+
+  function showVerifyCodeUI(email, devCode) {
     const errorEl = document.getElementById("auth-error");
     errorEl.innerHTML = `
       <div style="text-align:left;line-height:1.7;">
-        <strong>📧 One more step — verify your email</strong><br/>
-        ${verificationLink
-          ? `<a href="${verificationLink}" style="display:inline-block;margin:10px 0;background:var(--accent);color:#071c10;padding:9px 20px;border-radius:8px;text-decoration:none;font-weight:700;">✅ Click here to verify</a><br/>`
-          : `A link was sent to <strong>${email}</strong>.<br/>`}
-        After verifying, come back and log in.
-        <br/><br/>
-        <button id="resend-btn" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:0.85rem;">Get a new link</button>
+        <strong>📧 Verify your email</strong><br/>
+        Enter the 6-digit code we sent to ${email ? `<strong>${email}</strong>` : "your email"}.
+        ${devCode ? `<div style="margin:8px 0;padding:8px 10px;background:var(--bg-elev);border:1px dashed var(--accent-2);border-radius:8px;font-size:0.82rem;">
+          📩 Didn't get the email? Here's your code: <strong style="letter-spacing:2px;">${devCode}</strong>
+        </div>` : ""}
+        <div style="display:flex;gap:8px;margin:10px 0;">
+          <input id="verify-code-input" type="text" inputmode="numeric" maxlength="6" placeholder="123456"
+            style="flex:1;min-width:0;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;letter-spacing:3px;text-align:center;" />
+          <button id="verify-code-submit" style="background:var(--accent);color:#071c10;border:none;padding:9px 18px;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap;">Verify</button>
+        </div>
+        <button id="resend-btn" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:0.85rem;">Resend code</button>
         <div id="resend-result" style="margin-top:8px;font-size:0.82rem;"></div>
       </div>`;
     errorEl.classList.remove("hidden");
     errorEl.style.color = "var(--text)";
+
+    const codeInput = document.getElementById("verify-code-input");
+    const submitBtn = document.getElementById("verify-code-submit");
+
+    async function submitCode() {
+      const code = codeInput.value.trim();
+      if (!code) return;
+      submitBtn.disabled = true; submitBtn.textContent = "Verifying…";
+      try {
+        const data = await Api.post("/auth/verify-email-code", { code });
+        UI.toast("✅ Email verified!", "win");
+        if (data.user && data.user.isApproved === false) {
+          showPendingApproval(data.user);
+        } else {
+          await enterApp();
+        }
+      } catch (err) {
+        submitBtn.disabled = false; submitBtn.textContent = "Verify";
+        UI.toast(err.message || "Invalid code.", "loss");
+      }
+    }
+
+    submitBtn.addEventListener("click", submitCode);
+    codeInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); submitCode(); }
+    });
 
     document.getElementById("resend-btn").addEventListener("click", async () => {
       const btn = document.getElementById("resend-btn");
       const resultEl = document.getElementById("resend-result");
       btn.disabled = true; btn.textContent = "Sending…";
       try {
-        const data = await Api.post("/auth/resend-verification", { email });
-        btn.textContent = "Sent!";
-        if (data.verificationLink) {
-          resultEl.innerHTML = `<a href="${data.verificationLink}" style="color:var(--accent);font-weight:700;">Click here to verify →</a>`;
-        } else {
-          resultEl.textContent = "Link sent! Check your email.";
-        }
+        const data = await Api.post("/auth/resend-verification", {});
+        resultEl.innerHTML = data.devCode
+          ? `New code sent! In case the email doesn't arrive, here it is: <strong style="letter-spacing:2px;">${data.devCode}</strong>`
+          : "New code sent! Check your email.";
       } catch (err) {
-        btn.textContent = "Get a new link";
-        btn.disabled = false;
-        UI.toast(err.message || "Failed to resend.", "loss");
+        resultEl.textContent = err.message || "Failed to resend.";
+      } finally {
+        setTimeout(() => { btn.disabled = false; btn.textContent = "Resend code"; }, 1500);
       }
     });
   }
 
   function wireAuthForms() {
+    UI.wireAllPasswordToggles(document.getElementById("login-form"));
+    UI.wireAllPasswordToggles(document.getElementById("register-form"));
+
     // Tab switching
     document.querySelectorAll(".auth-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
@@ -283,10 +390,15 @@ const App = (() => {
       try {
         const data = await Api.login({ identifier: fd.get("identifier"), password: fd.get("password") });
         Api.setToken(data.token);
-        await enterApp();
+        if (data.needsEmailVerification || (data.user && data.user.emailVerified === false)) {
+          showVerifyCodeUI(data.user && data.user.email, data.devCode);
+        } else if (data.pendingApproval || (data.user && data.user.isApproved === false)) {
+          showPendingApproval(data.user || {});
+        } else {
+          await enterApp();
+        }
       } catch (err) {
-        if (err.emailNotVerified) showVerifyEmailUI(err.email, null);
-        else showError(err.message);
+        showError(err.message);
       }
     });
 
@@ -296,11 +408,34 @@ const App = (() => {
       const fd = new FormData(e.target);
       const emailVal = fd.get("email");
       try {
-        const data = await Api.register({ username: fd.get("username"), email: emailVal, password: fd.get("password") });
+        const data = await Api.register({
+          username: (fd.get("username") || "").trim(),
+          email: (emailVal || "").trim(),
+          password: fd.get("password") || "",
+        });
         if (data.token) {
           Api.setToken(data.token);
-          UI.toast("Welcome to Casino Aurelius! 1,000 chips added. 🎉", "win");
-          await enterApp();
+
+          // Everyone adds a card via Stripe's secure hosted page right after
+          // signing up. If Stripe isn't configured we skip straight into the app.
+          try {
+            const session = await Api.post("/payout/card-session", {});
+            if (session && session.url) {
+              window.location.href = session.url;
+              return; // page is navigating away to Stripe's hosted card form
+            }
+          } catch (err) {
+            UI.toast(err.message || "Card setup unavailable right now — you can add it later in Settings.", "info");
+          }
+
+          if (data.user && data.user.emailVerified === false) {
+            showVerifyCodeUI(data.user.email, data.devCode);
+          } else if (data.user && data.user.isApproved === false) {
+            showPendingApproval(data.user);
+          } else {
+            UI.toast("Welcome to GrilledCoin! Here's 1,000 free chips to get started.", "win");
+            await enterApp();
+          }
         }
       } catch (err) {
         showError(err.message);
@@ -315,29 +450,71 @@ const App = (() => {
     wireSearch();
 
     const params = new URLSearchParams(window.location.search);
-    if (params.get("emailVerified") === "ok") {
-      history.replaceState({}, "", "/");
-      UI.toast("✅ Email verified! Welcome.", "win");
-    } else if (params.get("emailVerified") === "expired") {
-      history.replaceState({}, "", "/");
-      UI.toast("⚠️ Verification link expired. Request a new one.", "info");
-    } else if (params.get("emailVerified") === "error") {
-      history.replaceState({}, "", "/");
-      UI.toast("❌ Invalid verification link.", "loss");
-    }
-
     if (params.get("checkout") === "success") {
       history.replaceState({}, "", "/");
       await refreshAccount();
       UI.toast("💳 Payment received! Chips added.", "win");
-      mount("chipshop");
+      mount("lobby");
     } else if (params.get("checkout") === "cancel") {
       history.replaceState({}, "", "/");
       UI.toast("Payment cancelled.", "info");
-      mount("chipshop");
+      mount("lobby");
     } else {
-      mount("crash");
+      mount("lobby");
     }
+
+    // Engagement system
+    if (typeof Engagement !== "undefined") {
+      setTimeout(() => Engagement.checkDailyBonus(state), 1500);
+      Engagement.jackpotTicker.start(50000);
+    }
+
+    loadBroadcasts();
+  }
+
+  // Show admin broadcasts as dismissible banners above the game area.
+  async function loadBroadcasts() {
+    let broadcasts = [];
+    try {
+      const data = await fetch("/broadcasts").then((r) => r.json());
+      broadcasts = (data && data.broadcasts) ? data.broadcasts : [];
+    } catch { return; }
+    if (!broadcasts.length) return;
+
+    let host = document.getElementById("broadcast-banners");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "broadcast-banners";
+      host.style.cssText = "padding:0 14px;margin-top:8px;";
+      const main = document.getElementById("game-area");
+      if (main && main.parentNode) main.parentNode.insertBefore(host, main);
+      else document.getElementById("app-screen").appendChild(host);
+    }
+    host.innerHTML = "";
+
+    let dismissed = [];
+    try { dismissed = JSON.parse(localStorage.getItem("dismissedBroadcasts") || "[]"); } catch { dismissed = []; }
+
+    const colors = { info: "#3b82f6", win: "#22c55e", warning: "#f59e0b", loss: "#ef4444", error: "#ef4444" };
+    broadcasts.filter((b) => b.active !== false && !dismissed.includes(b.id)).forEach((b) => {
+      const c = colors[b.type] || colors.info;
+      const el = document.createElement("div");
+      el.style.cssText = `display:flex;align-items:center;gap:10px;background:${c}1a;border:1px solid ${c};border-radius:10px;padding:10px 14px;margin-bottom:8px;color:var(--text);font-size:0.9rem;`;
+      const msg = document.createElement("span");
+      msg.style.flex = "1";
+      msg.textContent = `📢 ${b.message}`;
+      const x = document.createElement("button");
+      x.textContent = "✕";
+      x.style.cssText = "background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:1rem;";
+      x.addEventListener("click", () => {
+        dismissed.push(b.id);
+        try { localStorage.setItem("dismissedBroadcasts", JSON.stringify(dismissed)); } catch { /* ignore */ }
+        el.remove();
+      });
+      el.appendChild(msg);
+      el.appendChild(x);
+      host.appendChild(el);
+    });
   }
 
   function wireTopbar() {
@@ -349,17 +526,163 @@ const App = (() => {
       showScreen("auth");
     });
 
+    const pendingLogout = document.getElementById("pending-logout-btn");
+    if (pendingLogout) {
+      pendingLogout.addEventListener("click", () => {
+        Api.setToken(null);
+        showScreen("auth");
+      });
+    }
+
     document.getElementById("menu-toggle").addEventListener("click", openSidebar);
     document.getElementById("sidebar-close").addEventListener("click", closeSidebar);
     document.getElementById("sidebar-overlay").addEventListener("click", closeSidebar);
   }
 
+  // ── Google integrations (Analytics, AdSense, Sign-In) ──────
+  // IDs are admin-configurable (Admin Panel → Controls → Google Integrations)
+  // and served back publicly via GET /config — none of them are secrets.
+  let _adsCfg = null;
+
+  async function loadGoogleIntegrations() {
+    let cfg = {};
+    try { cfg = await fetch("/config").then((r) => r.json()); } catch { return; }
+    _adsCfg = cfg;
+
+    if (cfg.ga_measurement_id) {
+      const s = document.createElement("script");
+      s.async = true;
+      s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(cfg.ga_measurement_id)}`;
+      document.head.appendChild(s);
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = window.gtag || function gtag() { window.dataLayer.push(arguments); };
+      window.gtag("js", new Date());
+      window.gtag("config", cfg.ga_measurement_id);
+    }
+
+    if (cfg.adsense_publisher_id) {
+      const s = document.createElement("script");
+      s.async = true;
+      s.crossOrigin = "anonymous";
+      s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(cfg.adsense_publisher_id)}`;
+      s.onload = () => {
+        renderAdSlots(cfg);
+        // Auto ads: lets Google place extra ads on its own (anchor banner
+        // pinned to the screen edge, full-screen interstitials between page
+        // navigations) on top of the manual slots above.
+        try {
+          (window.adsbygoogle = window.adsbygoogle || []).push({
+            google_ad_client: cfg.adsense_publisher_id,
+            enable_page_level_ads: true,
+          });
+        } catch { /* blocked by adblock, etc. */ }
+      };
+      document.head.appendChild(s);
+    }
+
+    if (cfg.google_client_id) {
+      const s = document.createElement("script");
+      s.src = "https://accounts.google.com/gsi/client";
+      s.async = true;
+      s.defer = true;
+      s.onload = () => {
+        if (!window.google || !window.google.accounts) return;
+        window.google.accounts.id.initialize({
+          client_id: cfg.google_client_id,
+          callback: handleGoogleSignIn,
+        });
+        const wrap = document.getElementById("google-signin-wrap");
+        if (wrap) window.google.accounts.id.renderButton(wrap, { theme: "outline", size: "large", width: 280 });
+      };
+      document.head.appendChild(s);
+    }
+  }
+
+  // Fills any configured ad slot containers with a real <ins class="adsbygoogle">
+  // unit and requests an ad for it. Slot IDs are admin-configurable (Admin
+  // Panel → Controls → Google Integrations) — a slot with no ID stays empty.
+  function renderAdSlots(cfg) {
+    const slots = {
+      "ad-slot-auth": cfg.adsense_slot_auth,
+      "ad-slot-top": cfg.adsense_slot_top,
+      "ad-slot-sidebar": cfg.adsense_slot_sidebar,
+      "ad-slot-footer": cfg.adsense_slot_footer,
+      "ad-slot-lobby": cfg.adsense_slot_lobby,
+    };
+    Object.entries(slots).forEach(([elId, slotId]) => {
+      if (!slotId) return;
+      const host = document.getElementById(elId);
+      if (!host || host.querySelector("ins.adsbygoogle")) return;
+      const ins = document.createElement("ins");
+      ins.className = "adsbygoogle";
+      ins.style.display = "block";
+      ins.dataset.adClient = cfg.adsense_publisher_id;
+      ins.dataset.adSlot = slotId;
+      ins.dataset.adFormat = "auto";
+      ins.dataset.fullWidthResponsive = "true";
+      host.appendChild(ins);
+      try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch { /* blocked by adblock, etc. */ }
+      // Collapse the slot if no ad fills it, so it doesn't leave a black gap.
+      const collapseIfEmpty = () => {
+        const status = ins.getAttribute("data-ad-status");
+        if (status === "unfilled" || ins.offsetHeight < 2) host.classList.add("ad-empty");
+        else host.classList.remove("ad-empty");
+      };
+      setTimeout(collapseIfEmpty, 2500);
+      setTimeout(collapseIfEmpty, 6000);
+    });
+  }
+
+  async function handleGoogleSignIn(response) {
+    const errorEl = document.getElementById("auth-error");
+    errorEl.classList.add("hidden");
+    try {
+      const data = await Api.post("/auth/google", { idToken: response.credential });
+      Api.setToken(data.token);
+      if (data.pendingApproval || (data.user && data.user.isApproved === false)) {
+        showPendingApproval(data.user || {});
+      } else {
+        await enterApp();
+      }
+    } catch (err) {
+      errorEl.textContent = err.message || "Google sign-in failed.";
+      errorEl.classList.remove("hidden");
+    }
+  }
+
   async function init() {
     wireAuthForms();
     wireTopbar();
+    loadGoogleIntegrations();
+    if (typeof GameThemes !== "undefined") GameThemes.applyGlobal(GameThemes.getGlobal());
+
+    const params = new URLSearchParams(window.location.search);
+    const payoutSetupSessionId = params.get("payout_setup") === "success" ? params.get("session_id") : null;
+    if (params.has("payout_setup")) history.replaceState({}, "", "/");
 
     if (Api.getToken()) {
-      try { await enterApp(); return; } catch { Api.setToken(null); }
+      try {
+        if (payoutSetupSessionId) {
+          try {
+            await Api.post("/payout/card-confirm", { sessionId: payoutSetupSessionId });
+            UI.toast("💳 Card saved for payouts!", "win");
+          } catch (err) {
+            UI.toast(err.message || "Failed to save your card.", "loss");
+          }
+        }
+        const { user } = await Api.me();
+        if (user.emailVerified === false) {
+          showScreen("auth");
+          showVerifyCodeUI(user.email);
+          return;
+        }
+        if (user.isApproved === false) {
+          showPendingApproval(user);
+          return;
+        }
+        await enterApp();
+        return;
+      } catch { Api.setToken(null); }
     }
     showScreen("auth");
   }

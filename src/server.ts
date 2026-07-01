@@ -8,6 +8,7 @@ import { JackpotEngine } from "./sockets/jackpotEngine";
 import { HorseRaceEngine } from "./sockets/horseRaceEngine";
 import { attachBattleDice, attachRPS, attachRaffle, attachBingo, attachTower, attachMultiRoulette, attachPoker } from "./sockets/multiplayerGamesEngine";
 import { attachBoardGames } from "./sockets/boardGamesEngine";
+import { ChatEngine } from "./sockets/chatEngine";
 
 process.on("uncaughtException", (err) => {
   console.error("FATAL uncaughtException (continuing):", err);
@@ -17,6 +18,7 @@ process.on("unhandledRejection", (reason) => {
 });
 
 import { prisma } from "./lib/prisma";
+import { loadHouseEdge } from "./lib/gameOdds";
 
 async function waitForDb(retries = 10): Promise<void> {
   for (let i = 0; i < retries; i++) {
@@ -34,6 +36,9 @@ async function waitForDb(retries = 10): Promise<void> {
 
 (async () => {
   await waitForDb();
+
+  // Apply the admin-configured global house edge (if one was saved).
+  await loadHouseEdge().catch(() => {});
 
   const app = createApp();
   const httpServer = http.createServer(app);
@@ -54,9 +59,10 @@ async function waitForDb(retries = 10): Promise<void> {
   attachMultiRoulette(io);
   attachPoker(io);
   attachBoardGames(io);
+  new ChatEngine(io);
 
   httpServer.listen(config.port, () => {
-    console.log(`🎰 Casino Aurelius listening on :${config.port}`);
+    console.log(`🎰 GrilledCoin listening on :${config.port}`);
     console.log(`   REST API:   http://localhost:${config.port}`);
     console.log(`   Crash feed: ws://localhost:${config.port}/crash`);
   });

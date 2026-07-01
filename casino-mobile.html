@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>Casino Aurelius</title>
+<title>GrilledCoin</title>
 <style>
 :root{--bg:#0f1923;--card:#182028;--elev:#1e2d3a;--border:#253545;--acc:#34d399;--acc2:#10b981;--text:#e2e8f0;--dim:#637d8f;--win:#34d399;--loss:#f87171;--gold:#fbbf24;--r:14px}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
@@ -187,7 +187,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;heigh
 <div id="shell">
   <header class="hdr">
     <button id="back-btn" style="display:none" onclick="goHome()">‹ Back</button>
-    <span class="hdr-logo" id="hdr-title">🎰 Casino Aurelius</span>
+    <span class="hdr-logo" id="hdr-title">🎰 GrilledCoin</span>
     <div class="hdr-bal" id="bal">—</div>
   </header>
   <div id="ga"></div>
@@ -237,7 +237,7 @@ function goHome() {
   crashRunning = false; clearInterval(crashIv);
   clearInterval(cryptoTimer); cryptoTimer = null;
   document.getElementById('back-btn').style.display = 'none';
-  document.getElementById('hdr-title').textContent = '🎰 Casino Aurelius';
+  document.getElementById('hdr-title').textContent = '🎰 GrilledCoin';
   renderLobby();
 }
 
@@ -261,7 +261,6 @@ const CARDS = [
   { key:'hilo',   name:'Hi-Lo',     emoji:'↕️', tag:'Higher or lower?',    bg:'linear-gradient(135deg,#0a2a3a,#0e7490)' },
   { key:'limbo',  name:'Limbo',     emoji:'📈', tag:'Pick your multiplier', bg:'linear-gradient(135deg,#1a3a10,#16a34a)' },
   { key:'keno',   name:'Keno',      emoji:'🎯', tag:'Pick your lucky nums', bg:'linear-gradient(135deg,#3a1a00,#ea580c)' },
-  { key:'shop',   name:'Chip Shop', emoji:'🏦', tag:'Top up your balance',  bg:'linear-gradient(135deg,#2a2a00,#ca8a04)' },
   { key:'crypto', name:'Crypto',    emoji:'₿',  tag:'Live prices · top 100', bg:'linear-gradient(135deg,#0a1f3a,#0369a1)' },
 ];
 

@@ -1,4 +1,4 @@
-const CACHE = "casino-aurelius-v1";
+const CACHE = "grilledcoin-v2";
 const STATIC = [
   "/",
   "/css/style.css",
@@ -36,14 +36,14 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Static assets: cache-first
+  // Static assets: network-first so fixes deploy immediately, fall back to cache offline
   if (url.pathname.startsWith("/css/") || url.pathname.startsWith("/js/")) {
     e.respondWith(
-      caches.match(e.request).then((cached) => cached || fetch(e.request).then((resp) => {
+      fetch(e.request).then((resp) => {
         const clone = resp.clone();
         caches.open(CACHE).then((c) => c.put(e.request, clone));
         return resp;
-      }))
+      }).catch(() => caches.match(e.request))
     );
     return;
   }

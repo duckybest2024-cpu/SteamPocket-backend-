@@ -5,41 +5,43 @@ const BingoGame = (() => {
     let drawn = [];
 
     container.innerHTML = `
-      <div class="game-panel" style="max-width:640px">
-        <h2 style="margin:0 0 4px">🎱 Bingo</h2>
-        <p style="margin:0 0 14px;color:var(--text-dim);font-size:0.88rem">Buy in for 50 🪙 · Get a 5×5 card · First to complete a row/col/diagonal wins!</p>
+      <div class="game-layout">
+        <aside class="bet-panel">
+          ${GameThemes.renderPicker("bingo", GameThemes.getSaved("bingo"))}
 
-        <div id="bingo-status" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px;text-align:center">
-          <div id="bingo-phase" style="font-size:1rem;font-weight:700;color:var(--accent)">Waiting for players…</div>
-          <div id="bingo-player-count" style="font-size:0.85rem;color:var(--text-dim);margin-top:4px">Be the first to join! Need 2+ players.</div>
-        </div>
-
-        <div style="display:flex;gap:12px;margin-bottom:14px">
-          <button id="bingo-join" class="primary-btn" style="flex:1">Join Round (50 🪙 buy-in)</button>
-        </div>
-
-        <div id="bingo-card-wrap" style="display:none;margin-bottom:14px">
-          <div style="display:flex;gap:6px;margin-bottom:8px">
-            ${["B","I","N","G","O"].map((l) => `<div style="flex:1;text-align:center;font-weight:800;font-size:1.1rem;color:var(--accent)">${l}</div>`).join("")}
+          <div style="font-size:0.82rem;color:var(--text-dim);line-height:1.6">
+            Buy in for <strong style="color:var(--win)">50 🪙</strong> · Get a 5×5 card · First to complete a row, column, or diagonal wins the pot!
           </div>
-          <div id="bingo-card" style="display:flex;flex-direction:column;gap:4px"></div>
+          <hr class="bp-divider" />
+          <div id="bingo-phase-panel" style="background:var(--bg);border-radius:8px;padding:10px;font-size:0.85rem">
+            <div id="bingo-phase" style="font-weight:700;color:var(--accent)">Waiting for players…</div>
+            <div id="bingo-player-count" style="color:var(--text-dim);margin-top:4px;font-size:0.8rem">Need 2+ players.</div>
+          </div>
+          <button id="bingo-join" class="play-btn">Join Round (50 🪙)</button>
+        </aside>
+        <div class="game-canvas">
+          <div id="bingo-card-wrap" style="display:none">
+            <div style="display:flex;gap:6px;margin-bottom:8px">
+              ${["B","I","N","G","O"].map((l) => `<div style="flex:1;text-align:center;font-weight:800;font-size:1.1rem;color:var(--accent)">${l}</div>`).join("")}
+            </div>
+            <div id="bingo-card" style="display:flex;flex-direction:column;gap:4px"></div>
+          </div>
+          <div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Numbers Drawn</div>
+            <div id="bingo-drawn" style="display:flex;gap:4px;flex-wrap:wrap;min-height:30px"></div>
+          </div>
+          <div id="bingo-result" class="result-banner" style="margin-top:auto"></div>
         </div>
-
-        <div style="margin-bottom:12px">
-          <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Numbers Drawn</div>
-          <div id="bingo-drawn" style="display:flex;gap:4px;flex-wrap:wrap;min-height:30px"></div>
-        </div>
-
-        <div id="bingo-result" class="result-banner"></div>
       </div>`;
+    HowToPlay.addButton(container, "bingo");
 
-    const phaseEl = document.getElementById("bingo-phase");
-    const playerCountEl = document.getElementById("bingo-player-count");
-    const joinBtn = document.getElementById("bingo-join");
-    const cardWrap = document.getElementById("bingo-card-wrap");
-    const cardEl = document.getElementById("bingo-card");
-    const drawnEl = document.getElementById("bingo-drawn");
-    const resultEl = document.getElementById("bingo-result");
+    const phaseEl = container.querySelector("#bingo-phase");
+    const playerCountEl = container.querySelector("#bingo-player-count");
+    const joinBtn = container.querySelector("#bingo-join");
+    const cardWrap = container.querySelector("#bingo-card-wrap");
+    const cardEl = container.querySelector("#bingo-card");
+    const drawnEl = container.querySelector("#bingo-drawn");
+    const resultEl = container.querySelector("#bingo-result");
 
     function renderCard() {
       if (!myCard) return;
@@ -120,7 +122,7 @@ const BingoGame = (() => {
       drawn = [];
       cardWrap.style.display = "none";
       joinBtn.disabled = false;
-      joinBtn.textContent = "Join Round (50 🪙 buy-in)";
+      joinBtn.textContent = "Join Round (50 🪙)";
       renderDrawn();
     });
 
@@ -130,6 +132,8 @@ const BingoGame = (() => {
       joinBtn.disabled = true;
       socket.emit("join");
     });
+
+    GameThemes.init(container, "bingo");
 
     return () => { if (socket) socket.disconnect(); };
   }

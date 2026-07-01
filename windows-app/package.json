@@ -1,0 +1,73 @@
+{
+  "name": "grilledcoin-desktop",
+  "version": "1.0.0",
+  "description": "GrilledCoin — Provably fair desktop casino",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.grilledcoin.app",
+    "productName": "GrilledCoin",
+    "copyright": "GrilledCoin",
+    "directories": {
+      "buildResources": ".",
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "splash.html",
+      "icon.ico",
+      "../dist/**/*",
+      "../public/**/*",
+      "../prisma/**/*",
+      "../node_modules/**/*",
+      "!../node_modules/.cache",
+      "!../node_modules/electron",
+      "!../node_modules/electron-builder"
+    ],
+    "extraResources": [
+      {
+        "from": "../",
+        "to": ".",
+        "filter": [
+          "dist/**",
+          "public/**",
+          "prisma/**",
+          "node_modules/**",
+          "package.json"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "GrilledCoin",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "icon.icns"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}

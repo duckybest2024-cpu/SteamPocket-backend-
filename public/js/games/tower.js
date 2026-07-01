@@ -8,38 +8,59 @@ const TowerGame = (() => {
     let bet = 0;
 
     container.innerHTML = `
-      <div class="game-panel" style="max-width:540px">
-        <h2 style="margin:0 0 4px">🗼 Tower</h2>
-        <p style="margin:0 0 14px;color:var(--text-dim);font-size:0.88rem">Climb the tower floor by floor — each floor has a 20% chance of collapse. Cash out anytime!</p>
+      <div class="game-layout">
+        <aside class="bet-panel">
+          ${GameThemes.renderPicker("tower", GameThemes.getSaved("tower"))}
 
-        <div style="display:flex;gap:8px;margin-bottom:14px">
-          <input id="tw-amount" type="number" value="100" min="1" style="flex:1" placeholder="Bet (chips)" />
-          <button id="tw-start" class="primary-btn">Start Climb</button>
+          <div class="bp-tabs">
+            <button class="bp-tab active">Manual</button>
+            <button class="bp-tab">Auto</button>
+          </div>
+          <div>
+            <div class="bp-label">Bet Amount</div>
+            <div class="bp-input-row">
+              <input id="tw-amount" type="number" value="100" min="1" step="1" />
+              <button id="tw-half" class="quick-btn">&frac12;</button>
+              <button id="tw-dbl" class="quick-btn">2&times;</button>
+            </div>
+          </div>
+          <hr class="bp-divider" />
+          <button id="tw-start" class="play-btn">Start Climb</button>
+          <button id="tw-climb" class="play-btn" style="display:none">Climb Higher</button>
+          <button id="tw-cashout" class="play-btn secondary-play" style="display:none">Cash Out</button>
+        </aside>
+        <div class="game-canvas">
+          <div id="tw-tower" style="display:flex;flex-direction:column-reverse;gap:3px;flex:1;min-height:380px;overflow-y:auto"></div>
+          <div id="tw-result" class="result-banner"></div>
         </div>
-
-        <div id="tw-tower" style="display:flex;flex-direction:column-reverse;gap:3px;margin-bottom:14px;min-height:200px"></div>
-
-        <div style="display:flex;gap:8px;margin-bottom:12px">
-          <button id="tw-climb" class="primary-btn" style="flex:1;display:none">Climb Higher</button>
-          <button id="tw-cashout" class="secondary-btn" style="flex:1;display:none">Cash Out</button>
-        </div>
-
-        <div id="tw-result" class="result-banner"></div>
       </div>`;
+    HowToPlay.addButton(container, "tower");
 
-    const amountEl = document.getElementById("tw-amount");
-    const startBtn = document.getElementById("tw-start");
-    const climbBtn = document.getElementById("tw-climb");
-    const cashoutBtn = document.getElementById("tw-cashout");
-    const towerEl = document.getElementById("tw-tower");
-    const resultEl = document.getElementById("tw-result");
+    const amountEl = container.querySelector("#tw-amount");
+    const startBtn = container.querySelector("#tw-start");
+    const climbBtn = container.querySelector("#tw-climb");
+    const cashoutBtn = container.querySelector("#tw-cashout");
+    const towerEl = container.querySelector("#tw-tower");
+    const resultEl = container.querySelector("#tw-result");
+
+    container.querySelector("#tw-half").addEventListener("click", () => {
+      amountEl.value = Math.max(1, Math.floor(Number(amountEl.value) * 0.5));
+    });
+    container.querySelector("#tw-dbl").addEventListener("click", () => {
+      amountEl.value = Math.floor(Number(amountEl.value) * 2);
+    });
+    container.querySelectorAll(".bp-tab").forEach(t =>
+      t.addEventListener("click", function() {
+        container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
+        this.classList.add("active");
+      })
+    );
 
     function renderTower(level) {
       towerEl.innerHTML = LEVELS.map((mult, i) => {
         const floor = i + 1;
         const isActive = floor === level;
         const isPassed = floor < level;
-        const isPending = floor > level;
         let bg = "var(--bg-elev)";
         let border = "var(--border)";
         let color = "var(--text-dim)";
@@ -109,6 +130,7 @@ const TowerGame = (() => {
     cashoutBtn.addEventListener("click", () => { socket.emit("cashout"); });
 
     renderTower(0);
+    GameThemes.init(container, "tower");
 
     return () => { if (socket) socket.disconnect(); };
   }

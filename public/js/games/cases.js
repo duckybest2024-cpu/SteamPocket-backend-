@@ -1,6 +1,3 @@
-/* global api, showToast, updateBalance */
-"use strict";
-
 const CasesGame = (() => {
   // Rarity config
   const RARITY = {
@@ -88,15 +85,18 @@ const CasesGame = (() => {
 
   async function openCase(caseId, container, cases) {
     const caseData = cases.find(c => c.id === caseId);
-    if (!caseData) return;
+    if (!caseData) {
+      UI.toast("Case not found — please refresh the page", "loss");
+      return;
+    }
 
     const overlay = showOpeningOverlay(container);
 
     try {
-      const result = await api(`/cases/${caseId}/open`, "POST");
+      const result = await Api.post(`/cases/${caseId}/open`);
       overlay.remove();
 
-      if (result.balance !== undefined) updateBalance(result.balance);
+      if (result.balance !== undefined) UI.setBalance(result.balance * 100);
 
       // Show reveal modal
       const modal = document.createElement("div");
@@ -114,17 +114,17 @@ const CasesGame = (() => {
 
       modal.querySelector(".cm-keep").addEventListener("click", () => {
         modal.remove();
-        showToast(`Added ${result.nft.name} to your collection!`, "win");
+        UI.toast(`Added ${result.nft.name} to your collection!`, "win");
       });
 
       modal.querySelector(".cm-sell").addEventListener("click", async () => {
         modal.remove();
         try {
-          const sellResult = await api(`/nftmarket/sell/${result.nft.id}`, "POST");
-          if (sellResult.balance !== undefined) updateBalance(sellResult.balance);
-          showToast(`Sold ${result.nft.name} for ${fmtChips(sellResult.payoutChips)} chips!`, "win");
+          const sellResult = await Api.post(`/nftmarket/sell/${result.nft.id}`);
+          if (sellResult.balance !== undefined) UI.setBalance(sellResult.balance * 100);
+          UI.toast(`Sold ${result.nft.name} for ${fmtChips(sellResult.payoutChips)} chips!`, "win");
         } catch (e) {
-          showToast(e.message || "Failed to sell", "loss");
+          UI.toast(e.message || "Failed to sell", "loss");
         }
       });
 
@@ -134,7 +134,7 @@ const CasesGame = (() => {
 
     } catch (err) {
       overlay.remove();
-      showToast(err.message || "Failed to open case", "loss");
+      UI.toast(err.message || "Failed to open case", "loss");
     }
   }
 
@@ -161,7 +161,7 @@ const CasesGame = (() => {
     if (!histDiv) return;
     histDiv.innerHTML = `<p style="color:var(--text-dim)">Loading…</p>`;
     try {
-      const data = await api("/cases/history");
+      const data = await Api.get("/cases/history");
       if (!data.openings || data.openings.length === 0) {
         histDiv.innerHTML = `<p style="color:var(--text-dim);text-align:center;padding:20px 0">No case openings yet</p>`;
         return;
@@ -264,6 +264,8 @@ const CasesGame = (() => {
           </div>
         </div>`;
 
+      HowToPlay.addButton(container, "cases");
+
       let cases = [];
       let activeFilter = "all";
 
@@ -308,7 +310,7 @@ const CasesGame = (() => {
       }
 
       // Load cases
-      api("/cases").then(data => {
+      Api.get("/cases").then(data => {
         cases = data.cases || [];
         renderCases(container, cases, activeFilter);
         attachOpenListeners();

@@ -2,50 +2,91 @@ import crypto from "crypto";
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { OAuth2Client } from "google-auth-library";
 import { prisma } from "../lib/prisma";
 import { signToken, requireAuth, AuthedRequest } from "../middleware/auth";
 import { createSeedPair } from "../lib/provablyFair";
 import { config } from "../lib/config";
-import { sendVerificationEmail } from "../lib/mailer";
+import { sendVerificationCode } from "../lib/mailer";
+import { isOwner } from "../lib/owner";
+import { getSiteConfig } from "../lib/siteConfig";
 
 export const authRouter = Router();
 
+function generateCode(): string {
+  return String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
 const credentialsSchema = z.object({
-  username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/, "letters, numbers, underscore only"),
-  email: z.string().email(),
-  password: z.string().min(8).max(72),
+  username: z.string().min(3, "Username must be at least 3 characters").max(20).regex(/^[a-zA-Z0-9_]+$/, "Username: letters, numbers, underscore only"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(72),
 });
 
 authRouter.post("/register", async (req, res) => {
+  const registrationEnabled = ((await getSiteConfig("registrationEnabled")) ?? "true") !== "false";
+  if (!registrationEnabled) return res.status(503).json({ error: "New registrations are temporarily closed." });
+
   const parsed = credentialsSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
-  const { username, email, password } = parsed.data;
+  const { username, password } = parsed.data;
+  const email = parsed.data.email.toLowerCase();
 
   try {
-    const existing = await prisma.user.findFirst({ where: { OR: [{ username }, { email }] } });
-    if (existing) return res.status(409).json({ error: "Username or email already taken" });
+    const existing = await prisma.user.findFirst({
+      where: { OR: [{ username: { equals: username, mode: "insensitive" } }, { email }] },
+    });
+    if (existing) {
+      // Be specific about WHICH field collided so the person knows what to change
+      // (and so "email taken" isn't shown when it's actually the username).
+      const emailTaken = existing.email.toLowerCase() === email;
+      return res.status(409).json({
+        error: emailTaken
+          ? "An account with that email already exists — try logging in or resetting your password instead."
+          : "That username is already taken — please pick a different one.",
+      });
+    }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const seedPair = createSeedPair();
+    const emailToken = generateCode();
+    const emailCodeExpiryMinutes = Number((await getSiteConfig("emailCodeExpiryMinutes")) ?? 15);
+    const emailTokenExpiry = new Date(Date.now() + emailCodeExpiryMinutes * 60 * 1000);
 
     const user = await prisma.user.create({
       data: {
         username,
         email,
         passwordHash,
-        balance: 0,
+        balance: config.startingBalance,
         serverSeed: seedPair.serverSeed,
         serverSeedHash: seedPair.serverSeedHash,
         clientSeed: seedPair.clientSeed,
-        emailVerified: true,
+        emailVerified: false,
+        // Card is collected via Stripe's hosted page right after signup.
+        payoutMethod: "card",
+        emailToken,
+        emailTokenExpiry,
+        // No Patreon gate anymore — new members get access on signup.
+        isApproved: true,
       },
     });
 
+    const emailed = await sendVerificationCode(email, username, emailToken).catch(() => false);
+
     res.status(201).json({
       token: signToken(user.id),
-      user: publicUser({ ...user, emailVerified: true }),
-      message: "Account created! Purchase chips to start playing.",
+      user: publicUser(user),
+      message: emailed
+        ? "Account created! Check your email for a 6-digit verification code."
+        : "Account created! Email isn't configured yet, so here's your code directly.",
+      // Always include the code, even when the email API call reported success —
+      // "sent" only means the provider accepted it, not that it was actually
+      // delivered (spam filters, unverified sender domains, etc. can swallow it
+      // silently). The user already authenticated to get here, so there's no
+      // security reason to withhold this fallback.
+      devCode: emailToken,
     });
   } catch (err: any) {
     if (err?.code === "P2002") {
@@ -58,60 +99,61 @@ authRouter.post("/register", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Verify email via token link — opens in browser from email
+// Verify email via a 6-digit code entered in the app
 // ---------------------------------------------------------------------------
-authRouter.get("/verify-email", async (req, res) => {
-  const token = req.query.token as string;
-  if (!token) return res.redirect("/?emailVerified=error");
+authRouter.post("/verify-email-code", requireAuth, async (req: AuthedRequest, res) => {
+  const { code } = req.body as { code?: string };
+  if (!code) return res.status(400).json({ error: "Code required" });
 
   try {
-    const user = await prisma.user.findFirst({
-      where: { emailToken: token, emailTokenExpiry: { gt: new Date() } },
-    });
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    if (user.emailVerified) return res.json({ user: publicUser(user) });
 
-    if (!user) {
-      // Token not found or expired — redirect to login with error flag
-      return res.redirect("/?emailVerified=expired");
+    if (
+      !user.emailToken ||
+      user.emailToken !== code.trim() ||
+      !user.emailTokenExpiry ||
+      user.emailTokenExpiry < new Date()
+    ) {
+      return res.status(400).json({ error: "Invalid or expired code" });
     }
 
-    await prisma.user.update({
+    const updated = await prisma.user.update({
       where: { id: user.id },
       data: { emailVerified: true, emailToken: null, emailTokenExpiry: null },
     });
 
-    // Redirect to the app; the SPA will detect the query param and show a success message
-    res.redirect("/?emailVerified=ok");
+    res.json({ user: publicUser(updated) });
   } catch (err) {
     console.error("Email verification error:", err);
-    res.redirect("/?emailVerified=error");
+    res.status(500).json({ error: "Verification failed — please try again" });
   }
 });
 
 // ---------------------------------------------------------------------------
-// Resend verification email
+// Resend the verification code
 // ---------------------------------------------------------------------------
-authRouter.post("/resend-verification", async (req, res) => {
-  const { email } = req.body as { email?: string };
-  if (!email) return res.status(400).json({ error: "Email required" });
-
+authRouter.post("/resend-verification", requireAuth, async (req: AuthedRequest, res) => {
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    if (user.emailVerified) return res.json({ message: "Email already verified." });
 
-    // Always return success to avoid leaking whether an email exists
-    if (!user || user.emailVerified) {
-      return res.json({ message: "If that email is registered and unverified, a new link has been sent." });
-    }
-
-    const emailToken = crypto.randomBytes(32).toString("hex");
-    const emailTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const emailToken = generateCode();
+    const emailCodeExpiryMinutes = Number((await getSiteConfig("emailCodeExpiryMinutes")) ?? 15);
+    const emailTokenExpiry = new Date(Date.now() + emailCodeExpiryMinutes * 60 * 1000);
 
     await prisma.user.update({ where: { id: user.id }, data: { emailToken, emailTokenExpiry } });
+    const emailed = await sendVerificationCode(user.email, user.username, emailToken).catch(() => false);
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const verificationUrl = `${baseUrl}/auth/verify-email?token=${emailToken}`;
-    await sendVerificationEmail(email, user.username, verificationUrl).catch(console.error);
-
-    res.json({ message: "Verification link generated!", verificationLink: verificationUrl });
+    res.json({
+      message: emailed
+        ? "A new code has been sent to your email."
+        : "Email isn't configured yet, so here's your code directly.",
+      // Always include the code as an in-app fallback — see /register for why.
+      devCode: emailToken,
+    });
   } catch (err) {
     console.error("Resend verification error:", err);
     res.status(500).json({ error: "Failed to resend — please try again" });
@@ -132,17 +174,136 @@ authRouter.post("/login", async (req, res) => {
 
   const { identifier, password } = parsed.data;
   try {
-    const user = await prisma.user.findFirst({ where: { OR: [{ username: identifier }, { email: identifier }] } });
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: { equals: identifier, mode: "insensitive" } },
+          { email: { equals: identifier, mode: "insensitive" } },
+        ],
+      },
+    });
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return res.status(401).json({ error: "Invalid credentials" });
 
+    if (user.isBanned) return res.status(403).json({ error: "Account banned. Contact support." });
+
     const token = signToken(user.id);
-    res.json({ token, user: publicUser(user) });
+    const pub = publicUser(user);
+
+    if (!user.emailVerified) {
+      // Issue a fresh code on login too — the original one may be long expired
+      // by the time the user comes back to verify.
+      const emailToken = generateCode();
+      const emailCodeExpiryMinutes = Number((await getSiteConfig("emailCodeExpiryMinutes")) ?? 15);
+      const emailTokenExpiry = new Date(Date.now() + emailCodeExpiryMinutes * 60 * 1000);
+      await prisma.user.update({ where: { id: user.id }, data: { emailToken, emailTokenExpiry } });
+      await sendVerificationCode(user.email, user.username, emailToken).catch(() => false);
+      return res.json({
+        token,
+        user: pub,
+        needsEmailVerification: true,
+        // Always include the code as an in-app fallback — see /register for why.
+        devCode: emailToken,
+      });
+    }
+
+    // Owner is always approved regardless of DB value
+    const ownerUser = isOwner(user.username);
+
+    // Check subscription expiry (skip for owner/admin)
+    if (!ownerUser && !user.isAdmin && user.isApproved && user.approvedUntil && user.approvedUntil < new Date()) {
+      await prisma.user.update({ where: { id: user.id }, data: { isApproved: false } });
+      return res.json({ token, user: { ...pub, isApproved: false }, pendingApproval: true });
+    }
+
+    // If account is pending approval, return token but flag it (skip for owner/admin)
+    if (!ownerUser && !user.isAdmin && !user.isApproved) {
+      return res.json({ token, user: pub, pendingApproval: true });
+    }
+
+    res.json({ token, user: pub });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Login failed — please try again" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Google Sign-In — verifies a Google ID token, then logs in or registers
+// ---------------------------------------------------------------------------
+async function usernameFromEmail(email: string): Promise<string> {
+  const base = email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "").slice(0, 16) || "player";
+  let candidate = base;
+  let suffix = 0;
+  while (await prisma.user.findUnique({ where: { username: candidate } })) {
+    suffix += 1;
+    candidate = `${base}${suffix}`.slice(0, 20);
+  }
+  return candidate;
+}
+
+authRouter.post("/google", async (req, res) => {
+  const { idToken } = req.body as { idToken?: string };
+  if (!idToken) return res.status(400).json({ error: "Missing Google ID token" });
+
+  try {
+    const googleClientId = (await getSiteConfig("google_client_id")) ?? process.env.GOOGLE_CLIENT_ID ?? null;
+    if (!googleClientId) return res.status(503).json({ error: "Google Sign-In is not configured" });
+
+    const client = new OAuth2Client(googleClientId);
+    const ticket = await client.verifyIdToken({ idToken, audience: googleClientId });
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email || !payload.email_verified) {
+      return res.status(401).json({ error: "Invalid Google account" });
+    }
+
+    const email = payload.email.toLowerCase();
+    let user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      const registrationEnabled = ((await getSiteConfig("registrationEnabled")) ?? "true") !== "false";
+      if (!registrationEnabled) return res.status(503).json({ error: "New registrations are temporarily closed." });
+
+      const username = await usernameFromEmail(email);
+      const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+      const seedPair = createSeedPair();
+      user = await prisma.user.create({
+        data: {
+          username,
+          email,
+          passwordHash,
+          balance: config.startingBalance,
+          serverSeed: seedPair.serverSeed,
+          serverSeedHash: seedPair.serverSeedHash,
+          clientSeed: seedPair.clientSeed,
+          emailVerified: true,
+          payoutMethod: "card",
+          isApproved: true,
+        },
+      });
+    }
+
+    if (user.isBanned) return res.status(403).json({ error: "Account banned. Contact support." });
+
+    const token = signToken(user.id);
+    const pub = publicUser(user);
+    const ownerUser = isOwner(user.username);
+
+    if (!ownerUser && !user.isAdmin && user.isApproved && user.approvedUntil && user.approvedUntil < new Date()) {
+      await prisma.user.update({ where: { id: user.id }, data: { isApproved: false } });
+      return res.json({ token, user: { ...pub, isApproved: false }, pendingApproval: true });
+    }
+
+    if (!ownerUser && !user.isAdmin && !user.isApproved) {
+      return res.json({ token, user: pub, pendingApproval: true });
+    }
+
+    res.json({ token, user: pub });
+  } catch (err) {
+    console.error("Google sign-in error:", err);
+    res.status(401).json({ error: "Google sign-in failed" });
   }
 });
 
@@ -150,6 +311,14 @@ authRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.userId } });
     if (!user) return res.status(404).json({ error: "User not found" });
+    // Auto-revoke expired subscriptions. Netherite (admin tier) also loses
+    // admin powers when its subscription lapses.
+    if (user.isApproved && user.approvedUntil && user.approvedUntil < new Date()) {
+      const stripAdmin = user.patreonTier === "netherite_patron";
+      await prisma.user.update({ where: { id: user.id }, data: { isApproved: false, ...(stripAdmin ? { isAdmin: false } : {}) } });
+      user.isApproved = false;
+      if (stripAdmin) user.isAdmin = false;
+    }
     res.json({ user: publicUser(user) });
   } catch (err) {
     console.error("Me error:", err);
@@ -172,12 +341,22 @@ export function publicUser(user: {
   clientSeed: string;
   nonce: number;
   emailVerified: boolean;
+  isAdmin?: boolean;
+  isApproved?: boolean;
+  approvedUntil?: Date | null;
+  patreonUsername?: string | null;
+  patreonTier?: string | null;
+  payoutMethod?: string | null;
+  payoutPaypalEmail?: string | null;
+  payoutNote?: string | null;
+  stripeCardBrand?: string | null;
+  stripeCardLast4?: string | null;
 }) {
   return {
     id: user.id,
     username: user.username,
     nickname: user.nickname,
-    rank: user.rank,
+    rank: isOwner(user.username) ? "owner" : user.rank,
     email: user.email,
     balance: user.balance,
     bank: user.bank,
@@ -185,6 +364,21 @@ export function publicUser(user: {
     xp: user.xp,
     createdAt: user.createdAt,
     emailVerified: user.emailVerified,
+    // Real admin is owner-only. Netherite Patrons get the limited VIP lounge,
+    // not the admin panel — so isAdmin is never true for a non-owner here,
+    // which closes admin access even for accounts with a stale stored flag.
+    isAdmin: isOwner(user.username),
+    isApproved: isOwner(user.username) ? true : (user.isApproved ?? true),
+    approvedUntil: user.approvedUntil ?? null,
+    patreonUsername: user.patreonUsername ?? null,
+    payoutMethod: user.payoutMethod ?? null,
+    payoutPaypalEmail: user.payoutPaypalEmail ?? null,
+    payoutNote: user.payoutNote ?? null,
+    stripeCardBrand: user.stripeCardBrand ?? null,
+    stripeCardLast4: user.stripeCardLast4 ?? null,
+    patreonTier: user.patreonTier ?? null,
+    // Top-tier subscribers get the cosmetic VIP "Netherite Lounge" (not admin).
+    isVip: user.patreonTier === "netherite_patron" || isOwner(user.username),
     fairness: {
       activeServerSeedHash: user.serverSeedHash,
       clientSeed: user.clientSeed,

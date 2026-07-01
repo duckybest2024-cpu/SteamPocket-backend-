@@ -202,7 +202,7 @@ const BridgeGame = (() => {
     }
 
     // State refs
-    const state = room.state || {};
+    const state = room.gameState || room.state || {};
     const mySeat = state.mySeat || "";
     const phase  = state.phase  || "bidding";
 
@@ -637,46 +637,163 @@ const BridgeGame = (() => {
     });
 
     // ── Socket listeners ──────────────────────────────────────────
-    socket.on("bg:state", (newState) => {
-      Object.assign(room.state, newState);
-      fullRender(room.state);
+    socket.on("bg:room-update", (updatedRoom) => {
+      const newState = updatedRoom.gameState;
+      if (!newState) return;
+      refreshBridgeUI(newState, updatedRoom.players);
     });
 
-    socket.on("bg:move", ({ move, seat }) => {
-      // Optimistic UI update message
-      if (move.type === "bid") {
-        let label = "";
-        if (move.suit === "pass")      label = `${SEAT_LABELS[seat]} passed`;
-        else if (move.suit === "double")   label = `${SEAT_LABELS[seat]} doubled`;
-        else if (move.suit === "redouble") label = `${SEAT_LABELS[seat]} redoubled`;
-        else label = `${SEAT_LABELS[seat]} bid ${move.level}${move.suit}`;
-        msgEl.textContent = label;
-      } else if (move.type === "play") {
-        msgEl.textContent = `${SEAT_LABELS[seat]} played ${move.card.rank}${move.card.suit}`;
+    socket.on("bg:error", ({ message }) => {
+      UI.toast(message || "An error occurred", "loss");
+    });
+
+    // ── Adapt backend state to UI state and re-render ────────────
+    // Backend state shape:
+    //   hands: { [userId]: string[] }   e.g. ["AS","KH","2D"]
+    //   seats: { N: userId, S: userId, E: userId, W: userId }
+    //   phase: "bidding" | "playing"
+    //   bids: { seat, level?, suit? }[]
+    //   contract: { level, suit, declarer, doubled } | null
+    //   currentTurn: userId | seat
+    //   tricks: { cards: { seat, card }[], winner }[]
+    //   currentTrick: { seat, card }[]
+    //   score: { NS: number, EW: number }
+    //   status: "playing" | "finished"
+    //   winner: "NS" | "EW" | null
+    function refreshBridgeUI(backendState, roomPlayers) {
+      // Resolve myUserId → mySeat from backend seats map
+      const seatsMap = backendState.seats || {};
+      let resolvedMySeat = mySeat;
+      for (const [seatKey, uid] of Object.entries(seatsMap)) {
+        if (uid === myUserId) { resolvedMySeat = seatKey; break; }
       }
-    });
 
-    socket.on("bg:error", (msg) => {
-      showToast(msg, "loss");
-    });
+      // Parse a card string like "AS" → { suit: "♠", rank: "A" }
+      const SUIT_MAP = { S: "♠", H: "♥", D: "♦", C: "♣" };
+      function parseCard(str) {
+        if (!str || str.length < 2) return { suit: "?", rank: "?" };
+        const suitChar = str[str.length - 1];
+        const rankStr  = str.slice(0, str.length - 1);
+        return {
+          suit: SUIT_MAP[suitChar] || suitChar,
+          rank: rankStr === "T" ? "10" : rankStr,
+        };
+      }
 
-    socket.on("bg:gameOver", ({ winner, score }) => {
-      const ns = score?.ns ?? 0;
-      const ew = score?.ew ?? 0;
-      const isNS = mySeat === "N" || mySeat === "S";
-      const won = (winner === "NS" && isNS) || (winner === "EW" && !isNS);
-      showToast(
-        `Game over! ${winner} wins. Final score — NS: ${ns}, EW: ${ew}`,
-        won ? "win" : "loss"
-      );
-      msgEl.innerHTML = `<strong style="color:${won ? "var(--win)" : "var(--loss)"}">
-        ${won ? "You won!" : "You lost."} NS: ${ns} — EW: ${ew}
-      </strong>`;
-      if (won && typeof updateBalance === "function") updateBalance(null);
-    });
+      // Build per-seat hand arrays
+      const handsMap = backendState.hands || {};
+      const handsBySeat = {};
+      for (const [seatKey, uid] of Object.entries(seatsMap)) {
+        const raw = handsMap[uid];
+        if (Array.isArray(raw)) {
+          handsBySeat[seatKey] = raw.map(parseCard);
+        } else {
+          handsBySeat[seatKey] = null;
+        }
+      }
+
+      // Resolve currentTurn: backend may send userId or seat letter
+      let turnSeat = backendState.currentTurn || "";
+      if (turnSeat && !["N","S","E","W"].includes(turnSeat)) {
+        // It's a userId — look up its seat
+        for (const [seatKey, uid] of Object.entries(seatsMap)) {
+          if (uid === turnSeat) { turnSeat = seatKey; break; }
+        }
+      }
+
+      // Build contract in UI format
+      const backContract = backendState.contract;
+      let uiContract = null;
+      if (backContract) {
+        const contractSuitSymbols = { S: "♠", H: "♥", D: "♦", C: "♣", NT: "NT" };
+        uiContract = {
+          level:     backContract.level,
+          suit:      contractSuitSymbols[backContract.suit] || backContract.suit,
+          declarer:  backContract.declarer,
+          doubled:   backContract.doubled || 0,
+          redoubled: backContract.doubled === 2,
+        };
+      }
+
+      // Build UI trick counts from tricks array
+      let nsTricks = 0, ewTricks = 0;
+      const tricks = backendState.tricks || [];
+      for (const t of tricks) {
+        const w = t.winner;
+        if (w === "N" || w === "S") nsTricks++;
+        else if (w === "E" || w === "W") ewTricks++;
+      }
+
+      // Parse currentTrick
+      const uiCurrentTrick = (backendState.currentTrick || []).map(entry => ({
+        seat: entry.seat,
+        card: parseCard(entry.card),
+      }));
+
+      // Build bidding history from bids array
+      const uiBidHistory = (backendState.bids || []).map(b => ({
+        seat: b.seat,
+        bid: b,
+      }));
+
+      // Determine dummy seat (partner of declarer)
+      const partners = { N:"S", S:"N", E:"W", W:"E" };
+      const dummySeat = uiContract ? (partners[uiContract.declarer] || null) : null;
+
+      // Scores
+      const scoreNS = backendState.score?.NS ?? 0;
+      const scoreEW = backendState.score?.EW ?? 0;
+
+      // Count cards per seat for face-down display
+      const handCounts = {};
+      for (const seatKey of ["N","E","S","W"]) {
+        const uid = seatsMap[seatKey];
+        const raw = handsMap[uid];
+        handCounts[seatKey] = Array.isArray(raw) ? raw.length : 13;
+      }
+
+      // Build adapted UI state
+      const uiState = {
+        phase:          backendState.phase || "bidding",
+        turn:           turnSeat,
+        mySeat:         resolvedMySeat,
+        hand:           handsBySeat[resolvedMySeat] || [],
+        dummyHand:      (dummySeat && handsBySeat[dummySeat]) || null,
+        currentContract: uiContract,
+        tricksCounts:   { ns: nsTricks, ew: ewTricks },
+        currentTrick:   uiCurrentTrick,
+        biddingHistory: uiBidHistory,
+        score:          { ns: scoreNS, ew: scoreEW },
+        status:         backendState.status,
+        winner:         backendState.winner,
+        // Per-seat card counts for face-down display
+        hand_N: handCounts["N"],
+        hand_E: handCounts["E"],
+        hand_S: handCounts["S"],
+        hand_W: handCounts["W"],
+        players: roomPlayers || [],
+      };
+
+      // Update mySeat in closure if resolved
+      if (resolvedMySeat) {
+        // Patch seat labels for South seat display
+        const southEl = document.getElementById("br-seat-S");
+        if (southEl) {
+          const lbl = southEl.querySelector(".bridge-seat-label");
+          if (lbl && resolvedMySeat === "S") lbl.textContent = "▼ South (You)";
+        }
+      }
+
+      fullRender(uiState);
+    }
 
     // ── Initial render ────────────────────────────────────────────
-    fullRender(state);
+    // If room has initial gameState, adapt and render it
+    if (room.gameState) {
+      refreshBridgeUI(room.gameState, room.players);
+    } else {
+      fullRender(state);
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────

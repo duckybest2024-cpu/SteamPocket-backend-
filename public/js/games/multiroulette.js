@@ -7,44 +7,70 @@ const MultiRouletteGame = (() => {
     let myBets = [];
     let phaseTimer = null;
 
+    const BET_TYPES = [
+      {t:"red",l:"🔴 Red",p:2},{t:"black",l:"⚫ Black",p:2},{t:"green",l:"🟢 0",p:36},
+      {t:"even",l:"Even",p:2},{t:"odd",l:"Odd",p:2},
+      {t:"1-18",l:"Low (1-18)",p:2},{t:"19-36",l:"High (19-36)",p:2},
+      {t:"1-12",l:"1st 12",p:3},{t:"13-24",l:"2nd 12",p:3},{t:"25-36",l:"3rd 12",p:3},
+    ];
+
     container.innerHTML = `
-      <div class="game-panel" style="max-width:720px">
-        <h2 style="margin:0 0 4px">🎡 Multiplayer Roulette</h2>
-        <p style="margin:0 0 12px;color:var(--text-dim);font-size:0.88rem">Everyone bets on the same spin — new round every 30 seconds.</p>
-
-        <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center">
-          <div id="mr-ball" style="width:64px;height:64px;border-radius:50%;background:var(--bg-elev);border:3px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:800;transition:all 0.5s">?</div>
-          <div style="flex:1">
-            <div id="mr-phase" style="font-size:1rem;font-weight:700;margin-bottom:4px">Loading…</div>
-            <div id="mr-history" style="display:flex;gap:4px;flex-wrap:nowrap;overflow-x:auto"></div>
+      <div class="game-layout">
+        <aside class="bet-panel">
+          ${GameThemes.renderPicker("multiroulette", GameThemes.getSaved("multiroulette"))}
+          <div class="bp-tabs">
+            <button class="bp-tab active">Manual</button>
+            <button class="bp-tab">Auto</button>
           </div>
+          <div>
+            <div class="bp-label">Bet Amount</div>
+            <div class="bp-input-row">
+              <input id="mr-amount" type="number" value="100" min="1" />
+              <button id="mr-half" class="quick-btn">&frac12;</button>
+              <button id="mr-dbl" class="quick-btn">2&times;</button>
+            </div>
+          </div>
+          <hr class="bp-divider" />
+          <div>
+            <div class="bp-label">Bet Type — click to place</div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              ${BET_TYPES.map((b) => `<button class="quick-btn mr-bet-btn" data-type="${b.t}" style="display:flex;justify-content:space-between;padding:8px 10px">${b.l}<span style="color:var(--text-dim)">${b.p}×</span></button>`).join("")}
+            </div>
+          </div>
+        </aside>
+        <div class="game-canvas">
+          <div style="display:flex;align-items:center;gap:14px;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div id="mr-ball" style="width:64px;height:64px;flex-shrink:0;border-radius:50%;background:var(--bg);border:3px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:800;transition:all 0.5s">?</div>
+            <div style="flex:1;min-width:0">
+              <div id="mr-phase" style="font-size:1rem;font-weight:700;margin-bottom:6px">Loading…</div>
+              <div id="mr-history" style="display:flex;gap:4px;overflow-x:auto;padding-bottom:2px"></div>
+            </div>
+          </div>
+          <div id="mr-my-bets" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:0.84rem;color:var(--text-dim);min-height:36px">No bets placed yet.</div>
+          <div id="mr-result" class="result-banner" style="margin-top:auto"></div>
         </div>
-
-        <div style="display:flex;gap:8px;margin-bottom:10px">
-          <input id="mr-amount" type="number" value="100" min="1" style="flex:1;max-width:160px" placeholder="Bet (chips)" />
-          <span style="align-self:center;color:var(--text-dim);font-size:0.85rem">× pick a bet type below</span>
-        </div>
-
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-          ${[
-            {t:"red",l:"🔴 Red",p:2},{t:"black",l:"⚫ Black",p:2},{t:"green",l:"🟢 0",p:36},
-            {t:"even",l:"Even",p:2},{t:"odd",l:"Odd",p:2},
-            {t:"1-18",l:"Low (1-18)",p:2},{t:"19-36",l:"High (19-36)",p:2},
-            {t:"1-12",l:"1st 12",p:3},{t:"13-24",l:"2nd 12",p:3},{t:"25-36",l:"3rd 12",p:3}
-          ].map((b) => `<button class="secondary-btn mr-bet-btn" data-type="${b.t}" style="font-size:0.82rem;padding:7px 10px">${b.l} <span style="color:var(--text-dim)">${b.p}x</span></button>`).join("")}
-        </div>
-
-        <div id="mr-my-bets" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px;font-size:0.84rem;color:var(--text-dim);min-height:36px">No bets placed yet.</div>
-
-        <div id="mr-result" class="result-banner"></div>
       </div>`;
+    HowToPlay.addButton(container, "multiroulette");
 
-    const ballEl = document.getElementById("mr-ball");
-    const phaseEl = document.getElementById("mr-phase");
-    const histEl = document.getElementById("mr-history");
-    const amountEl = document.getElementById("mr-amount");
-    const myBetsEl = document.getElementById("mr-my-bets");
-    const resultEl = document.getElementById("mr-result");
+    const ballEl = container.querySelector("#mr-ball");
+    const phaseEl = container.querySelector("#mr-phase");
+    const histEl = container.querySelector("#mr-history");
+    const amountEl = container.querySelector("#mr-amount");
+    const myBetsEl = container.querySelector("#mr-my-bets");
+    const resultEl = container.querySelector("#mr-result");
+
+    container.querySelector("#mr-half").addEventListener("click", () => {
+      amountEl.value = Math.max(1, Math.floor(Number(amountEl.value) * 0.5));
+    });
+    container.querySelector("#mr-dbl").addEventListener("click", () => {
+      amountEl.value = Math.floor(Number(amountEl.value) * 2);
+    });
+    container.querySelectorAll(".bp-tab").forEach(t =>
+      t.addEventListener("click", function() {
+        container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
+        this.classList.add("active");
+      })
+    );
 
     function updateMyBets() {
       if (!myBets.length) { myBetsEl.textContent = "No bets placed yet."; return; }
@@ -68,7 +94,7 @@ const MultiRouletteGame = (() => {
     socket.on("phase", ({ phase, endsAt, number, color, results, history }) => {
       if (history) {
         histEl.innerHTML = (history || []).slice(0,15).map((n) =>
-          `<div style="min-width:28px;height:28px;border-radius:50%;background:${getColor(n)};display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:white">${n}</div>`
+          `<div style="min-width:28px;height:28px;border-radius:50%;background:${getColor(n)};display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:white;flex-shrink:0">${n}</div>`
         ).join("");
       }
 
@@ -76,17 +102,17 @@ const MultiRouletteGame = (() => {
         myBets = [];
         updateMyBets();
         ballEl.textContent = "?";
-        ballEl.style.background = "var(--bg-elev)";
+        ballEl.style.background = "var(--bg)";
         ballEl.style.borderColor = "var(--border)";
         ballEl.style.color = "var(--text)";
         resultEl.className = "result-banner";
-        document.querySelectorAll(".mr-bet-btn").forEach((b) => b.disabled = false);
+        container.querySelectorAll(".mr-bet-btn").forEach((b) => b.disabled = false);
         const ms = Math.max(0, endsAt - Date.now());
         startPhaseTimer(ms);
       } else if (phase === "spinning") {
         phaseEl.textContent = "🎰 Ball is spinning…";
         if (phaseTimer) { clearInterval(phaseTimer); phaseTimer = null; }
-        document.querySelectorAll(".mr-bet-btn").forEach((b) => b.disabled = true);
+        container.querySelectorAll(".mr-bet-btn").forEach((b) => b.disabled = true);
         let spin = 0;
         const spinAnim = setInterval(() => {
           spin = Math.floor(Math.random() * 37);
@@ -127,7 +153,7 @@ const MultiRouletteGame = (() => {
     });
     socket.on("error", (msg) => UI.toast(msg, "loss"));
 
-    document.querySelectorAll(".mr-bet-btn").forEach((btn) => {
+    container.querySelectorAll(".mr-bet-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const amount = Math.round(Number(amountEl.value) * 100);
         if (amount < 100) return UI.toast("Min bet: 1 chip", "loss");
@@ -139,6 +165,7 @@ const MultiRouletteGame = (() => {
       });
     });
 
+    GameThemes.init(container, "multiroulette");
     return () => { if (socket) socket.disconnect(); if (phaseTimer) clearInterval(phaseTimer); };
   }
 

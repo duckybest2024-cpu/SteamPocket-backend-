@@ -13,13 +13,16 @@ const settingsSchema = z.object({
   newUsername: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/, "letters, numbers, underscore only").optional(),
   currentPassword: z.string().min(1).optional(),
   newPassword: z.string().min(8).max(72).optional(),
+  payoutMethod: z.enum(["paypal", "note"]).optional(),
+  payoutPaypalEmail: z.string().email("Invalid PayPal email").optional(),
+  payoutNote: z.string().min(3, "Please describe how you'd like to be paid").max(300).optional(),
 });
 
 settingsRouter.patch("/", async (req: AuthedRequest, res) => {
   const parsed = settingsSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
-  const { nickname, newUsername, currentPassword, newPassword } = parsed.data;
+  const { nickname, newUsername, currentPassword, newPassword, payoutMethod, payoutPaypalEmail, payoutNote } = parsed.data;
 
   try {
     const user = await prisma.user.findUnique({ where: { id: req.userId } });
@@ -29,6 +32,18 @@ settingsRouter.patch("/", async (req: AuthedRequest, res) => {
 
     if (nickname !== undefined) {
       updates.nickname = nickname?.trim() || null;
+    }
+
+    if (payoutMethod === "paypal") {
+      if (!payoutPaypalEmail) return res.status(400).json({ error: "PayPal email is required" });
+      updates.payoutMethod = "paypal";
+      updates.payoutPaypalEmail = payoutPaypalEmail.toLowerCase();
+      updates.payoutNote = null;
+    } else if (payoutMethod === "note") {
+      if (!payoutNote?.trim()) return res.status(400).json({ error: "Please describe how you'd like to be paid" });
+      updates.payoutMethod = "note";
+      updates.payoutNote = payoutNote.trim();
+      updates.payoutPaypalEmail = null;
     }
 
     if (newUsername && newUsername !== user.username) {

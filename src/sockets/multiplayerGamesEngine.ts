@@ -1,3 +1,4 @@
+import { isOwner } from "../lib/owner";
 /**
  * Battle Dice, Rock Paper Scissors, Raffle, Bingo — all in one file for simplicity.
  * Each game gets its own Socket.IO namespace.
@@ -8,8 +9,9 @@ import crypto from "crypto";
 import { prisma } from "../lib/prisma";
 import { config } from "../lib/config";
 import { applyLedgerEntry } from "../lib/wallet";
+import { makeBot, botStakeCents, randInt, isBotId, pick } from "./botFiller";
 
-interface AuthedSocket extends Socket { data: { userId?: string; username?: string } }
+interface AuthedSocket extends Socket { data: { userId?: string; username?: string; isApproved?: boolean } }
 
 function authMiddleware(io: Server, ns: string) {
   return io.of(ns).use(async (socket: AuthedSocket, next) => {
@@ -17,8 +19,8 @@ function authMiddleware(io: Server, ns: string) {
     if (token) {
       try {
         const payload = jwt.verify(token, config.jwtSecret) as { sub: string };
-        const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, username: true } });
-        if (user) { socket.data.userId = user.id; socket.data.username = user.username; }
+        const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, username: true, isApproved: true, approvedUntil: true, isAdmin: true } });
+        if (user) { socket.data.userId = user.id; socket.data.username = user.username; socket.data.isApproved = isOwner(user.username) || !!user.isAdmin || (user.isApproved && (!user.approvedUntil || user.approvedUntil > new Date())); }
       } catch {}
     }
     next();
@@ -70,6 +72,7 @@ export function attachBattleDice(io: Server) {
     const prize = Math.floor((totalPot - houseCut) / winners.length);
 
     for (const w of winners) {
+      if (isBotId(w.userId)) continue; // bot winners are kept by the house
       try { await applyLedgerEntry(prisma, w.userId, "payout", prize, "battledice_win"); } catch {}
     }
 
@@ -87,6 +90,7 @@ export function attachBattleDice(io: Server) {
 
     socket.on("join_room", ({ roomId, amount }: { roomId: string; amount: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min bet: 1 chip");
 
       const room = getOrCreateRoom(roomId);
@@ -104,6 +108,24 @@ export function attachBattleDice(io: Server) {
         room.endsAt = Date.now() + 30_000;
         room.timer = setTimeout(() => rollRoom(roomId), 30_000);
         ns.to(roomId).emit("timer_reset", room.endsAt);
+
+        // Fill the room with a couple of synthetic challengers (once) so a lone
+        // player always has someone to roll against. Bots stake virtual chips
+        // (never deducted) at roughly the human's bet size.
+        const hasBots = [...room.bets.keys()].some(isBotId);
+        if (!hasBots && room.bets.size < 8) {
+          const botCount = Math.min(randInt(1, 3), 8 - room.bets.size);
+          const names = new Set([...room.bets.values()].map((b) => b.username));
+          for (let i = 0; i < botCount; i++) {
+            setTimeout(() => {
+              if (room.phase !== "betting" || room.bets.size >= 8) return;
+              const bot = makeBot(names);
+              const botAmount = Math.max(100, amount + (randInt(-2, 2) * 100));
+              room.bets.set(bot.id, { username: bot.username, amount: botAmount });
+              ns.to(roomId).emit("room_state", { bets: Object.fromEntries(room.bets), endsAt: room.endsAt, phase: room.phase });
+            }, randInt(1500, 6000));
+          }
+        }
       }).catch((err: any) => socket.emit("error", err.message || "Bet failed"));
     });
 
@@ -140,6 +162,7 @@ export function attachRPS(io: Server) {
   ns.on("connection", (socket: AuthedSocket) => {
     socket.on("queue", async ({ amount }: { amount: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min bet: 1 chip");
       if (playerMatch.has(socket.data.userId!)) return socket.emit("error", "Already in a match");
 
@@ -167,6 +190,27 @@ export function attachRPS(io: Server) {
       } else {
         queue.push({ socketId: socket.id, userId: socket.data.userId!, username: socket.data.username!, amount });
         socket.emit("queued", { amount });
+
+        // If no real opponent joins within a few seconds, drop in a bot so the
+        // player isn't stuck in the queue. The bot pre-commits a random choice;
+        // the human's pick resolves the match. Bot stakes/winnings never hit
+        // the ledger (guarded in the resolution above).
+        const waitingUserId = socket.data.userId!;
+        setTimeout(() => {
+          const idx = queue.findIndex((w) => w.userId === waitingUserId && w.amount === amount);
+          if (idx === -1) return; // already matched with a real player
+          const human = queue.splice(idx, 1)[0];
+          const bot = makeBot();
+          const matchId = crypto.randomUUID();
+          const choices: Choice[] = ["rock", "paper", "scissors"];
+          const match: Match = {
+            p1: { socketId: human.socketId, userId: human.userId, username: human.username, amount },
+            p2: { socketId: "", userId: bot.id, username: bot.username, amount, choice: pick(choices) },
+          };
+          matches.set(matchId, match);
+          playerMatch.set(human.userId, matchId);
+          ns.to(human.socketId).emit("match_found", { matchId, opponent: bot.username, amount });
+        }, randInt(4000, 9000));
       }
     });
 
@@ -191,12 +235,12 @@ export function attachRPS(io: Server) {
         if (result === 1) { winnerId = match.p1.userId; winnerName = match.p1.username; }
         else if (result === 2) { winnerId = match.p2.userId; winnerName = match.p2.username; }
         else {
-          // Tie — refund both
-          try { await applyLedgerEntry(prisma, match.p1.userId, "payout", match.p1.amount, "rps_tie"); } catch {}
-          try { await applyLedgerEntry(prisma, match.p2.userId, "payout", match.p2.amount, "rps_tie"); } catch {}
+          // Tie — refund both (bots have nothing to refund)
+          if (!isBotId(match.p1.userId)) { try { await applyLedgerEntry(prisma, match.p1.userId, "payout", match.p1.amount, "rps_tie"); } catch {} }
+          if (!isBotId(match.p2.userId)) { try { await applyLedgerEntry(prisma, match.p2.userId, "payout", match.p2.amount, "rps_tie"); } catch {} }
         }
 
-        if (winnerId) {
+        if (winnerId && !isBotId(winnerId)) {
           try { await applyLedgerEntry(prisma, winnerId, "payout", prize, "rps_win"); } catch {}
         }
 
@@ -249,15 +293,37 @@ export function attachRaffle(io: Server) {
     setTimeout(draw, DRAW_INTERVAL_MS);
   }
 
+  /**
+   * Sprinkle synthetic ticket buyers across the cycle so the pot is never bare.
+   * Bot tickets are virtual (no chips deducted). A human winner is paid the
+   * full displayed prize (house-funded); a bot winner pays no one.
+   */
+  function seedBotTickets() {
+    const buyers = randInt(3, 12);
+    const names = new Set(tickets.map((t) => t.username));
+    for (let i = 0; i < buyers; i++) {
+      const delay = randInt(1000, DRAW_INTERVAL_MS - 30_000);
+      setTimeout(() => {
+        const bot = makeBot(names);
+        const qty = randInt(1, 8);
+        for (let q = 0; q < qty; q++) tickets.push({ userId: bot.id, username: bot.username, ticketNum: nextTicket++ });
+        ns.emit("state", getState());
+      }, delay);
+    }
+  }
+
   async function draw() {
-    if (tickets.length === 0) { scheduleNextDraw(); return; }
+    if (tickets.length === 0) { scheduleNextDraw(); seedBotTickets(); return; }
 
     const totalPot = tickets.length * TICKET_PRICE;
     const prize = Math.floor(totalPot * 0.95);
     const winIdx = Math.floor(Math.random() * tickets.length);
     const winner = tickets[winIdx];
 
-    try { await applyLedgerEntry(prisma, winner.userId, "payout", prize, "raffle_win"); } catch {}
+    // A bot can be drawn — when it is, the prize isn't paid out.
+    if (!isBotId(winner.userId)) {
+      try { await applyLedgerEntry(prisma, winner.userId, "payout", prize, "raffle_win"); } catch {}
+    }
     history.unshift({ winner: winner.username, prize, tickets: tickets.length });
     if (history.length > 20) history.pop();
 
@@ -266,6 +332,7 @@ export function attachRaffle(io: Server) {
     tickets = [];
     nextTicket = 1;
     scheduleNextDraw();
+    seedBotTickets();
     ns.emit("state", getState());
   }
 
@@ -274,12 +341,14 @@ export function attachRaffle(io: Server) {
   }
 
   scheduleNextDraw();
+  seedBotTickets();
 
   ns.on("connection", (socket: AuthedSocket) => {
     socket.emit("state", getState());
 
     socket.on("buy_tickets", async ({ count }: { count: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (!Number.isInteger(count) || count < 1 || count > 100) return socket.emit("error", "Buy 1-100 tickets at once");
 
       const total = TICKET_PRICE * count;
@@ -372,7 +441,7 @@ export function attachBingo(io: Server) {
         const prize = Math.floor((totalPot * 0.95) / winners.length);
         const winnerNames: string[] = [];
         for (const wId of winners) {
-          try { await applyLedgerEntry(prisma, wId, "payout", prize, "bingo_win"); } catch {}
+          if (!isBotId(wId)) { try { await applyLedgerEntry(prisma, wId, "payout", prize, "bingo_win"); } catch {} }
           winnerNames.push(players.get(wId)?.username ?? "");
         }
         ns.emit("bingo", { winners: winnerNames, prize });
@@ -387,6 +456,7 @@ export function attachBingo(io: Server) {
 
     socket.on("join", async () => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (phase !== "waiting") return socket.emit("error", "Game in progress, wait for next round");
       if (players.has(socket.data.userId!)) return socket.emit("error", "Already joined");
       if (players.size >= 20) return socket.emit("error", "Room full (20 players max)");
@@ -404,6 +474,27 @@ export function attachBingo(io: Server) {
           if (waitTimer) clearTimeout(waitTimer);
           waitTimer = setTimeout(() => { if (players.size >= 2) startGame(); }, 10_000);
           ns.emit("starting_soon", { inMs: 10_000, players: players.size });
+        }
+
+        // Lone human? Seat a couple of bots so the round can actually start.
+        // Bot buy-ins are virtual (never deducted); bot bingos pay no one.
+        if (players.size === 1 && phase === "waiting") {
+          const botCount = randInt(1, 3);
+          const names = new Set([...players.values()].map((p) => p.username));
+          for (let i = 0; i < botCount; i++) {
+            setTimeout(() => {
+              if (phase !== "waiting" || players.size >= 20) return;
+              const bot = makeBot(names);
+              const bm = Array.from({ length: 5 }, () => Array(5).fill(false));
+              players.set(bot.id, { username: bot.username, card: makeCard(), marks: bm, amount: BUY_IN });
+              ns.emit("player_joined", { players: players.size, username: bot.username });
+              if (players.size >= 2 && phase === "waiting") {
+                if (waitTimer) clearTimeout(waitTimer);
+                waitTimer = setTimeout(() => { if (players.size >= 2) startGame(); }, 10_000);
+                ns.emit("starting_soon", { inMs: 10_000, players: players.size });
+              }
+            }, randInt(1500, 5000));
+          }
         }
       } catch (err: any) {
         socket.emit("error", err.message || "Failed to join");
@@ -423,11 +514,15 @@ export function attachTower(io: Server) {
   const sessions = new Map<string, { level: number; bet: number; multiplier: number; active: boolean }>();
 
   const LEVELS = [1.05, 1.10, 1.20, 1.35, 1.55, 1.80, 2.15, 2.60, 3.20, 4.00, 5.00, 6.50, 8.50, 11.0, 15.0, 20.0, 30.0, 50.0, 75.0, 100.0];
-  const FAIL_PROB = 0.20; // 20% chance of losing on each floor
+  // 12% chance of losing per floor (was 20%) — more forgiving so you can climb
+  // further. Still keeps a house edge: floor-1 RTP ~0.88×1.05 ≈ 92%, dropping
+  // as you climb, so it's never exploitable.
+  const FAIL_PROB = 0.12;
 
   ns.on("connection", (socket: AuthedSocket) => {
     socket.on("start", async ({ amount }: { amount: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (sessions.get(socket.data.userId!)?.active) return socket.emit("error", "Already in a tower session");
       if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min bet: 1 chip");
 
@@ -525,11 +620,29 @@ export function attachMultiRoulette(io: Server) {
     return false;
   }
 
+  const BOT_BET_TYPES = ["red", "black", "even", "odd", "1-18", "19-36", "1-12", "13-24", "25-36"];
+
+  /** Trickle cosmetic bot bets into the round so the board never looks empty. */
+  function spawnBots() {
+    const count = randInt(2, 7);
+    const names = new Set(bets.map((b) => b.username));
+    for (let i = 0; i < count; i++) {
+      const delay = randInt(400, BETTING_MS - 2000);
+      setTimeout(() => {
+        if (phase !== "betting") return;
+        const bot = makeBot(names);
+        bets.push({ userId: bot.id, username: bot.username, betType: pick(BOT_BET_TYPES), amount: botStakeCents(1, 300) });
+        ns.emit("bets_update", bets.length);
+      }, delay);
+    }
+  }
+
   function startBetting() {
     phase = "betting";
     bets = [];
     endsAt = Date.now() + BETTING_MS;
     ns.emit("phase", { phase: "betting", endsAt });
+    spawnBots();
     setTimeout(spin, BETTING_MS);
   }
 
@@ -545,7 +658,10 @@ export function attachMultiRoulette(io: Server) {
     for (const bet of bets) {
       if (matchesBet(bet.betType, num)) {
         const payout = bet.amount * (PAYOUTS[bet.betType] ?? 2);
-        try { await applyLedgerEntry(prisma, bet.userId, "payout", payout, "multiroulette_win"); } catch {}
+        // Bots appear in the winners feed but are never paid.
+        if (!isBotId(bet.userId)) {
+          try { await applyLedgerEntry(prisma, bet.userId, "payout", payout, "multiroulette_win"); } catch {}
+        }
         results.push({ username: bet.username, betType: bet.betType, amount: bet.amount, payout });
       }
     }
@@ -566,6 +682,7 @@ export function attachMultiRoulette(io: Server) {
 
     socket.on("bet", async ({ betType, amount }: { betType: string; amount: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (phase !== "betting") return socket.emit("error", "Betting is closed");
       if (!PAYOUTS[betType] && isNaN(parseInt(betType, 10))) return socket.emit("error", "Invalid bet type");
       if (!Number.isInteger(amount) || amount < 100) return socket.emit("error", "Min bet: 1 chip");
@@ -665,6 +782,7 @@ export function attachPoker(io: Server) {
     const prize = Math.floor((totalPot * 0.95) / winners.length);
 
     for (const w of winners) {
+      if (isBotId(w.userId)) continue; // bot winners are kept by the house
       try { await applyLedgerEntry(prisma, w.userId, "payout", prize, "poker_win"); } catch {}
     }
 
@@ -686,6 +804,7 @@ export function attachPoker(io: Server) {
 
     socket.on("join_table", async ({ tableId, buyIn }: { tableId: string; buyIn: number }) => {
       if (!socket.data.userId) return socket.emit("error", "Login required");
+      if (!socket.data.isApproved) return socket.emit("error", "Active subscription required.");
       if (!Number.isInteger(buyIn) || buyIn < 100) return socket.emit("error", "Min buy-in: 1 chip");
 
       const table = getOrCreateTable(tableId, buyIn);
@@ -704,6 +823,26 @@ export function attachPoker(io: Server) {
           if (table.timer) clearTimeout(table.timer);
           table.timer = setTimeout(() => startHand(tableId), 10_000);
           ns.to(tableId).emit("starting_soon", 10_000);
+        }
+
+        // Lone human at the table? Seat a bot or two so the hand can start.
+        // Bot buy-ins are virtual (never deducted); bot wins pay no one.
+        if (table.players.size === 1 && table.phase === "waiting") {
+          const botCount = randInt(1, 2);
+          const names = new Set([...table.players.values()].map((p) => p.username));
+          for (let i = 0; i < botCount; i++) {
+            setTimeout(() => {
+              if (table.phase !== "waiting" || table.players.size >= 6) return;
+              const bot = makeBot(names);
+              table.players.set(bot.id, { socketId: "", username: bot.username, hand: [], amount: table.buyIn, folded: false });
+              ns.to(tableId).emit("table_update", { players: [...table.players.values()].map((p) => p.username), phase: table.phase });
+              if (table.players.size >= 2 && table.phase === "waiting") {
+                if (table.timer) clearTimeout(table.timer);
+                table.timer = setTimeout(() => startHand(tableId), 10_000);
+                ns.to(tableId).emit("starting_soon", 10_000);
+              }
+            }, randInt(2000, 6000));
+          }
         }
       } catch (err: any) {
         socket.emit("error", err.message || "Failed to join");

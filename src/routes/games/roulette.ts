@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth, AuthedRequest } from "../../middleware/auth";
+import { requireAuth, requireApproved, AuthedRequest } from "../../middleware/auth";
 import { placeBet, BadBetInputError } from "../../lib/betting";
 import { InsufficientFundsError } from "../../lib/wallet";
 import {
@@ -29,7 +29,7 @@ const spinSchema = z.object({
 
 const MAX_TOTAL_STAKE = 5_000_000; // $50,000 — sanity ceiling on a single spin across all bets combined
 
-rouletteRouter.post("/spin", requireAuth, async (req: AuthedRequest, res) => {
+rouletteRouter.post("/spin", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = spinSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 

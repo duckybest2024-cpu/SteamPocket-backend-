@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth, AuthedRequest } from "../../middleware/auth";
+import { requireAuth, requireApproved, AuthedRequest } from "../../middleware/auth";
 import { prisma } from "../../lib/prisma";
 import { applyLedgerEntry, InsufficientFundsError, levelFromXp, xpForWager } from "../../lib/wallet";
 import { blackjackRounds, BlackjackActiveRound } from "../../lib/activeRounds";
@@ -23,7 +23,7 @@ export const blackjackRouter = Router();
 
 const startSchema = z.object({ amount: z.number().int().positive() });
 
-blackjackRouter.post("/start", requireAuth, async (req: AuthedRequest, res) => {
+blackjackRouter.post("/start", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const parsed = startSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
@@ -67,7 +67,7 @@ blackjackRouter.post("/start", requireAuth, async (req: AuthedRequest, res) => {
   }
 });
 
-blackjackRouter.get("/active", requireAuth, async (req: AuthedRequest, res) => {
+blackjackRouter.get("/active", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const round = blackjackRounds.get(req.userId!);
   if (!round) return res.status(404).json({ error: "No active hand" });
   res.json({ table: publicTable(round, false) });
@@ -75,7 +75,7 @@ blackjackRouter.get("/active", requireAuth, async (req: AuthedRequest, res) => {
 
 const actionSchema = z.object({ action: z.enum(["hit", "stand", "double", "split", "surrender", "insurance"]) });
 
-blackjackRouter.post("/action", requireAuth, async (req: AuthedRequest, res) => {
+blackjackRouter.post("/action", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const userId = req.userId!;
   const round = blackjackRounds.get(userId);
   if (!round) return res.status(404).json({ error: "No active hand — start one first" });

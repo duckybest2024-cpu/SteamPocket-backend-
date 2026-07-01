@@ -1,8 +1,8 @@
 const WheelGame = (() => {
   const SEGMENTS = {
-    low:    [{ m: 0, w: 5 }, { m: 1.2, w: 30 }, { m: 1.5, w: 20 }, { m: 2, w: 12 }, { m: 3, w: 8 }, { m: 5, w: 4 }, { m: 10, w: 1 }],
-    medium: [{ m: 0, w: 20 }, { m: 1.5, w: 20 }, { m: 2, w: 15 }, { m: 3, w: 10 }, { m: 5, w: 8 }, { m: 10, w: 4 }, { m: 20, w: 2 }, { m: 50, w: 1 }],
-    high:   [{ m: 0, w: 40 }, { m: 2, w: 10 }, { m: 5, w: 8 }, { m: 10, w: 5 }, { m: 20, w: 3 }, { m: 50, w: 2 }, { m: 100, w: 1 }, { m: 200, w: 1 }],
+    low:    [{ m: 0, w: 33 }, { m: 1.2, w: 35 }, { m: 1.5, w: 22 }, { m: 2, w: 8 }, { m: 3, w: 2 }],
+    medium: [{ m: 0, w: 57 }, { m: 1.5, w: 22 }, { m: 2, w: 12 }, { m: 3, w: 5 }, { m: 5, w: 3 }, { m: 10, w: 1 }],
+    high:   [{ m: 0, w: 880 }, { m: 2, w: 65 }, { m: 5, w: 30 }, { m: 10, w: 15 }, { m: 30, w: 7 }, { m: 100, w: 3 }],
   };
 
   const COLORS = ["#f87171","#6f5cf2","#22d3ee","#fbbf24","#34d399","#a78bfa","#f472b6","#67e8f9"];
@@ -15,13 +15,15 @@ const WheelGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <div class="bet-panel">
+          ${GameThemes.renderPicker("wheel", GameThemes.getSaved("wheel"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="wheel-tab-manual">Manual</button>
             <button class="bp-tab" id="wheel-tab-auto">Auto</button>
           </div>
 
           <div class="bp-field">
-            <div class="bp-label">Bet Amount ($)</div>
+            <div class="bp-label">Bet Amount (chips)</div>
             <div class="bp-input-row">
               <input type="number" id="wheel-amount" value="1.00" min="0.01" step="0.01" />
               <button class="quick-btn" id="wheel-half">½</button>
@@ -38,14 +40,19 @@ const WheelGame = (() => {
             </div>
           </div>
 
+          <div class="bp-field" id="wheel-auto-controls" style="display:none;">
+            <div class="bp-label">Number of Bets (0 = until stopped)</div>
+            <input type="number" id="wheel-auto-count" value="10" min="0" step="1" />
+          </div>
+
           <hr class="bp-divider" />
 
           <button id="wheel-spin" class="play-btn">Spin</button>
         </div>
 
         <div class="game-canvas">
-          <div class="wheel-wrap" style="display:flex; justify-content:center; align-items:center; flex:1;">
-            <canvas id="wheel-canvas" width="280" height="280"></canvas>
+          <div class="wheel-wrap">
+            <canvas id="wheel-canvas" width="300" height="300"></canvas>
             <div class="wheel-pointer">▼</div>
           </div>
 
@@ -55,6 +62,7 @@ const WheelGame = (() => {
 
       </div></div>
     `;
+    HowToPlay.addButton(container, "wheel");
 
     const canvas = container.querySelector("#wheel-canvas");
     const ctx = canvas.getContext("2d");
@@ -68,13 +76,21 @@ const WheelGame = (() => {
     };
 
     // ½ and 2× quick buttons
-    els.half.addEventListener("click", () => { els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 0.5)); });
-    els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 2); });
+    els.half.addEventListener("click", () => { els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 50) / 100); });
+    els.dbl.addEventListener("click", () => { els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100; });
 
-    // Manual/Auto tabs (visual only)
+    // Manual / Auto tabs — Auto reveals the bet-count box and turns the
+    // Spin button into a Start/Stop auto-runner.
+    let autoMode = false;
+    const autoControls = container.querySelector("#wheel-auto-controls");
+    const autoCount = container.querySelector("#wheel-auto-count");
     container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
+      if (autoRunning) return; // don't switch modes mid-run
       container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
       this.classList.add("active");
+      autoMode = this.id === "wheel-tab-auto";
+      autoControls.style.display = autoMode ? "" : "none";
+      els.spin.textContent = autoMode ? "Start Auto" : "Spin";
     }));
 
     function segmentsForRisk(r) {
@@ -141,13 +157,12 @@ const WheelGame = (() => {
       });
     });
 
-    els.spin.addEventListener("click", async () => {
-      if (busy) return;
+    // One spin, start to finish. Resolves when the result is shown (or rejects).
+    function doSpin() {
+      return new Promise(async (resolve, reject) => {
       const amount = Math.round((Number(els.amount.value) || 0) * 100);
-      if (amount <= 0) return UI.toast("Enter a bet.", "loss");
+      if (amount <= 0) { UI.toast("Enter a bet.", "loss"); return reject(new Error("bad amount")); }
 
-      busy = true;
-      els.spin.disabled = true;
       els.result.className = "result-banner";
 
       try {
@@ -172,8 +187,11 @@ const WheelGame = (() => {
         // We want rotation such that midAngle + rotation = -π/2 (top)
         const targetAngle = -Math.PI / 2 - midAngle;
 
-        // Spin 5+ full rotations then land
-        const spins = Math.PI * 2 * (5 + Math.random() * 3);
+        // Spin a WHOLE number of full rotations then land, so the wheel comes
+        // to rest with the landed segment's middle exactly under the pointer.
+        // (A fractional turn here would stop the wheel on the wrong segment
+        // even though the result itself is correct.)
+        const spins = Math.PI * 2 * (5 + Math.floor(Math.random() * 4));
         const endRot = targetAngle + spins;
         const startRot = rotation;
         const duration = 3000;
@@ -204,15 +222,51 @@ const WheelGame = (() => {
           els.fairness.innerHTML = UI.fairnessLine({ serverSeedHash: accountState.fairness?.activeServerSeedHash, clientSeed: accountState.fairness?.clientSeed });
           UI.applyAccountUpdate(accountState, res);
           UI.toast(isWin ? `Won ${UI.money(res.result.payout)} on Wheel!` : "No win this spin.", isWin ? "win" : "info");
-          busy = false;
-          els.spin.disabled = false;
+          resolve({ isWin });
         }
       } catch (err) {
         UI.toast(err.message, "loss");
-        busy = false;
-        els.spin.disabled = false;
+        reject(err);
       }
+      });
+    }
+
+    // Single spin (Manual) vs. an automated batch (Auto).
+    let autoRunning = false;
+
+    async function runAuto() {
+      if (autoRunning) { autoRunning = false; return; } // toggle = stop
+      const target = Math.max(0, Math.floor(Number(autoCount.value) || 0)); // 0 = endless
+      autoRunning = true;
+      els.spin.textContent = "Stop";
+      els.spin.classList.add("danger");
+      // Lock the mode tabs while running
+      container.querySelectorAll(".bp-tab").forEach(t => t.style.pointerEvents = "none");
+      let done = 0;
+      try {
+        while (autoRunning && (target === 0 || done < target)) {
+          await doSpin();
+          done++;
+          if (autoRunning && (target === 0 || done < target)) await new Promise(r => setTimeout(r, 500));
+        }
+      } catch { /* stop on error (e.g. insufficient balance) */ }
+      autoRunning = false;
+      els.spin.textContent = "Start Auto";
+      els.spin.classList.remove("danger");
+      container.querySelectorAll(".bp-tab").forEach(t => t.style.pointerEvents = "");
+    }
+
+    els.spin.addEventListener("click", async () => {
+      if (autoMode) return runAuto();
+      if (busy) return;
+      busy = true;
+      els.spin.disabled = true;
+      try { await doSpin(); } catch { /* toast already shown */ }
+      busy = false;
+      els.spin.disabled = false;
     });
+
+    GameThemes.init(container, "wheel");
   }
 
   return { render };

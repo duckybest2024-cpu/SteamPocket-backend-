@@ -6,13 +6,15 @@ const LimboGame = (() => {
       <div class="game-panel"><div class="game-layout">
 
         <aside class="bet-panel">
+          ${GameThemes.renderPicker("limbo", GameThemes.getSaved("limbo"))}
+
           <div class="bp-tabs">
             <button class="bp-tab active" id="limbo-tab-manual">Manual</button>
             <button class="bp-tab" id="limbo-tab-auto">Auto</button>
           </div>
 
           <div class="bp-field">
-            <label class="bp-label">Bet Amount ($)</label>
+            <label class="bp-label">Bet Amount (chips)</label>
             <div class="bp-input-row">
               <input type="number" id="limbo-amount" value="10" min="0.01" step="0.01" />
               <button class="quick-btn" id="limbo-half">½</button>
@@ -48,6 +50,7 @@ const LimboGame = (() => {
 
       </div></div>
     `;
+    HowToPlay.addButton(container, "limbo");
 
     const els = {
       number: container.querySelector("#limbo-number"),
@@ -72,23 +75,17 @@ const LimboGame = (() => {
 
     // ½ and 2× quick buttons
     els.half.addEventListener("click", () => {
-      els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 0.5));
+      els.amount.value = Math.max(1, Math.floor(Number(els.amount.value) * 50) / 100);
     });
     els.dbl.addEventListener("click", () => {
-      els.amount.value = Math.floor(Number(els.amount.value) * 2);
+      els.amount.value = Math.floor(Number(els.amount.value) * 200) / 100;
     });
 
-    // Manual/Auto tabs (visual only)
-    container.querySelectorAll(".bp-tab").forEach(t => t.addEventListener("click", function() {
-      container.querySelectorAll(".bp-tab").forEach(x => x.classList.remove("active"));
-      this.classList.add("active");
-    }));
-
-    els.play.addEventListener("click", async () => {
+    async function play() {
       const dollars = Number(els.amount.value);
       const targetMultiplier = Number(els.target.value);
-      if (!dollars || dollars <= 0) return UI.toast("Enter a bet amount.", "loss");
-      if (!targetMultiplier || targetMultiplier < 1.01) return UI.toast("Target must be at least 1.01x.", "loss");
+      if (!dollars || dollars <= 0) { UI.toast("Enter a bet amount.", "loss"); throw new Error("bad amount"); }
+      if (!targetMultiplier || targetMultiplier < 1.01) { UI.toast("Target must be at least 1.01x.", "loss"); throw new Error("bad target"); }
 
       const amount = Math.round(dollars * 100);
       els.play.disabled = true;
@@ -126,10 +123,13 @@ const LimboGame = (() => {
         UI.toast(isWin ? `Won ${UI.money(res.result.payout)} on Limbo!` : `Lost ${UI.money(amount)} on Limbo.`, isWin ? "win" : "loss");
       } catch (err) {
         UI.toast(err.message, "loss");
+        throw err;
       } finally {
         els.play.disabled = false;
       }
-    });
+    }
+
+    GameAuto.setup(container, { playBtn: els.play, play });
 
     function animateCountUp(node, target, isWin) {
       const duration = 700;
@@ -145,6 +145,7 @@ const LimboGame = (() => {
     }
 
     refreshChance();
+    GameThemes.init(container, "limbo");
   }
 
   return { render };

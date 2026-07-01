@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth, AuthedRequest } from "../middleware/auth";
+import { requireAuth, requireApproved, AuthedRequest } from "../middleware/auth";
 import { placeBet, BadBetInputError } from "../lib/betting";
 import { floatFromSeed } from "../lib/provablyFair";
 import { InsufficientFundsError } from "../lib/wallet";
@@ -267,7 +267,7 @@ arcadeRouter.get("/games", (_req, res) => {
   });
 });
 
-arcadeRouter.post("/:gameId/play", requireAuth, async (req: AuthedRequest, res) => {
+arcadeRouter.post("/:gameId/play", requireAuth, requireApproved, async (req: AuthedRequest, res) => {
   const { gameId } = req.params;
   const game = ARCADE_GAMES.find(g => g.id === gameId);
   if (!game) return res.status(404).json({ error: "Game not found" });
