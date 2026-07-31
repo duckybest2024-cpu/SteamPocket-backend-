@@ -29,6 +29,10 @@ class ActiveRoundStore<T> {
     this.rounds.delete(this.key(userId));
   }
 
+  delete(userId: string): void {
+    this.rounds.delete(this.key(userId));
+  }
+
   has(userId: string): boolean {
     return this.rounds.has(this.key(userId));
   }
